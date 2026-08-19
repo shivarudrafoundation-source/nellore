@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 
@@ -19,85 +20,217 @@ interface PublicResultItem {
   judgeTotal: number;
 }
 
-export default function PublicResultsPage() {
+interface ResultsResponse {
+  status: string;
+  isPublished: boolean;
+  message?: string;
+  event?: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  results: PublicResultItem[];
+}
+
+type FetchState = 'IDLE' | 'LOADING' | 'SUCCESS' | 'EMPTY' | 'ERROR';
+
+function ResultsContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const urlEvent = searchParams.get('event') || '';
+  const urlCategory = searchParams.get('category') || '';
+
   const [events, setEvents] = useState<any[]>([]);
-  const [selectedEventSlug, setSelectedEventSlug] = useState<string>('');
+  const [selectedEventSlug, setSelectedEventSlug] = useState<string>(urlEvent);
   const [categories, setCategories] = useState<any[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>(urlCategory);
 
-  const [resultsData, setResultsData] = useState<{
-    status: string;
-    isPublished: boolean;
-    message?: string;
-    event?: any;
-    results: PublicResultItem[];
-  } | null>(null);
+  const [fetchState, setFetchState] = useState<FetchState>('IDLE');
+  const [resultsData, setResultsData] = useState<ResultsResponse | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string>('');
+  // Active in-flight AbortController and sequence counter for race-condition prevention
+  const activeAbortControllerRef = useRef<AbortController | null>(null);
+  const activeRequestIdRef = useRef<number>(0);
 
-  // 1. Fetch available public events
+  // Sync state when browser Back / Forward changes URL params
   useEffect(() => {
+    if (urlEvent && urlEvent !== selectedEventSlug) {
+      setSelectedEventSlug(urlEvent);
+    }
+    if (urlCategory !== selectedCategory) {
+      setSelectedCategory(urlCategory);
+    }
+  }, [urlEvent, urlCategory]);
+
+  // 1. Fetch available public events on mount
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
     async function loadEvents() {
       try {
-        const res = await fetch(`${API}/public/events`);
+        const res = await fetch(`${API}/public/events`, { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
-          const evList = data.events || data || [];
+          const evList = Array.isArray(data) ? data : data.events || [];
           setEvents(evList);
+
+          // If no event selected, default to the first event or URL event
           if (evList.length > 0 && !selectedEventSlug) {
-            setSelectedEventSlug(evList[0].code || evList[0].id);
+            const initialSlug = urlEvent || evList[0].code || evList[0].id;
+            setSelectedEventSlug(initialSlug);
           }
         }
-      } catch (err) {
-        console.error('Failed to load public events:', err);
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          console.error('Failed to load public events:', err);
+        }
+      } finally {
+        clearTimeout(timeoutId);
       }
     }
+
     loadEvents();
+    return () => {
+      controller.abort();
+      clearTimeout(timeoutId);
+    };
   }, []);
 
-  // 2. Fetch categories for selected event
+  // 2. Fetch categories when selected event changes
   useEffect(() => {
-    if (!selectedEventSlug) return;
+    if (!selectedEventSlug) {
+      setCategories([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
     async function loadCategories() {
       try {
-        const res = await fetch(`${API}/public/events/${selectedEventSlug}/categories`);
+        const res = await fetch(`${API}/public/events/${selectedEventSlug}/categories`, {
+          signal: controller.signal,
+        });
         if (res.ok) {
           const cats = await res.json();
-          setCategories(cats || []);
+          setCategories(Array.isArray(cats) ? cats : []);
+        } else {
+          setCategories([]);
         }
-      } catch (err) {
-        console.error('Failed to load categories:', err);
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          console.error('Failed to load categories:', err);
+          setCategories([]);
+        }
+      } finally {
+        clearTimeout(timeoutId);
       }
     }
+
     loadCategories();
+    return () => {
+      controller.abort();
+      clearTimeout(timeoutId);
+    };
   }, [selectedEventSlug]);
 
-  // 3. Fetch results for event & category
+  // 3. Fetch results for event & category with AbortController and strict Request ID sequence
   const fetchResults = useCallback(async () => {
-    if (!selectedEventSlug) return;
-    setLoading(true);
-    setError('');
+    if (!selectedEventSlug) {
+      setFetchState('IDLE');
+      setResultsData(null);
+      return;
+    }
+
+    // Cancel any previous pending request
+    if (activeAbortControllerRef.current) {
+      activeAbortControllerRef.current.abort();
+    }
+
+    const currentRequestId = ++activeRequestIdRef.current;
+    const controller = new AbortController();
+    activeAbortControllerRef.current = controller;
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    setFetchState('LOADING');
+    setErrorMessage('');
+
     try {
       const params = new URLSearchParams();
-      if (selectedCategory) params.set('categoryId', selectedCategory);
-
-      const res = await fetch(`${API}/public/events/${selectedEventSlug}/results?${params}`);
-      if (!res.ok) {
-        throw new Error('Official results are currently unavailable.');
+      if (selectedCategory) {
+        params.set('categoryId', selectedCategory);
       }
-      const data = await res.json();
+
+      const url = `${API}/public/events/${encodeURIComponent(selectedEventSlug)}/results?${params.toString()}`;
+      const res = await fetch(url, { signal: controller.signal });
+
+      if (currentRequestId !== activeRequestIdRef.current) {
+        // Obsolete response: user has already switched to another category
+        return;
+      }
+
+      if (!res.ok) {
+        if (res.status === 404) {
+          setFetchState('EMPTY');
+          setResultsData(null);
+          return;
+        }
+        throw new Error('Official results are temporarily unavailable. Please try again.');
+      }
+
+      const data: ResultsResponse = await res.json();
+
+      if (currentRequestId !== activeRequestIdRef.current) {
+        return;
+      }
+
       setResultsData(data);
+
+      if (!data.isPublished) {
+        setFetchState('EMPTY');
+      } else if (!data.results || data.results.length === 0) {
+        setFetchState('EMPTY');
+      } else {
+        setFetchState('SUCCESS');
+      }
     } catch (err: any) {
-      setError(err.message || 'Failed to load official results.');
+      if (err.name === 'AbortError') {
+        // Request was cancelled intentionally by a newer user selection or timeout
+        return;
+      }
+      if (currentRequestId === activeRequestIdRef.current) {
+        setErrorMessage(err.message || 'Unable to load results. Please check your network connection.');
+        setFetchState('ERROR');
+      }
     } finally {
-      setLoading(false);
+      clearTimeout(timeoutId);
     }
   }, [selectedEventSlug, selectedCategory]);
 
   useEffect(() => {
     fetchResults();
   }, [fetchResults]);
+
+  // Handle Event Selection with URL update
+  const handleEventChange = (newSlug: string) => {
+    setSelectedEventSlug(newSlug);
+    setSelectedCategory('');
+    const params = new URLSearchParams();
+    if (newSlug) params.set('event', newSlug);
+    router.replace(`/results?${params.toString()}`, { scroll: false });
+  };
+
+  // Handle Category Filter with URL update
+  const handleCategoryChange = (newCategoryId: string) => {
+    setSelectedCategory(newCategoryId);
+    const params = new URLSearchParams();
+    if (selectedEventSlug) params.set('event', selectedEventSlug);
+    if (newCategoryId) params.set('category', newCategoryId);
+    router.replace(`/results?${params.toString()}`, { scroll: false });
+  };
 
   const isPublished = resultsData?.isPublished;
   const results = resultsData?.results || [];
@@ -122,40 +255,44 @@ export default function PublicResultsPage() {
         </div>
 
         {/* Filter Controls Bar */}
-        <div className="p-6 bg-[#0A0A0A] border border-luxury-gray-border/20 flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
+        <div className="p-6 bg-[#0A0A0A] border border-luxury-gray-border/20 flex flex-col md:flex-row gap-6 items-stretch md:items-center justify-between">
           {/* Event Selector */}
           <div className="flex-1">
-            <label className="block font-sans text-[9px] text-luxury-white/40 uppercase tracking-luxury mb-1">
+            <label className="block font-sans text-[9px] text-luxury-white/40 uppercase tracking-luxury mb-1.5 font-semibold">
               Select Competition Event
             </label>
-            <select
-              value={selectedEventSlug}
-              onChange={(e) => {
-                setSelectedEventSlug(e.target.value);
-                setSelectedCategory('');
-              }}
-              className="w-full h-10 bg-[#050505] border border-luxury-gray-border/30 px-3 font-sans text-xs text-luxury-white uppercase tracking-luxury outline-none focus:border-luxury-gold/50"
-            >
-              {events.map((ev) => (
-                <option key={ev.id} value={ev.code || ev.id}>
-                  {ev.name} ({ev.code})
-                </option>
-              ))}
-            </select>
+            {events.length === 0 ? (
+              <div className="h-10 bg-[#050505] border border-luxury-gray-border/20 px-3 flex items-center font-sans text-xs text-luxury-white/40 uppercase">
+                NO ACTIVE EVENTS FOUND
+              </div>
+            ) : (
+              <select
+                value={selectedEventSlug}
+                onChange={(e) => handleEventChange(e.target.value)}
+                className="w-full h-10 bg-[#050505] border border-luxury-gray-border/30 px-3 font-sans text-xs text-luxury-white uppercase tracking-luxury outline-none focus:border-luxury-gold/50 cursor-pointer transition-colors"
+              >
+                {events.map((ev) => (
+                  <option key={ev.id} value={ev.code || ev.id}>
+                    {ev.name} ({ev.code})
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Category Filter Pills */}
-          <div className="space-y-1">
-            <label className="block font-sans text-[9px] text-luxury-white/40 uppercase tracking-luxury">
+          <div className="space-y-1.5">
+            <label className="block font-sans text-[9px] text-luxury-white/40 uppercase tracking-luxury font-semibold">
               Filter by Category
             </label>
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => setSelectedCategory('')}
-                className={`px-3 py-1.5 font-sans text-[10px] tracking-luxury uppercase border transition-all duration-200 ${
+                type="button"
+                onClick={() => handleCategoryChange('')}
+                className={`px-3 py-1.5 font-sans text-[10px] tracking-luxury uppercase border transition-all duration-200 cursor-pointer ${
                   selectedCategory === ''
-                    ? 'border-luxury-gold bg-luxury-gold/10 text-luxury-gold font-bold'
-                    : 'border-luxury-gray-border/20 text-luxury-white/60 hover:text-white'
+                    ? 'border-luxury-gold bg-luxury-gold/15 text-luxury-gold font-bold shadow-sm'
+                    : 'border-luxury-gray-border/20 text-luxury-white/60 hover:text-white hover:border-luxury-white/40'
                 }`}
               >
                 ALL
@@ -163,11 +300,12 @@ export default function PublicResultsPage() {
               {categories.map((cat) => (
                 <button
                   key={cat.id}
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={`px-3 py-1.5 font-sans text-[10px] tracking-luxury uppercase border transition-all duration-200 ${
+                  type="button"
+                  onClick={() => handleCategoryChange(cat.id)}
+                  className={`px-3 py-1.5 font-sans text-[10px] tracking-luxury uppercase border transition-all duration-200 cursor-pointer ${
                     selectedCategory === cat.id
-                      ? 'border-luxury-gold bg-luxury-gold/10 text-luxury-gold font-bold'
-                      : 'border-luxury-gray-border/20 text-luxury-white/60 hover:text-white'
+                      ? 'border-luxury-gold bg-luxury-gold/15 text-luxury-gold font-bold shadow-sm'
+                      : 'border-luxury-gray-border/20 text-luxury-white/60 hover:text-white hover:border-luxury-white/40'
                   }`}
                 >
                   {cat.name}
@@ -177,18 +315,41 @@ export default function PublicResultsPage() {
           </div>
         </div>
 
-        {/* Dynamic Content: Loading / Pending / Published */}
-        {loading ? (
+        {/* Dynamic Content Area: LOADING / ERROR / EMPTY / SUCCESS */}
+        {fetchState === 'LOADING' && (
           <div className="space-y-6 animate-pulse">
-            <div className="h-44 bg-[#0A0A0A] border border-luxury-gray-border/10 rounded" />
+            <div className="h-44 bg-[#0A0A0A] border border-luxury-gray-border/10 rounded flex items-center justify-center">
+              <div className="flex items-center space-x-3 text-luxury-gold/60 font-sans text-xs tracking-widest uppercase">
+                <svg className="animate-spin h-5 w-5 text-luxury-gold" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                <span>Loading Certified Results...</span>
+              </div>
+            </div>
             <div className="h-64 bg-[#0A0A0A] border border-luxury-gray-border/10 rounded" />
           </div>
-        ) : error ? (
-          <div className="p-8 bg-red-950/20 border border-red-500/30 text-center space-y-2">
-            <span className="font-sans text-xs text-red-400 block">{error}</span>
+        )}
+
+        {fetchState === 'ERROR' && (
+          <div className="p-10 bg-[#0A0A0A] border border-red-500/30 text-center space-y-4">
+            <span className="font-sans text-[10px] tracking-[0.2em] text-red-400 uppercase font-bold block">
+              COMMUNICATION NOTICE
+            </span>
+            <p className="font-serif text-lg text-luxury-white/80 font-light">
+              {errorMessage || 'Unable to retrieve official scores at this moment.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => fetchResults()}
+              className="px-5 py-2 border border-luxury-gold/40 text-luxury-gold hover:bg-luxury-gold/10 font-sans text-xs tracking-widest uppercase transition-colors cursor-pointer"
+            >
+              TRY AGAIN
+            </button>
           </div>
-        ) : !isPublished ? (
-          /* Unpublished / Pending State Card */
+        )}
+
+        {fetchState === 'EMPTY' && (
           <div className="p-12 md:p-16 bg-[#0A0A0A] border border-luxury-gray-border/20 text-center space-y-6">
             <div className="w-12 h-12 rounded-full bg-luxury-gold/5 border border-luxury-gold/20 flex items-center justify-center mx-auto">
               <span className="font-mono text-xl text-luxury-gold">§</span>
@@ -196,19 +357,20 @@ export default function PublicResultsPage() {
 
             <div className="space-y-2">
               <span className="px-3 py-1 bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 font-sans text-[10px] tracking-widest uppercase font-bold inline-block">
-                RESULTS NOT YET PUBLISHED
+                NO RESULTS AVAILABLE FOR THIS CATEGORY
               </span>
               <h3 className="font-serif text-xl md:text-2xl text-luxury-white font-light pt-2">
-                Official Scores Under Administrative Review
+                Official Scores Under Administrative Tabulation
               </h3>
               <p className="font-sans text-xs text-luxury-white/50 max-w-md mx-auto leading-relaxed">
                 {resultsData?.message ||
-                  'The official competition scores for this selection are currently undergoing final administrative tabulation. Official results will be published here upon completion.'}
+                  'The official competition scores for this selection are currently undergoing administrative audit. Official standings will appear here once published.'}
               </p>
             </div>
           </div>
-        ) : (
-          /* Published Results Section */
+        )}
+
+        {fetchState === 'SUCCESS' && isPublished && results.length > 0 && (
           <div className="space-y-12">
             {/* Winner Spotlight Card */}
             {winner && (
@@ -314,5 +476,21 @@ export default function PublicResultsPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function PublicResultsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#050505] text-luxury-white flex items-center justify-center">
+          <div className="animate-pulse text-luxury-gold font-sans text-xs tracking-widest uppercase">
+            Loading Official Standings...
+          </div>
+        </div>
+      }
+    >
+      <ResultsContent />
+    </Suspense>
   );
 }
