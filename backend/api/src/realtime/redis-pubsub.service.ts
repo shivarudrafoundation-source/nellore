@@ -16,9 +16,9 @@ export class RedisPubSubService implements OnModuleInit, OnModuleDestroy {
     const redisUrl = process.env.REDIS_URL;
     const isProduction = process.env.NODE_ENV === 'production';
 
-    if (isProduction && !redisUrl) {
-      this.logger.error(
-        'CRITICAL CONFIGURATION ERROR: REDIS_URL is mandatory in production for horizontal Socket.IO scaling! Single-node in-process fallback will not synchronize across multiple API instances.',
+    if (!redisUrl) {
+      this.logger.log(
+        'Single-instance in-process realtime engine active (Socket.IO local broadcaster enabled).',
       );
     }
 
