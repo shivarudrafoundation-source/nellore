@@ -15,9 +15,14 @@ export default function FeaturedEventSection({ onRegisterClick }: FeaturedEventS
   const [featuredEvent, setFeaturedEvent] = useState<PublicEvent | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     async function loadFeatured() {
       try {
-        const res = await fetch(`${API}/public/events`);
+        const res = await fetch(`${API}/public/events`, {
+          signal: controller.signal,
+        });
         if (res.ok) {
           const data: PublicEvent[] = await res.json();
           if (data && data.length > 0) {
@@ -27,10 +32,17 @@ export default function FeaturedEventSection({ onRegisterClick }: FeaturedEventS
           }
         }
       } catch (err) {
-        console.error('Failed to load featured event:', err);
+        // Fallback gracefully without throwing
+      } finally {
+        clearTimeout(timeoutId);
       }
     }
     loadFeatured();
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, []);
 
   if (!featuredEvent) return null;

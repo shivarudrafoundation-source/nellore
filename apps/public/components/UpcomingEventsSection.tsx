@@ -39,20 +39,32 @@ export default function UpcomingEventsSection({ onRegisterClick }: UpcomingEvent
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     async function loadEvents() {
       try {
-        const res = await fetch(`${API}/public/events`);
+        const res = await fetch(`${API}/public/events`, {
+          signal: controller.signal,
+        });
         if (res.ok) {
           const data = await res.json();
           setEvents(data || []);
         }
       } catch (err) {
-        console.error('Failed to load public events:', err);
+        // Graceful fallback to empty state on timeout or network error
+        setEvents([]);
       } finally {
+        clearTimeout(timeoutId);
         setLoading(false);
       }
     }
     loadEvents();
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, []);
 
   return (

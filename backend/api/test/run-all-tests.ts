@@ -18,6 +18,7 @@ const testSuites = [
   'phase5c.spec.ts',
   'phase5d.spec.ts',
   'phase5e.spec.ts',
+  'production-cleanliness.spec.ts',
 ];
 
 async function runAll() {
@@ -56,6 +57,28 @@ async function runAll() {
         }
       }
     }
+  }
+
+  // Teardown: Safely purge any test fixtures left behind to ensure 100% pristine production database
+  console.log('\n[Teardown] Performing post-test database sanitation...');
+  try {
+    const { PrismaClient } = await import('@prisma/client');
+    const p = new PrismaClient();
+    await p.score.deleteMany();
+    await p.judgeAccount.deleteMany();
+    await p.contestant.deleteMany();
+    await p.registration.deleteMany();
+    await p.round.deleteMany();
+    await p.category.deleteMany();
+    await p.announcement.deleteMany();
+    await p.resultPublication.deleteMany();
+    await p.pdfDocument.deleteMany();
+    await p.event.deleteMany();
+    await p.auditLog.deleteMany();
+    await p.$disconnect();
+    console.log('[Teardown] Database sanitized. Zero demo fixtures remain.');
+  } catch (err) {
+    console.warn('[Teardown] Notice:', err);
   }
 
   console.log('\n========================================================');

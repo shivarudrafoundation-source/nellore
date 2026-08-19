@@ -7,8 +7,6 @@ import HeroContestantCanvas from './HeroContestantCanvas';
 
 export default function HeroSection() {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [isCanvasLoading, setIsCanvasLoading] = useState(true);
-  const [hasLoadedFirstTime, setHasLoadedFirstTime] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const activeCategory = heroCategories[activeIndex];
@@ -28,48 +26,8 @@ export default function HeroSection() {
     };
   }, []);
 
-  // Update initial load flag once first category frames load successfully
-  useEffect(() => {
-    if (!isCanvasLoading && !hasLoadedFirstTime) {
-      setHasLoadedFirstTime(true);
-    }
-  }, [isCanvasLoading, hasLoadedFirstTime]);
-
-  const handleLoadingState = (loading: boolean) => {
-    setIsCanvasLoading(loading);
-  };
-
   return (
     <div className="relative w-full h-screen min-h-[750px] lg:min-h-[820px] bg-[#050505] overflow-hidden flex flex-col justify-between pt-[110px] pb-[32px] selection:bg-luxury-gold selection:text-luxury-black-pure">
-      
-      {/* 1. Initial Page Load Treatment */}
-      <AnimatePresence>
-        {!hasLoadedFirstTime && (
-          <motion.div
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.8, ease: 'easeInOut' }}
-            className="absolute inset-0 bg-[#050505] z-50 flex flex-col items-center justify-center space-y-6"
-          >
-            <div className="text-center space-y-3">
-              <span className="font-sans text-[10px] tracking-luxury text-luxury-gold uppercase font-bold block">
-                SIVA RUDRA FOUNDATIONS
-              </span>
-              <h2 className="font-serif text-2xl md:text-3xl font-light text-luxury-white tracking-wide uppercase">
-                EXCELLENCE IN EVERY STEP
-              </h2>
-            </div>
-            {/* Subtle Gold Loading Bar */}
-            <div className="w-40 h-[1px] bg-luxury-gold/25 relative overflow-hidden">
-              <motion.div 
-                animate={{ x: [-160, 160] }}
-                transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
-                className="absolute left-0 top-0 bottom-0 w-16 bg-luxury-gold"
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* 2. Hero Background Ambience & Lighting Atmosphere */}
       <div className="absolute inset-0 bg-[#050505] z-0 pointer-events-none select-none" />
@@ -172,7 +130,6 @@ export default function HeroSection() {
       <div className="hero-contestant z-10 pointer-events-none select-none mt-8 lg:mt-0 relative lg:absolute bottom-0 right-1/2 translate-x-1/2 lg:translate-x-0 lg:right-[18%] xl:right-[21%] w-[320px] sm:w-[360px] lg:w-[42%] h-[55vh] sm:h-[61vh] lg:h-[91vh] max-h-[462px] sm:max-h-[528px] lg:max-h-[858px] flex items-end justify-center">
         <HeroContestantCanvas
           category={activeCategory}
-          onLoadingStateChange={handleLoadingState}
         />
       </div>
 
