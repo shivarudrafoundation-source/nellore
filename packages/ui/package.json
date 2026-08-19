@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "Shared React + Tailwind UI components for Siva Rudra Foundation monorepo",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./src/index.tsx",
+  "module": "./src/index.tsx",
+  "types": "./src/index.tsx",
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit"
