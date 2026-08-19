@@ -22,6 +22,11 @@ const testSuites = [
 ];
 
 async function runAll() {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('CRITICAL SAFETY BLOCK: Integration tests are strictly forbidden from executing in production (NODE_ENV=production).');
+    process.exit(1);
+  }
+
   console.log('========================================================');
   console.log('SIVA RUDRA FOUNDATION — COMPLETE MONOREPO TEST RUNNER');
   console.log(`Executing ${testSuites.length} Test Suites Sequentially`);
