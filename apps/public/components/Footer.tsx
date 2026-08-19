@@ -1,16 +1,17 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 
 export default function Footer() {
   const links = [
-    { label: 'ABOUT', href: '#about' },
-    { label: 'EVENTS', href: '#events' },
-    { label: 'CATEGORIES', href: '#categories' },
-    { label: 'PAST EVENTS', href: '#past-events' },
-    { label: 'WINNERS', href: '#winners' },
-    { label: 'GALLERY', href: '#gallery' },
-    { label: 'CONTACT', href: '#contact' },
+    { label: 'ABOUT', href: '/#about' },
+    { label: 'EVENTS', href: '/#events' },
+    { label: 'CATEGORIES', href: '/#categories' },
+    { label: 'PAST EVENTS', href: '/#past-events' },
+    { label: 'RESULTS & WINNERS', href: '/results' },
+    { label: 'GALLERY', href: '/#gallery' },
+    { label: 'CONTACT', href: '/#contact' },
   ];
 
   return (
@@ -22,9 +23,9 @@ export default function Footer() {
           
           {/* Logo & Brand Mission */}
           <div className="lg:col-span-5 space-y-4">
-            <span className="font-serif text-xl tracking-wider text-luxury-white uppercase block">
+            <Link href="/" className="font-serif text-xl tracking-wider text-luxury-white uppercase block hover:text-luxury-gold transition-colors">
               SIVA RUDRA FOUNDATIONS
-            </span>
+            </Link>
             <p className="font-sans text-xs text-[#B8B8B8] leading-relaxed max-w-sm">
               Celebrating poise, talent, and cultural distinction across pageantry categories under strict standards of objective merit.
             </p>
@@ -33,13 +34,13 @@ export default function Footer() {
           {/* Navigation links (Center) */}
           <div className="lg:col-span-4 flex flex-wrap gap-x-8 gap-y-4 justify-start">
             {links.map((link) => (
-              <a
+              <Link
                 key={link.label}
                 href={link.href}
                 className="font-sans text-[10px] font-medium tracking-luxury text-[#B8B8B8] hover:text-luxury-gold transition-colors duration-300 uppercase"
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
           </div>
 
@@ -48,12 +49,12 @@ export default function Footer() {
             <span className="font-sans text-[10px] tracking-widest text-[#B8B8B8]/40 uppercase block">
               Pageant Registration
             </span>
-            <a
-              href="#register"
+            <Link
+              href="/#register"
               className="inline-flex items-center justify-center h-10 px-6 border border-luxury-gold text-luxury-gold font-sans text-[10px] font-semibold tracking-luxury uppercase hover:bg-luxury-gold hover:text-luxury-black-pure transition-all duration-300"
             >
               REGISTER NOW ↗
-            </a>
+            </Link>
           </div>
 
         </div>

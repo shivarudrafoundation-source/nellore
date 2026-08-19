@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Header() {
@@ -21,13 +22,12 @@ export default function Header() {
   }, []);
 
   const navLinks = [
-    { label: 'ABOUT', href: '#about' },
-    { label: 'EVENTS', href: '#events' },
-    { label: 'CATEGORIES', href: '#categories' },
-    { label: 'RESULTS', href: '/results' },
-    { label: 'WINNERS', href: '/results' },
-    { label: 'GALLERY', href: '#gallery' },
-    { label: 'CONTACT', href: '#contact' },
+    { label: 'ABOUT', href: '/#about' },
+    { label: 'EVENTS', href: '/#events' },
+    { label: 'CATEGORIES', href: '/#categories' },
+    { label: 'RESULTS & WINNERS', href: '/results' },
+    { label: 'GALLERY', href: '/#gallery' },
+    { label: 'CONTACT', href: '/#contact' },
   ];
 
   return (
@@ -43,7 +43,7 @@ export default function Header() {
         <div className="w-full max-w-7xl mx-auto px-[48px] md:px-[64px] grid grid-cols-[auto_1fr_auto] items-center">
           
           {/* LEFT: Siva Rudra official logo */}
-          <div className="flex items-center select-none">
+          <Link href="/" className="flex items-center select-none cursor-pointer">
             <Image
               src="/brand/logo-circle.jpg"
               alt="Siva Rudra Foundations"
@@ -52,35 +52,35 @@ export default function Header() {
               className="h-[44px] w-[44px] md:h-[56px] md:w-[56px] object-contain"
               priority
             />
-          </div>
+          </Link>
 
           {/* COLUMN 2: Navigation Items (Center - centered properly!) */}
           <nav className="hidden lg:flex items-center justify-center gap-[32px]">
             {navLinks.map((link) => (
-              <a
+              <Link
                 key={link.label}
                 href={link.href}
                 className="font-sans text-[11px] font-medium tracking-[0.24em] text-luxury-white/60 hover:text-luxury-gold transition-colors duration-300 uppercase"
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
           </nav>
 
           {/* COLUMN 3: Register CTA (Right) */}
           <div className="hidden lg:block">
-            <a
-              href="#register"
+            <Link
+              href="/#register"
               className="inline-flex items-center justify-center h-[44px] px-5 border border-luxury-gold/45 bg-transparent text-luxury-gold font-sans text-[10px] font-semibold tracking-[0.2em] uppercase hover:bg-luxury-gold hover:text-luxury-black-pure transition-all duration-300"
             >
               REGISTER NOW ↗
-            </a>
+            </Link>
           </div>
 
           {/* Mobile hamburger trigger (Right on mobile) */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden flex flex-col justify-center items-end w-8 h-8 gap-1.5 focus:outline-none ml-auto z-50"
+            className="lg:hidden flex flex-col justify-center items-end w-8 h-8 gap-1.5 focus:outline-none ml-auto z-50 cursor-pointer"
             aria-label="Toggle navigation menu"
           >
             <span 
@@ -114,17 +114,20 @@ export default function Header() {
           >
             <div className="space-y-8 flex flex-col">
               {navLinks.map((link, idx) => (
-                <motion.a
+                <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: idx * 0.05 }}
                   key={link.label}
-                  href={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="font-serif text-2xl md:text-3xl font-light text-luxury-white hover:text-luxury-gold transition-colors duration-300 uppercase tracking-widest"
                 >
-                  {link.label}
-                </motion.a>
+                  <Link
+                    href={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="font-serif text-2xl md:text-3xl font-light text-luxury-white hover:text-luxury-gold transition-colors duration-300 uppercase tracking-widest block"
+                  >
+                    {link.label}
+                  </Link>
+                </motion.div>
               ))}
               
               <motion.div
@@ -133,13 +136,13 @@ export default function Header() {
                 transition={{ delay: navLinks.length * 0.05 + 0.1 }}
                 className="pt-6 border-t border-luxury-gray-border/40"
               >
-                <a
-                  href="#register"
+                <Link
+                  href="/#register"
                   onClick={() => setMobileMenuOpen(false)}
                   className="inline-flex items-center justify-center w-full h-12 border border-luxury-gold/45 text-luxury-gold font-sans text-xs font-semibold tracking-luxury uppercase hover:bg-luxury-gold hover:text-luxury-black-pure transition-all duration-300"
                 >
                   REGISTER NOW ↗
-                </a>
+                </Link>
               </motion.div>
             </div>
           </motion.div>
