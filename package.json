@@ -12,6 +12,9 @@
   "scripts": {
     "dev": "concurrently -n \"public,admin,judges,stage,contest,api\" -c \"black.bgYellow,yellow.bgBlack,white.bgBlack,cyan.bgBlack,magenta.bgBlack,blue.bgBlack\" \"npm run dev --workspace=@srf/public\" \"npm run dev --workspace=@srf/admin\" \"npm run dev --workspace=@srf/judges\" \"npm run dev --workspace=@srf/stage\" \"npm run dev --workspace=@srf/contestant\" \"npm run start --workspace=@srf/api\"",
     "build": "npm run build --workspaces --if-present",
+    "build:api": "npx prisma generate --schema=database/prisma/schema.prisma && npm run build --workspace=@srf/api",
+    "start:api": "npm run start --workspace=@srf/api",
+    "db:deploy": "prisma migrate deploy --schema=database/prisma/schema.prisma",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "db:generate": "npm run db:generate --workspace=@srf/database",
