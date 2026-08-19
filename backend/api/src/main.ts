@@ -78,6 +78,8 @@ async function bootstrap() {
       'https://judges.sivarudrafoundation.com',
       'https://stage.sivarudrafoundation.com',
       'https://my.sivarudrafoundation.com',
+      // Support Vercel deployment subdomains
+      /\.vercel\.app$/,
       // Support local dev environments
       /http:\/\/localhost:\d+/,
       /http:\/\/127\.0\.0\.1:\d+/,

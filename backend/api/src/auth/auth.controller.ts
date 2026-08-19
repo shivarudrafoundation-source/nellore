@@ -10,18 +10,22 @@ import { CurrentUser } from './decorators/current-user.decorator.js';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  private getCookieOptions() {
+  private getCookieOptions(req?: express.Request) {
+    const origin = (req?.headers.origin || '') as string;
+    const isCustomDomain = origin.includes('sivarudrafoundation.com');
+    const isVercelDomain = origin.includes('vercel.app');
+
     return {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax' as const,
-      domain: process.env.COOKIE_DOMAIN || undefined,
+      secure: true,
+      sameSite: (isVercelDomain && !isCustomDomain ? 'none' : 'lax') as 'none' | 'lax',
+      domain: isCustomDomain ? process.env.COOKIE_DOMAIN || '.sivarudrafoundation.com' : undefined,
       path: '/',
     };
   }
 
-  private setCookies(res: express.Response, tokens: { accessToken: string; refreshToken: string }) {
-    const cookieOptions = this.getCookieOptions();
+  private setCookies(res: express.Response, tokens: { accessToken: string; refreshToken: string }, req?: express.Request) {
+    const cookieOptions = this.getCookieOptions(req);
 
     // Access Token cookie expires in 15 minutes
     res.cookie('access_token', tokens.accessToken, {
@@ -36,8 +40,8 @@ export class AuthController {
     });
   }
 
-  private clearCookies(res: express.Response) {
-    const cookieOptions = this.getCookieOptions();
+  private clearCookies(res: express.Response, req?: express.Request) {
+    const cookieOptions = this.getCookieOptions(req);
     res.clearCookie('access_token', cookieOptions);
     res.clearCookie('refresh_token', cookieOptions);
   }
@@ -50,7 +54,7 @@ export class AuthController {
   ) {
     const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
     const result = await this.authService.loginAdmin(body, ipAddress);
-    this.setCookies(res, result.tokens);
+    this.setCookies(res, result.tokens, req);
     return { user: result.user };
   }
 
@@ -81,7 +85,7 @@ export class AuthController {
   ) {
     const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
     const result = await this.authService.loginJudge(body, ipAddress);
-    this.setCookies(res, result.tokens);
+    this.setCookies(res, result.tokens, req);
     return { user: result.user };
   }
 
@@ -111,7 +115,7 @@ export class AuthController {
   ) {
     const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
     const result = await this.authService.verifyContestantOtp(body, ipAddress);
-    this.setCookies(res, result.tokens);
+    this.setCookies(res, result.tokens, req);
     return { user: result.user };
   }
 
@@ -122,13 +126,13 @@ export class AuthController {
       throw new UnauthorizedException('Refresh token missing.');
     }
     const tokens = await this.authService.refreshTokens(refreshToken);
-    this.setCookies(res, tokens);
+    this.setCookies(res, tokens, req);
     return { success: true };
   }
 
   @Post('logout')
-  async logout(@Res({ passthrough: true }) res: express.Response) {
-    this.clearCookies(res);
+  async logout(@Req() req: express.Request, @Res({ passthrough: true }) res: express.Response) {
+    this.clearCookies(res, req);
     return { success: true };
   }
 
