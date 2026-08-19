@@ -1,0 +1,902 @@
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  UnauthorizedException,
+  Inject,
+  Optional,
+} from '@nestjs/common';
+import { DatabaseService } from '../database/database.service.js';
+import { AuditService } from '../audit/audit.service.js';
+import { RealtimeService } from '../realtime/realtime.service.js';
+import { Prisma } from '@prisma/client';
+
+export interface CriterionDefinition {
+  name: string;
+  description?: string;
+  maxMarks: number;
+  order?: number;
+}
+
+@Injectable()
+export class ScoringService {
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly audit: AuditService,
+    @Optional() @Inject(RealtimeService) private readonly realtime?: RealtimeService,
+  ) {}
+
+  /**
+   * Helper to normalize criteria from a round record.
+   * If subCriteria is not explicitly configured on the round, provides a default balanced criteria set.
+   */
+  normalizeRoundCriteria(round: { maxMarks: number; subCriteria: any }): CriterionDefinition[] {
+    if (round.subCriteria && Array.isArray(round.subCriteria) && round.subCriteria.length > 0) {
+      return round.subCriteria.map((c: any, index: number) => ({
+        name: c.name || `Criterion ${index + 1}`,
+        description: c.description || '',
+        maxMarks: typeof c.maxMarks === 'number' && c.maxMarks > 0 ? c.maxMarks : Math.round(round.maxMarks / round.subCriteria.length),
+        order: c.order ?? index + 1,
+      }));
+    }
+
+    const unitMarks = round.maxMarks > 0 ? Math.round((round.maxMarks / 5) * 100) / 100 : 10;
+    return [
+      { name: 'Presentation & Appearance', maxMarks: unitMarks, description: 'Visual presentation and outfit coordination' },
+      { name: 'Confidence & Stage Presence', maxMarks: unitMarks, description: 'Commanding posture and self-assurance' },
+      { name: 'Walk & Posture', maxMarks: unitMarks, description: 'Rhythm, stride, and catwalk execution' },
+      { name: 'Poise & Elegance', maxMarks: unitMarks, description: 'Grace of movement and natural charisma' },
+      { name: 'Overall Impact', maxMarks: unitMarks, description: 'Overall lasting impression and audience engagement' },
+    ];
+  }
+
+  /**
+   * Fetch active Judge's DB-verified competition assignment
+   */
+  async getJudgeAssignment(judgeId: string) {
+    const judge = await this.db.judgeAccount.findUnique({
+      where: { id: judgeId },
+      include: {
+        event: { select: { id: true, name: true, code: true, location: true } },
+        category: { select: { id: true, name: true, code: true } },
+        round: { select: { id: true, name: true, day: true, maxMarks: true, sortOrder: true, subCriteria: true, status: true } },
+      },
+    });
+
+    if (!judge) {
+      throw new UnauthorizedException('Judge account not found.');
+    }
+
+    if (!judge.isActive) {
+      throw new ForbiddenException('Judge account is disabled. Please contact administrator.');
+    }
+
+    if (!judge.event || !judge.category || !judge.round) {
+      throw new ForbiddenException('Judge has no active competition assignment.');
+    }
+
+    const criteria = this.normalizeRoundCriteria(judge.round);
+
+    return {
+      judge: {
+        id: judge.id,
+        name: judge.name,
+        email: judge.email,
+        mustResetPassword: judge.mustResetPassword,
+      },
+      event: judge.event,
+      category: judge.category,
+      round: {
+        id: judge.round.id,
+        name: judge.round.name,
+        day: judge.round.day,
+        maxMarks: judge.round.maxMarks,
+        status: judge.round.status,
+        criteria,
+      },
+    };
+  }
+
+  /**
+   * Fetch blind contestant list for Judge (Zero PII exposed)
+   */
+  async getJudgeContestants(judgeId: string) {
+    const assignment = await this.getJudgeAssignment(judgeId);
+
+    const contestants = await this.db.contestant.findMany({
+      where: {
+        eventId: assignment.event.id,
+        registration: {
+          categoryId: assignment.category.id,
+          paymentStatus: 'PAID',
+        },
+      },
+      select: {
+        id: true,
+        scores: {
+          where: {
+            roundId: assignment.round.id,
+            judgeId,
+          },
+          select: {
+            id: true,
+            subScores: true,
+            value: true,
+            locked: true,
+            submittedAt: true,
+          },
+        },
+      },
+      orderBy: { id: 'asc' },
+    });
+
+    return {
+      event: { id: assignment.event.id, name: assignment.event.name },
+      category: { id: assignment.category.id, name: assignment.category.name },
+      round: {
+        id: assignment.round.id,
+        name: assignment.round.name,
+        maxMarks: assignment.round.maxMarks,
+        criteria: assignment.round.criteria,
+      },
+      contestants: contestants.map((c) => {
+        const score = c.scores[0] || null;
+        return {
+          id: c.id,
+          score: score
+            ? {
+                id: score.id,
+                subScores: score.subScores,
+                totalScore: score.value,
+                locked: score.locked,
+                submittedAt: score.submittedAt,
+              }
+            : null,
+        };
+      }),
+    };
+  }
+
+  /**
+   * Fetch contestant scoring state for Judge
+   */
+  async getJudgeContestantScore(judgeId: string, contestantId: string) {
+    const assignment = await this.getJudgeAssignment(judgeId);
+
+    const contestant = await this.db.contestant.findFirst({
+      where: {
+        id: contestantId,
+        eventId: assignment.event.id,
+        registration: {
+          categoryId: assignment.category.id,
+          paymentStatus: 'PAID',
+        },
+      },
+      select: {
+        id: true,
+        scores: {
+          where: {
+            roundId: assignment.round.id,
+            judgeId,
+          },
+          select: {
+            id: true,
+            subScores: true,
+            value: true,
+            locked: true,
+            submittedAt: true,
+          },
+        },
+      },
+    });
+
+    if (!contestant) {
+      throw new ForbiddenException('Access denied. Contestant does not belong to your assigned event and category.');
+    }
+
+    const score = contestant.scores[0] || null;
+
+    return {
+      contestantId: contestant.id,
+      event: { id: assignment.event.id, name: assignment.event.name },
+      category: { id: assignment.category.id, name: assignment.category.name },
+      round: {
+        id: assignment.round.id,
+        name: assignment.round.name,
+        maxMarks: assignment.round.maxMarks,
+        criteria: assignment.round.criteria,
+      },
+      score: score
+        ? {
+            id: score.id,
+            subScores: score.subScores,
+            totalScore: score.value,
+            locked: score.locked,
+            submittedAt: score.submittedAt,
+          }
+        : null,
+    };
+  }
+
+  /**
+   * Save or lock score submission
+   */
+  async saveScore(
+    judgeId: string,
+    contestantId: string,
+    dto: { subScores: Record<string, any>; lock?: boolean },
+    ipAddress?: string,
+  ) {
+    const assignment = await this.getJudgeAssignment(judgeId);
+
+    // 1. Contestant Verification
+    const contestant = await this.db.contestant.findFirst({
+      where: {
+        id: contestantId,
+        eventId: assignment.event.id,
+        registration: {
+          categoryId: assignment.category.id,
+          paymentStatus: 'PAID',
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!contestant) {
+      throw new ForbiddenException('Access denied. Contestant does not belong to your assigned event and category.');
+    }
+
+    if (!dto.subScores || typeof dto.subScores !== 'object' || Array.isArray(dto.subScores)) {
+      throw new BadRequestException('Invalid subScores payload. Expected object of criterion scores.');
+    }
+
+    // 2. Validate Criteria & Calculate Total Server-Side
+    const criteria = assignment.round.criteria;
+    const validatedScores: Record<string, number> = {};
+    let calculatedTotal = 0;
+
+    for (const crit of criteria) {
+      const val = dto.subScores[crit.name];
+      if (val === undefined || val === null || val === '') {
+        throw new BadRequestException(`Score for '${crit.name}' is required.`);
+      }
+
+      const numVal = Number(val);
+      if (isNaN(numVal) || !isFinite(numVal)) {
+        throw new BadRequestException(`Score for '${crit.name}' must be a valid number.`);
+      }
+
+      if (numVal < 0) {
+        throw new BadRequestException(`Score for '${crit.name}' cannot be negative.`);
+      }
+
+      if (numVal > crit.maxMarks) {
+        throw new BadRequestException(
+          `Score for '${crit.name}' (${numVal}) exceeds maximum allowable marks (${crit.maxMarks}).`,
+        );
+      }
+
+      const precisionVal = Math.round(numVal * 100) / 100;
+      validatedScores[crit.name] = precisionVal;
+      calculatedTotal += precisionVal;
+    }
+
+    const finalTotal = Math.round(calculatedTotal * 100) / 100;
+
+    // 3. Database Transaction & Lock Guard
+    const transactionResult = await this.db.$transaction(async (tx) => {
+      const existing = await tx.score.findUnique({
+        where: {
+          contestantId_roundId_judgeId: {
+            contestantId: contestant.id,
+            roundId: assignment.round.id,
+            judgeId,
+          },
+        },
+      });
+
+      if (existing && existing.locked) {
+        throw new ConflictException('Score is locked and cannot be modified.');
+      }
+
+      const isLocking = !!dto.lock;
+
+      const savedScore = await tx.score.upsert({
+        where: {
+          contestantId_roundId_judgeId: {
+            contestantId: contestant.id,
+            roundId: assignment.round.id,
+            judgeId,
+          },
+        },
+        create: {
+          contestantId: contestant.id,
+          roundId: assignment.round.id,
+          judgeId,
+          subScores: validatedScores,
+          value: finalTotal,
+          locked: isLocking,
+          submittedAt: new Date(),
+        },
+        update: {
+          subScores: validatedScores,
+          value: finalTotal,
+          locked: isLocking,
+          submittedAt: new Date(),
+        },
+        select: {
+          id: true,
+          contestantId: true,
+          roundId: true,
+          subScores: true,
+          value: true,
+          locked: true,
+          submittedAt: true,
+        },
+      });
+
+      return { savedScore, existing, isLocking };
+    }, { timeout: 15000, maxWait: 10000 });
+
+    // 4. Audit Log AFTER Transaction Successfully Commits
+    await this.audit.log({
+      actorType: 'JUDGE',
+      actorId: judgeId,
+      action: transactionResult.isLocking ? 'SCORE_LOCKED' : transactionResult.existing ? 'SCORE_UPDATED' : 'SCORE_SUBMITTED',
+      entity: 'Score',
+      entityId: transactionResult.savedScore.id,
+      before: transactionResult.existing ? { value: transactionResult.existing.value, locked: transactionResult.existing.locked } : null,
+      after: { value: transactionResult.savedScore.value, locked: transactionResult.savedScore.locked },
+      ipAddress,
+    });
+
+    // 5. Publish Realtime Score Event AFTER Transaction Successfully Commits
+    if (this.realtime) {
+      try {
+        await this.realtime.publishScoreEvent({
+          competitionEventId: assignment.event.id,
+          categoryId: assignment.category.id,
+          categoryCode: assignment.category.code,
+          categoryName: assignment.category.name,
+          roundId: assignment.round.id,
+          roundName: assignment.round.name,
+          roundMaxMarks: assignment.round.maxMarks,
+          contestantId: contestant.id,
+          judgeId: assignment.judge.id,
+          judgeName: assignment.judge.name,
+          subScores: validatedScores,
+          totalScore: transactionResult.savedScore.value,
+          status: transactionResult.savedScore.locked ? 'LOCKED' : 'DRAFT',
+          type: transactionResult.isLocking
+            ? 'SCORE_LOCKED'
+            : transactionResult.existing
+              ? 'SCORE_UPDATED'
+              : 'SCORE_SUBMITTED',
+        });
+      } catch {}
+    }
+
+    return transactionResult.savedScore;
+  }
+
+  /**
+   * Admin Pre-Score: Discipline (0..10) + Talent (0..20) = Admin Total (/30)
+   */
+  async saveAdminPreScore(
+    adminId: string,
+    contestantId: string,
+    dto: { discipline: number | string; talent: number | string },
+    ipAddress?: string,
+  ) {
+    const contestant = await this.db.contestant.findUnique({
+      where: { id: contestantId },
+      include: {
+        registration: {
+          include: { category: true, event: true },
+        },
+      },
+    });
+
+    if (!contestant || !contestant.registration) {
+      throw new NotFoundException('Contestant not found.');
+    }
+
+    const category = contestant.registration.category;
+    const event = contestant.registration.event;
+
+    const disciplineNum = Number(dto.discipline);
+    const talentNum = Number(dto.talent);
+
+    if (isNaN(disciplineNum) || !isFinite(disciplineNum) || disciplineNum < 0 || disciplineNum > 10) {
+      throw new BadRequestException('Discipline score must be a valid number between 0 and 10.');
+    }
+
+    if (isNaN(talentNum) || !isFinite(talentNum) || talentNum < 0 || talentNum > 20) {
+      throw new BadRequestException('Talent score must be a valid number between 0 and 20.');
+    }
+
+    const discPrecision = Math.round(disciplineNum * 100) / 100;
+    const talentPrecision = Math.round(talentNum * 100) / 100;
+    const adminTotal = Math.round((discPrecision + talentPrecision) * 100) / 100;
+
+    const result = await this.db.$transaction(async (tx) => {
+      // Find or create Discipline Round (max 10)
+      let discRound = await tx.round.findFirst({
+        where: { categoryId: category.id, name: { equals: 'Discipline', mode: 'insensitive' } },
+      });
+      if (!discRound) {
+        discRound = await tx.round.create({
+          data: {
+            categoryId: category.id,
+            name: 'Discipline',
+            maxMarks: 10,
+            scoredBy: 'admin',
+            day: 1,
+            sortOrder: 1,
+            status: 'ACTIVE',
+          },
+        });
+      }
+
+      // Find or create Talent Round (max 20)
+      let talentRound = await tx.round.findFirst({
+        where: { categoryId: category.id, name: { equals: 'Talent', mode: 'insensitive' } },
+      });
+      if (!talentRound) {
+        talentRound = await tx.round.create({
+          data: {
+            categoryId: category.id,
+            name: 'Talent',
+            maxMarks: 20,
+            scoredBy: 'admin',
+            day: 1,
+            sortOrder: 2,
+            status: 'ACTIVE',
+          },
+        });
+      }
+
+      // Upsert Discipline Score (Admin: judgeId is null)
+      const existingDisc = await tx.score.findFirst({
+        where: { contestantId: contestant.id, roundId: discRound.id, judgeId: null },
+      });
+      if (existingDisc) {
+        await tx.score.update({
+          where: { id: existingDisc.id },
+          data: { subScores: { Discipline: discPrecision }, value: discPrecision, locked: true, submittedAt: new Date() },
+        });
+      } else {
+        await tx.score.create({
+          data: {
+            contestantId: contestant.id,
+            roundId: discRound.id,
+            judgeId: null,
+            subScores: { Discipline: discPrecision },
+            value: discPrecision,
+            locked: true,
+            submittedAt: new Date(),
+          },
+        });
+      }
+
+      // Upsert Talent Score (Admin: judgeId is null)
+      const existingTalent = await tx.score.findFirst({
+        where: { contestantId: contestant.id, roundId: talentRound.id, judgeId: null },
+      });
+      if (existingTalent) {
+        await tx.score.update({
+          where: { id: existingTalent.id },
+          data: { subScores: { Talent: talentPrecision }, value: talentPrecision, locked: true, submittedAt: new Date() },
+        });
+      } else {
+        await tx.score.create({
+          data: {
+            contestantId: contestant.id,
+            roundId: talentRound.id,
+            judgeId: null,
+            subScores: { Talent: talentPrecision },
+            value: talentPrecision,
+            locked: true,
+            submittedAt: new Date(),
+          },
+        });
+      }
+
+        return {
+          contestantId: contestant.id,
+          category: category.name,
+          categoryCode: category.code,
+          discipline: discPrecision,
+          talent: talentPrecision,
+          total: adminTotal,
+          maxMarks: 30,
+        };
+      },
+      { maxWait: 10000, timeout: 20000 },
+    );
+
+    await this.audit.log({
+      actorType: 'ADMIN',
+      actorId: adminId,
+      action: 'SCORE_SUBMITTED',
+      entity: 'Score',
+      entityId: contestant.id,
+      before: null,
+      after: {
+        contestantId: contestant.id,
+        discipline: discPrecision,
+        talent: talentPrecision,
+        adminTotal,
+      },
+      ipAddress,
+    });
+
+    return result;
+  }
+
+  /**
+   * Admin-controlled Score Unlock
+   */
+  async unlockScore(adminId: string, scoreId: string, ipAddress?: string) {
+    const score = await this.db.score.findUnique({
+      where: { id: scoreId },
+      include: {
+        round: { include: { category: true } },
+        judge: true,
+      },
+    });
+
+    if (!score) throw new NotFoundException('Score record not found.');
+
+    const updated = await this.db.score.update({
+      where: { id: scoreId },
+      data: { locked: false },
+    });
+
+    await this.audit.log({
+      actorType: 'ADMIN',
+      actorId: adminId,
+      action: 'SCORE_UNLOCKED',
+      entity: 'Score',
+      entityId: score.id,
+      before: { locked: score.locked },
+      after: { locked: false },
+      ipAddress,
+    });
+
+    if (this.realtime && score.round?.category) {
+      try {
+        await this.realtime.publishScoreEvent({
+          competitionEventId: score.round.category.eventId,
+          categoryId: score.round.categoryId,
+          roundId: score.roundId,
+          roundName: score.round.name,
+          contestantId: score.contestantId,
+          judgeId: score.judgeId || undefined,
+          judgeName: score.judge?.name || 'Judge',
+          subScores: (score.subScores as any) || {},
+          totalScore: score.value,
+          status: 'DRAFT',
+          type: 'SCORE_UPDATED',
+        });
+      } catch {}
+    }
+
+    return {
+      success: true,
+      message: 'Score successfully unlocked for judge revision.',
+      scoreId: updated.id,
+      contestantId: updated.contestantId,
+      locked: updated.locked,
+    };
+  }
+
+  /**
+   * Admin-controlled Score Lock
+   */
+  async lockScore(adminId: string, scoreId: string, ipAddress?: string) {
+    const score = await this.db.score.findUnique({
+      where: { id: scoreId },
+      include: {
+        round: { include: { category: true } },
+        judge: true,
+      },
+    });
+
+    if (!score) throw new NotFoundException('Score record not found.');
+
+    const updated = await this.db.score.update({
+      where: { id: scoreId },
+      data: { locked: true },
+    });
+
+    await this.audit.log({
+      actorType: 'ADMIN',
+      actorId: adminId,
+      action: 'SCORE_LOCKED',
+      entity: 'Score',
+      entityId: score.id,
+      before: { locked: score.locked },
+      after: { locked: true },
+      ipAddress,
+    });
+
+    if (this.realtime && score.round?.category) {
+      try {
+        await this.realtime.publishScoreEvent({
+          competitionEventId: score.round.category.eventId,
+          categoryId: score.round.categoryId,
+          roundId: score.roundId,
+          roundName: score.round.name,
+          contestantId: score.contestantId,
+          judgeId: score.judgeId || undefined,
+          judgeName: score.judge?.name || 'Judge',
+          subScores: (score.subScores as any) || {},
+          totalScore: score.value,
+          status: 'LOCKED',
+          type: 'SCORE_LOCKED',
+        });
+      } catch {}
+    }
+
+    return {
+      success: true,
+      message: 'Score successfully locked.',
+      scoreId: updated.id,
+      contestantId: updated.contestantId,
+      locked: updated.locked,
+    };
+  }
+
+  /**
+   * Final Score Engine: Calculates exact authoritative scoring breakdown
+   * KIDS = Admin /30 + 4 Judges /200 = Final /230
+   * MR/MISS/MS/TEEN = Admin /30 + 4 Judges Traditional /200 + 4 Judges Western /200 = Final /430
+   */
+  async getFinalScores(query: { eventId?: string; categoryId?: string; contestantId?: string }) {
+    const whereContestant: Prisma.ContestantWhereInput = {};
+    if (query.eventId) whereContestant.eventId = query.eventId;
+    if (query.categoryId) whereContestant.registration = { categoryId: query.categoryId };
+    if (query.contestantId) whereContestant.id = { contains: query.contestantId, mode: 'insensitive' };
+
+    const contestants = await this.db.contestant.findMany({
+      where: whereContestant,
+      include: {
+        registration: {
+          include: {
+            category: { select: { id: true, name: true, code: true } },
+            event: { select: { id: true, name: true, code: true } },
+          },
+        },
+        scores: {
+          include: {
+            round: { select: { id: true, name: true, maxMarks: true, scoredBy: true } },
+            judge: { select: { id: true, name: true, email: true } },
+          },
+        },
+      },
+      orderBy: { id: 'asc' },
+    });
+
+    const results = contestants.map((c) => {
+      const category = c.registration?.category;
+      const categoryCode = (category?.code || '').toUpperCase();
+      const isKids = categoryCode === 'K' || categoryCode === 'KIDS' || (category?.name || '').toUpperCase().includes('KID');
+
+      // Admin Scores
+      const discScore = c.scores.find((s) => s.round.name.toLowerCase() === 'discipline');
+      const talentScore = c.scores.find((s) => s.round.name.toLowerCase() === 'talent');
+
+      const disciplineVal = discScore ? discScore.value : 0;
+      const talentVal = talentScore ? talentScore.value : 0;
+      const adminTotal = Math.round((disciplineVal + talentVal) * 100) / 100;
+
+      // Judge Scores (Exclude Admin-scored rounds)
+      const judgeScores = c.scores.filter(
+        (s) => s.round.name.toLowerCase() !== 'discipline' && s.round.name.toLowerCase() !== 'talent' && s.judgeId !== 'admin',
+      );
+
+      let judgeTotal = 0;
+      judgeScores.forEach((s) => {
+        judgeTotal += s.value;
+      });
+      judgeTotal = Math.round(judgeTotal * 100) / 100;
+
+      const maxMarks = isKids ? 230 : 430;
+      const adminMax = 30;
+      const judgeMax = isKids ? 200 : 400;
+
+      const finalScore = Math.round((adminTotal + judgeTotal) * 100) / 100;
+
+      const allLocked = c.scores.length > 0 && c.scores.every((s) => s.locked);
+      const isComplete = isKids
+        ? judgeScores.length >= 4 && discScore && talentScore
+        : judgeScores.length >= 8 && discScore && talentScore;
+
+      return {
+        contestantId: c.id,
+        category: category?.name || 'N/A',
+        categoryCode: category?.code || 'N/A',
+        isKids,
+        adminScore: {
+          discipline: disciplineVal,
+          disciplineMax: 10,
+          talent: talentVal,
+          talentMax: 20,
+          total: adminTotal,
+          maxMarks: adminMax,
+        },
+        judgeScores: judgeScores.map((s) => ({
+          scoreId: s.id,
+          roundName: s.round.name,
+          roundMaxMarks: s.round.maxMarks,
+          judgeId: s.judgeId,
+          judgeName: s.judge?.name || 'Judge',
+          value: s.value,
+          locked: s.locked,
+          subScores: s.subScores,
+        })),
+        judgeTotal,
+        judgeMax,
+        finalScore,
+        maxMarks,
+        completionStatus: isComplete ? ('COMPLETE' as const) : ('IN_PROGRESS' as const),
+        isLocked: allLocked,
+      };
+    });
+
+    results.sort((a, b) => b.finalScore - a.finalScore);
+
+    return results.map((r, index) => ({
+      rank: index + 1,
+      ...r,
+    }));
+  }
+
+  /**
+   * Admin Scoring Search & Filtering API
+   */
+  async getAdminScores(query: {
+    page?: number;
+    limit?: number;
+    eventId?: string;
+    categoryId?: string;
+    roundId?: string;
+    contestantId?: string;
+    judgeId?: string;
+    locked?: boolean;
+  }) {
+    const page = Math.max(1, query.page || 1);
+    const limit = Math.min(100, Math.max(1, query.limit || 20));
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.ScoreWhereInput = {};
+
+    if (query.contestantId) where.contestantId = { contains: query.contestantId, mode: 'insensitive' };
+    if (query.judgeId) where.judgeId = query.judgeId;
+    if (query.roundId) where.roundId = query.roundId;
+    if (query.locked !== undefined) where.locked = query.locked;
+
+    if (query.eventId || query.categoryId) {
+      where.round = {
+        category: {
+          ...(query.categoryId ? { id: query.categoryId } : {}),
+          ...(query.eventId ? { eventId: query.eventId } : {}),
+        },
+      };
+    }
+
+    const [data, total] = await Promise.all([
+      this.db.score.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { submittedAt: 'desc' },
+        select: {
+          id: true,
+          contestantId: true,
+          value: true,
+          locked: true,
+          submittedAt: true,
+          subScores: true,
+          judge: { select: { id: true, name: true, email: true } },
+          round: {
+            select: {
+              id: true,
+              name: true,
+              maxMarks: true,
+              day: true,
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                  code: true,
+                  event: { select: { id: true, name: true, code: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.db.score.count({ where }),
+    ]);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Admin Result Publication Control
+   */
+  async publishResults(
+    adminId: string,
+    dto: { eventId: string; categoryId?: string; isPublished: boolean },
+    ipAddress?: string,
+  ) {
+    if (!dto.eventId) throw new BadRequestException('Event ID is required.');
+
+    const categoryId = dto.categoryId || null;
+
+    const existing = await this.db.resultPublication.findFirst({
+      where: { eventId: dto.eventId, categoryId },
+    });
+
+    let pubRecord;
+    if (existing) {
+      pubRecord = await this.db.resultPublication.update({
+        where: { id: existing.id },
+        data: {
+          isPublished: dto.isPublished,
+          publishedAt: dto.isPublished ? new Date() : null,
+          publishedBy: adminId,
+        },
+      });
+    } else {
+      pubRecord = await this.db.resultPublication.create({
+        data: {
+          eventId: dto.eventId,
+          categoryId,
+          isPublished: dto.isPublished,
+          publishedAt: dto.isPublished ? new Date() : null,
+          publishedBy: adminId,
+        },
+      });
+    }
+
+    await this.audit.log({
+      actorType: 'ADMIN',
+      actorId: adminId,
+      action: dto.isPublished ? ('RESULT_PUBLISHED' as any) : ('RESULT_UNPUBLISHED' as any),
+      entity: 'ResultPublication',
+      entityId: pubRecord.id,
+      before: existing ? { isPublished: existing.isPublished } : null,
+      after: { isPublished: pubRecord.isPublished, eventId: dto.eventId, categoryId },
+      ipAddress,
+    });
+
+    return {
+      success: true,
+      message: dto.isPublished ? 'Results published successfully.' : 'Results unpublished.',
+      publication: pubRecord,
+    };
+  }
+
+  async getPublicationStatus(eventId: string, categoryId?: string) {
+    return this.db.resultPublication.findFirst({
+      where: {
+        eventId,
+        OR: [{ categoryId: categoryId || null }, { categoryId: null }],
+        isPublished: true,
+      },
+    });
+  }
+}

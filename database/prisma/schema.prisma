@@ -1,0 +1,241 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum EventStatus {
+  DRAFT
+  UPCOMING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum CategoryStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum RoundStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  LOCKED
+}
+
+enum PaymentStatus {
+  PAID
+  UNPAID
+}
+
+model Event {
+  id                    String         @id @default(uuid())
+  name                  String
+  code                  String         @unique
+  location              String
+  startDate             DateTime       @map("start_date")
+  endDate               DateTime       @map("end_date")
+  logoUrl               String?        @map("logo_url")
+  description           String
+  registrationOpenDate  DateTime?      @map("registration_open_date")
+  registrationCloseDate DateTime?      @map("registration_close_date")
+  status                EventStatus    @default(UPCOMING)
+  categories            Category[]
+  registrations         Registration[]
+  judges                JudgeAccount[]
+  contestants           Contestant[]
+  announcements         Announcement[]
+  createdAt             DateTime       @default(now()) @map("created_at")
+  updatedAt             DateTime       @updatedAt @map("updated_at")
+
+  @@index([status, startDate])
+  @@map("events")
+}
+
+model Category {
+  id            String         @id @default(uuid())
+  eventId       String         @map("event_id")
+  event         Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name          String         // e.g. Kids, Teen, Miss, Ms, Mr
+  code          String         // e.g. K, T, MS, MRS, MR
+  description   String?        // Optional description
+  status        CategoryStatus @default(ACTIVE)
+  rounds        Round[]
+  registrations Registration[]
+  judges        JudgeAccount[]
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  @@unique([eventId, code])
+  @@map("categories")
+}
+
+model Round {
+  id             String         @id @default(uuid())
+  categoryId     String         @map("category_id")
+  category       Category       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name           String         // e.g. Traditional, Discipline, Talent, Western
+  maxMarks       Float          @map("max_marks")
+  scoredBy       String         @map("scored_by") // 'admin' or 'judge'
+  day            Int
+  sortOrder      Int            @default(1) @map("sort_order")
+  subCriteria    Json?          @map("sub_criteria") // Array of { name, description, maxMarks, order }
+  judgesRequired Int            @default(1) @map("judges_required")
+  status         RoundStatus    @default(DRAFT)
+  scores         Score[]
+  judges         JudgeAccount[]
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  @@unique([categoryId, name])
+  @@map("rounds")
+}
+
+model Registration {
+  id            String        @id @default(uuid())
+  eventId       String        @map("event_id")
+  event         Event         @relation(fields: [eventId], references: [id])
+  categoryId    String        @map("category_id")
+  category      Category      @relation(fields: [categoryId], references: [id])
+  baseFields    Json          @map("base_fields") // { name, mobile, location, gender, email, age, dob }
+  customFields  Json          @map("custom_fields") // Flexible key-value pairs
+  paymentStatus PaymentStatus @default(UNPAID) @map("payment_status")
+  contestantId  String?       @unique @map("contestant_id") // References Contestant.id
+  contestant    Contestant?   @relation(fields: [contestantId], references: [id])
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  @@index([eventId, categoryId])
+  @@map("registrations")
+}
+
+model Contestant {
+  id             String         @id // e.g. SRF-NLR-K-0003 (manually set upon payment check)
+  registrationId String         @unique @map("registration_id")
+  mobile         String
+  eventId        String         @map("event_id")
+  event          Event          @relation(fields: [eventId], references: [id])
+  registration   Registration?
+  scores         Score[]
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  @@index([mobile, eventId])
+  @@map("contestants")
+}
+
+model Score {
+  id           String        @id @default(uuid())
+  contestantId String        @map("contestant_id")
+  contestant   Contestant    @relation(fields: [contestantId], references: [id], onDelete: Cascade)
+  roundId      String        @map("round_id")
+  round        Round         @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  judgeId      String?       @map("judge_id")
+  judge        JudgeAccount? @relation(fields: [judgeId], references: [id])
+  subScores    Json          @map("sub_scores") // Record<criterionName, scoreValue>
+  value        Float         // Aggregated round score (averaged or raw)
+  submittedAt  DateTime      @default(now()) @map("submitted_at")
+  locked       Boolean       @default(false)
+
+  @@unique([contestantId, roundId, judgeId])
+  @@index([contestantId])
+  @@index([roundId])
+  @@index([judgeId])
+  @@map("scores")
+}
+
+model JudgeAccount {
+  id                 String   @id @default(uuid())
+  name               String
+  email              String   @unique
+  passwordHash       String   @map("password_hash")
+  assignedEventId    String   @map("assigned_event_id")
+  event              Event    @relation(fields: [assignedEventId], references: [id])
+  assignedCategoryId String   @map("assigned_category_id")
+  category           Category @relation(fields: [assignedCategoryId], references: [id])
+  assignedRoundId    String   @map("assigned_round_id")
+  round              Round    @relation(fields: [assignedRoundId], references: [id])
+  mustResetPassword  Boolean  @default(true) @map("must_reset_password")
+  isActive           Boolean  @default(true) @map("is_active")
+  scores             Score[]
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("judge_accounts")
+}
+
+model AdminUser {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  totpSecret   String?  @map("totp_secret")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("admin_users")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  actorType   String   @map("actor_type") // e.g. ADMIN, JUDGE, CONTESTANT
+  actorId     String   @map("actor_id")   // ID of the actor
+  action      String   @map("action")     // e.g. ADMIN_LOGIN, JUDGE_LOGIN
+  entity      String   @map("entity")     // e.g. Score, Registration
+  entityId    String?  @map("entity_id")  // ID of the entity
+  before      Json?    @map("before")     // JSON state before
+  after       Json?    @map("after")      // JSON state after
+  ipAddress   String?  @map("ip_address")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("audit_logs")
+}
+
+model PdfDocument {
+  id         String   @id @default(uuid())
+  title      String
+  filename   String
+  fileUrl    String   @map("file_url")
+  fileSize   Int      @map("file_size")
+  mimeType   String   @map("mime_type")
+  visibility String   @default("ADMIN_ONLY") // ADMIN_ONLY, CONTESTANT_VISIBLE, PUBLIC
+  eventId    String?  @map("event_id")
+  uploadedBy String   @map("uploaded_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("pdf_documents")
+}
+
+model Announcement {
+  id          String    @id @default(uuid())
+  title       String
+  content     String
+  eventId     String?   @map("event_id")
+  event       Event?    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  isPublished Boolean   @default(true) @map("is_published")
+  publishedAt DateTime? @default(now()) @map("published_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("announcements")
+}
+
+model ResultPublication {
+  id          String    @id @default(uuid())
+  eventId     String    @map("event_id")
+  categoryId  String?   @map("category_id")
+  isPublished Boolean   @default(false) @map("is_published")
+  publishedAt DateTime? @map("published_at")
+  publishedBy String    @map("published_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@unique([eventId, categoryId])
+  @@map("result_publications")
+}

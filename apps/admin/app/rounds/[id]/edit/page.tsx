@@ -1,0 +1,83 @@
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { AuthGuard } from '../../../components/auth-guard';
+import { AdminShell } from '../../../components/admin-shell';
+import { RoundForm } from '../../../components/round-form';
+
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+function EditRoundContent() {
+  const params = useParams();
+  const id = params.id as string;
+  const [round, setRound] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    async function fetchRound() {
+      try {
+        const res = await fetch(`${API}/admin/rounds/${id}`, { credentials: 'include' });
+        if (!res.ok) throw new Error('Unable to load round.');
+        const data = await res.json();
+        setRound(data);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchRound();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="space-y-4 animate-pulse max-w-2xl">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="h-11 bg-luxury-gray-border/10 rounded" />
+        ))}
+      </div>
+    );
+  }
+
+  if (error || !round) {
+    return <p className="font-sans text-sm text-red-400">{error || 'Round not found.'}</p>;
+  }
+
+  return (
+    <div className="space-y-6 max-w-3xl">
+      <div>
+        <h2 className="font-serif text-2xl font-light text-luxury-white tracking-wide">Edit Round</h2>
+        <p className="font-sans text-xs text-luxury-white/30 tracking-luxury uppercase mt-1">
+          {round.name} ({round.category?.name} — {round.category?.event?.name})
+        </p>
+      </div>
+      <RoundForm
+        mode="edit"
+        roundId={id}
+        initialData={{
+          categoryId: round.categoryId,
+          name: round.name,
+          maxMarks: round.maxMarks,
+          scoredBy: round.scoredBy,
+          day: round.day,
+          sortOrder: round.sortOrder,
+          judgesRequired: round.judgesRequired,
+          status: round.status,
+          subCriteria: round.subCriteria,
+        }}
+      />
+    </div>
+  );
+}
+
+export default function EditRoundPage() {
+  return (
+    <AuthGuard>
+      <AdminShell>
+        <EditRoundContent />
+      </AdminShell>
+    </AuthGuard>
+  );
+}

@@ -1,0 +1,26 @@
+{
+  "name": "@srf/database",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Database schema and Prisma workspace for Siva Rudra Foundation monorepo",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "build": "echo @srf/database build ready"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.9.1"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "bcrypt": "^6.0.0",
+    "otplib": "^13.4.1",
+    "prisma": "^5.9.1",
+    "tsx": "^4.23.12"
+  }
+}

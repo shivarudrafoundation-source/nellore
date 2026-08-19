@@ -1,0 +1,26 @@
+{
+  "name": "siva-rudra-foundation-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Monorepo for Siva Rudra Foundation Event Management Platform",
+  "workspaces": [
+    "apps/*",
+    "backend/*",
+    "packages/*",
+    "database"
+  ],
+  "scripts": {
+    "dev": "concurrently -n \"public,admin,judges,stage,contest,api\" -c \"black.bgYellow,yellow.bgBlack,white.bgBlack,cyan.bgBlack,magenta.bgBlack,blue.bgBlack\" \"npm run dev --workspace=@srf/public\" \"npm run dev --workspace=@srf/admin\" \"npm run dev --workspace=@srf/judges\" \"npm run dev --workspace=@srf/stage\" \"npm run dev --workspace=@srf/contestant\" \"npm run start --workspace=@srf/api\"",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:generate": "npm run db:generate --workspace=@srf/database",
+    "db:migrate": "npm run db:migrate --workspace=@srf/database",
+    "clean": "npm run clean --workspaces --if-present && rimraf node_modules"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3"
+  }
+}
