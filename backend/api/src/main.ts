@@ -73,6 +73,7 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'https://sivarudrafoundation.com',
+      'https://www.sivarudrafoundation.com',
       'https://admin.sivarudrafoundation.com',
       'https://judges.sivarudrafoundation.com',
       'https://stage.sivarudrafoundation.com',
