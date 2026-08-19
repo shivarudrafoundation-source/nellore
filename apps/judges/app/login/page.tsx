@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { PageLayout, Card, Input, Button } from '@srf/ui';
 
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
 export default function JudgeLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,12 +32,13 @@ export default function JudgeLogin() {
           throw new Error('Password must be at least 12 characters');
         }
 
-        const res = await fetch('http://localhost:4000/auth/judges/reset-password', {
+        const res = await fetch(`${API}/auth/judge/reset-password`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${tempToken}`
           },
+          credentials: 'include',
           body: JSON.stringify({ newPassword }),
         });
 
@@ -51,9 +54,10 @@ export default function JudgeLogin() {
         return;
       }
 
-      const res = await fetch('http://localhost:4000/auth/judges/login', {
+      const res = await fetch(`${API}/auth/judge/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
 
@@ -96,7 +100,7 @@ export default function JudgeLogin() {
           </span>
         </div>
 
-        <Card hoverEffect={false} className="border border-luxury-gray-border/30 bg-[#0A0A0A] p-8 space-y-6">
+        <div className="p-0 space-y-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             
             {successMsg && (
@@ -174,7 +178,7 @@ export default function JudgeLogin() {
               </Button>
             </div>
           </form>
-        </Card>
+        </div>
 
       </div>
     </PageLayout>

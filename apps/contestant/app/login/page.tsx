@@ -101,8 +101,8 @@ export default function ContestantLoginPage() {
           </span>
         </div>
 
-        {/* Login Card */}
-        <Card hoverEffect={false} className="border border-luxury-gray-border/30 bg-[#0A0A0A] p-8 space-y-6">
+        {/* Login Form Container */}
+        <div className="p-0 space-y-6">
           {successMsg && (
             <p className="font-sans text-xs text-luxury-gold tracking-wide bg-luxury-gold/10 border border-luxury-gold/20 p-3 text-center">
               {successMsg}
@@ -197,7 +197,7 @@ export default function ContestantLoginPage() {
               </div>
             </form>
           )}
-        </Card>
+        </div>
       </div>
     </div>
   );

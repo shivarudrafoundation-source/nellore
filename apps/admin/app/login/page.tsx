@@ -56,7 +56,7 @@ export default function AdminLogin() {
           </span>
         </div>
 
-        <Card hoverEffect={false} className="border border-luxury-gray-border/30 bg-[#0A0A0A] p-8 space-y-6">
+        <div className="p-0 space-y-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             
             <Input
@@ -91,7 +91,7 @@ export default function AdminLogin() {
               </Button>
             </div>
           </form>
-        </Card>
+        </div>
 
       </div>
     </PageLayout>
