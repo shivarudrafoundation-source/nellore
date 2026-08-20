@@ -17,6 +17,7 @@ import { RealtimeModule } from './realtime/realtime.module.js';
 import { PublicModule } from './public/public.module.js';
 import { DocumentsModule } from './documents/documents.module.js';
 import { ContestantPortalModule } from './contestant-portal/contestant-portal.module.js';
+import { MailModule } from './mail/mail.module.js';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ContestantPortalModule } from './contestant-portal/contestant-portal.mo
     AuditModule,
     HealthModule,
     AuthModule,
+    MailModule,
     DashboardModule,
     EventsModule,
     CategoriesModule,

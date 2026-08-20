@@ -5,6 +5,7 @@ import { generateSecret, verifySync, generateURI } from 'otplib';
 import { DatabaseService } from '../database/database.service.js';
 import { OtpService } from './otp.service.js';
 import { AuditService } from '../audit/audit.service.js';
+import { MailService } from '../mail/mail.service.js';
 import { JwtPayload } from './interfaces/jwt-payload.interface.js';
 
 @Injectable()
@@ -16,6 +17,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly otpService: OtpService,
     private readonly auditService: AuditService,
+    private readonly mailService?: MailService,
   ) {}
 
   /**
@@ -325,7 +327,12 @@ export class AuthService {
       throw new UnauthorizedException('Contestant ID or registered mobile number not found.');
     }
 
-    await this.otpService.generateOtp(normalizedMobile, contestant.id);
+    const otp = await this.otpService.generateOtp(normalizedMobile, contestant.id);
+
+    const regEmail = (contestant.registration?.baseFields as any)?.email;
+    if (regEmail && this.mailService) {
+      await this.mailService.sendOtpEmail(regEmail, otp, 'Contestant Portal Authorization');
+    }
 
     await this.auditService.log({
       actorType: 'CONTESTANT',
@@ -338,7 +345,7 @@ export class AuthService {
     });
 
     return {
-      message: 'Secure 6-digit OTP has been dispatched to your registered mobile number.',
+      message: 'Secure 6-digit OTP has been dispatched to your registered contact.',
     };
   }
 
@@ -551,7 +558,11 @@ export class AuthService {
     }
 
     // Generate 5-minute single-use OTP
-    await this.otpService.generateOtp(rawEmail, 'contestant-forgot-password');
+    const otp = await this.otpService.generateOtp(rawEmail, 'contestant-forgot-password');
+
+    if (this.mailService) {
+      await this.mailService.sendOtpEmail(rawEmail, otp, 'Contestant Password Reset');
+    }
 
     await this.auditService.log({
       actorType: 'CONTESTANT',
