@@ -27,7 +27,7 @@ export default function HeroSection() {
   }, []);
 
   return (
-    <div className="relative w-full h-screen min-h-[750px] lg:min-h-[820px] bg-[#050505] overflow-hidden flex flex-col justify-between pt-[110px] pb-[32px] selection:bg-luxury-gold selection:text-luxury-black-pure">
+    <div className="relative w-full min-h-[720px] sm:min-h-[750px] lg:min-h-[820px] h-screen bg-[#050505] overflow-hidden flex flex-col justify-between pt-[96px] sm:pt-[110px] pb-[24px] sm:pb-[32px] selection:bg-luxury-gold selection:text-luxury-black-pure">
 
       {/* 2. Hero Background Ambience & Lighting Atmosphere */}
       <div className="absolute inset-0 bg-[#050505] z-0 pointer-events-none select-none" />
@@ -43,7 +43,7 @@ export default function HeroSection() {
       <div className="absolute bottom-[10vh] left-[65%] -translate-x-1/2 w-[45vw] h-[20vh] bg-gradient-to-t from-luxury-gold/5 via-transparent to-transparent blur-3xl pointer-events-none select-none z-0" />
 
       {/* 3. CENTER-RIGHT: Perspective Glossy Runway Floor under Contestant */}
-      <div className="absolute bottom-0 right-[14%] lg:right-[18%] xl:right-[21%] w-[320px] sm:w-[360px] lg:w-[42%] h-[35vh] overflow-hidden pointer-events-none select-none z-0">
+      <div className="absolute bottom-0 right-1/2 translate-x-1/2 lg:translate-x-0 lg:right-[18%] xl:right-[21%] w-[290px] sm:w-[360px] lg:w-[42%] h-[35vh] overflow-hidden pointer-events-none select-none z-0">
         <div 
           className="w-full h-full origin-bottom"
           style={{
@@ -59,17 +59,17 @@ export default function HeroSection() {
       </div>
 
       {/* 4. Main Grid Content Wrapper */}
-      <div className="w-full max-w-7xl mx-auto px-[48px] md:px-[64px] z-20 relative flex-grow flex items-center">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16 items-center w-full">
+      <div className="w-full max-w-7xl mx-auto px-6 sm:px-[48px] md:px-[64px] z-20 relative flex-grow flex items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 lg:gap-16 items-center w-full">
           
           {/* LEFT SIDE: Headline, Description and CTAs */}
-          <div className="lg:col-span-5 space-y-8 text-left z-20">
-            <div className="space-y-[24px]">
+          <div className="lg:col-span-5 space-y-6 sm:space-y-8 text-left z-20">
+            <div className="space-y-[16px] sm:space-y-[24px]">
               <span className="font-sans text-[10px] tracking-[0.24em] text-luxury-gold uppercase font-bold block">
                 SIVA RUDRA FOUNDATIONS
               </span>
               
-              <h1 className="font-serif text-[42px] sm:text-[54px] lg:text-[clamp(58px,5.5vw,86px)] font-light tracking-[-0.01em] leading-[0.88] text-luxury-white">
+              <h1 className="font-serif text-[38px] sm:text-[54px] lg:text-[clamp(58px,5.5vw,86px)] font-light tracking-[-0.01em] leading-[0.9] sm:leading-[0.88] text-luxury-white">
                 EXCELLENCE <br />
                 <span className="text-luxury-gold">IN EVERY</span> <br />
                 STEP
@@ -80,17 +80,17 @@ export default function HeroSection() {
               A platform celebrating confidence, talent, grace and excellence across pageantry and performance.
             </p>
 
-            {/* Rectangular Action Buttons */}
-            <div className="flex flex-row items-center gap-[12px] pt-2">
+            {/* Rectangular Action Buttons with comfortable touch target */}
+            <div className="flex flex-wrap sm:flex-row items-center gap-[12px] pt-1 sm:pt-2">
               <a
                 href="#register"
-                className="inline-flex items-center justify-center h-[48px] px-6 border border-luxury-gold bg-luxury-gold text-luxury-black-pure font-sans text-[11px] font-semibold tracking-[0.16em] uppercase hover:bg-transparent hover:text-luxury-gold hover:shadow-[0_0_15px_rgba(212,175,55,0.25)] hover:-translate-y-0.5 transition-all duration-300 select-none"
+                className="inline-flex items-center justify-center min-h-[44px] h-[48px] px-6 border border-luxury-gold bg-luxury-gold text-luxury-black-pure font-sans text-[11px] font-semibold tracking-[0.16em] uppercase hover:bg-transparent hover:text-luxury-gold hover:shadow-[0_0_15px_rgba(212,175,55,0.25)] hover:-translate-y-0.5 transition-all duration-300 select-none"
               >
                 REGISTER NOW ↗
               </a>
               <a
                 href="#events"
-                className="inline-flex items-center justify-center h-[48px] px-6 border border-luxury-gray-border/60 text-luxury-white font-sans text-[11px] font-semibold tracking-[0.16em] uppercase hover:border-luxury-gold hover:text-luxury-gold hover:-translate-y-0.5 transition-all duration-300 select-none"
+                className="inline-flex items-center justify-center min-h-[44px] h-[48px] px-6 border border-luxury-gray-border/60 text-luxury-white font-sans text-[11px] font-semibold tracking-[0.16em] uppercase hover:border-luxury-gold hover:text-luxury-gold hover:-translate-y-0.5 transition-all duration-300 select-none"
               >
                 EXPLORE EVENTS ↗
               </a>
@@ -101,7 +101,7 @@ export default function HeroSection() {
           <div className="hidden lg:block lg:col-span-7" />
 
           {/* MOBILE ONLY: Category Name Below */}
-          <div className="lg:hidden flex flex-col justify-center items-start text-left pb-12 z-20">
+          <div className="lg:hidden flex flex-col justify-center items-start text-left pt-2 pb-6 z-20">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeCategory.id}
@@ -109,13 +109,13 @@ export default function HeroSection() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -15 }}
                 transition={{ duration: 0.6, ease: 'easeInOut' }}
-                className="space-y-[12px]"
+                className="space-y-[8px] sm:space-y-[12px]"
               >
-                <h3 className="font-serif text-[22px] font-light text-luxury-gold tracking-widest uppercase">
+                <h3 className="font-serif text-[20px] sm:text-[22px] font-light text-luxury-gold tracking-widest uppercase">
                   {activeCategory.name}
                 </h3>
                 <div className="w-10 h-[0.5px] bg-luxury-gold/50" />
-                <p className="font-sans text-[10px] tracking-luxury text-luxury-white/50 uppercase leading-relaxed">
+                <p className="font-sans text-[10px] tracking-luxury text-luxury-white/60 uppercase leading-relaxed">
                   {activeCategory.subtitle}
                 </p>
               </motion.div>
@@ -126,8 +126,8 @@ export default function HeroSection() {
       </div>
 
       {/* 5. CENTER-RIGHT: Contestant Absolute Positioning Wrapper */}
-      {/* Height increased by 10%: h-[55vh] sm:h-[61vh] lg:h-[91vh], max-h-[462px] sm:max-h-[528px] lg:max-h-[858px] */}
-      <div className="hero-contestant z-10 pointer-events-none select-none mt-8 lg:mt-0 relative lg:absolute bottom-0 right-1/2 translate-x-1/2 lg:translate-x-0 lg:right-[18%] xl:right-[21%] w-[320px] sm:w-[360px] lg:w-[42%] h-[55vh] sm:h-[61vh] lg:h-[91vh] max-h-[462px] sm:max-h-[528px] lg:max-h-[858px] flex items-end justify-center">
+      {/* Desktop size & positioning remains EXACT: lg:absolute lg:right-[18%] xl:right-[21%] lg:w-[42%] lg:h-[91vh] lg:max-h-[858px] */}
+      <div className="hero-contestant z-10 pointer-events-none select-none absolute bottom-0 right-1/2 translate-x-1/2 lg:translate-x-0 lg:right-[18%] xl:right-[21%] w-[270px] sm:w-[340px] md:w-[380px] lg:w-[42%] h-[48vh] sm:h-[58vh] md:h-[65vh] lg:h-[91vh] max-h-[430px] sm:max-h-[510px] md:max-h-[580px] lg:max-h-[858px] flex items-end justify-center">
         <HeroContestantCanvas
           category={activeCategory}
         />

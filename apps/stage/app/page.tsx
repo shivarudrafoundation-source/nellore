@@ -299,37 +299,37 @@ export default function StageLiveDisplay() {
               }`}
             >
               {/* Giant Spotlight Card */}
-              <div className="border-2 border-luxury-gold/40 bg-gradient-to-b from-[#0F0F0F] via-[#0A0A0A] to-[#050505] p-8 md:p-14 text-center space-y-8 shadow-[0_0_80px_rgba(212,175,55,0.12)]">
+              <div className="border-2 border-luxury-gold/40 bg-gradient-to-b from-[#0F0F0F] via-[#0A0A0A] to-[#050505] p-5 sm:p-8 md:p-14 text-center space-y-6 sm:space-y-8 shadow-[0_0_80px_rgba(212,175,55,0.12)]">
                 {/* Category & Round Header */}
                 <div className="space-y-2">
                   <span className="font-sans text-xs md:text-sm tracking-[0.3em] text-luxury-gold uppercase font-bold block">
                     STAGE EVALUATION IN PROGRESS
                   </span>
-                  <h3 className="font-serif text-2xl md:text-3xl text-luxury-white/80 uppercase tracking-widest font-light">
+                  <h3 className="font-serif text-xl sm:text-2xl md:text-3xl text-luxury-white/80 uppercase tracking-widest font-light">
                     {activeScore.categoryName} • {activeScore.roundName}
                   </h3>
                 </div>
 
-                {/* Contestant ID (Huge Display) */}
+                {/* Contestant ID (Responsive LED Display) */}
                 <div className="py-2">
-                  <span className="font-sans text-[11px] text-luxury-white/40 uppercase tracking-[0.28em] block mb-2 font-bold">
+                  <span className="font-sans text-[10px] sm:text-[11px] text-luxury-white/40 uppercase tracking-[0.28em] block mb-2 font-bold">
                     ACTIVE CONTESTANT
                   </span>
-                  <span className="font-mono text-5xl sm:text-7xl md:text-8xl font-bold text-luxury-white tracking-widest block drop-shadow-md">
+                  <span className="font-mono text-2xl sm:text-4xl md:text-6xl lg:text-8xl font-bold text-luxury-white tracking-widest block drop-shadow-md break-all sm:break-normal">
                     {activeScore.contestantId}
                   </span>
                 </div>
 
                 {/* Live Score Display (High Legibility LED Wall Format) */}
-                <div className="inline-block px-10 py-6 bg-black border border-luxury-gold/60 shadow-2xl">
-                  <span className="font-sans text-[10px] md:text-xs tracking-[0.24em] text-luxury-white/40 uppercase block mb-1">
+                <div className="inline-block px-6 sm:px-10 py-4 sm:py-6 bg-black border border-luxury-gold/60 shadow-2xl max-w-full">
+                  <span className="font-sans text-[9px] sm:text-[10px] md:text-xs tracking-[0.24em] text-luxury-white/40 uppercase block mb-1">
                     OFFICIAL EVALUATION SCORE
                   </span>
-                  <div className="flex items-baseline justify-center gap-3">
-                    <span className="font-mono text-5xl sm:text-7xl md:text-8xl font-bold text-luxury-gold">
+                  <div className="flex items-baseline justify-center gap-2 sm:gap-3">
+                    <span className="font-mono text-4xl sm:text-6xl md:text-8xl font-bold text-luxury-gold">
                       {Number(activeScore.totalScore).toFixed(2)}
                     </span>
-                    <span className="font-mono text-2xl md:text-3xl text-luxury-white/40 font-normal">
+                    <span className="font-mono text-lg sm:text-2xl md:text-3xl text-luxury-white/40 font-normal">
                       / {activeScore.roundMaxMarks} PTS
                     </span>
                   </div>
@@ -338,11 +338,11 @@ export default function StageLiveDisplay() {
                 {/* Status Indicator */}
                 <div>
                   {activeScore.status === 'LOCKED' ? (
-                    <span className="font-sans text-xs md:text-sm tracking-[0.25em] uppercase font-bold text-green-400 border border-green-500/40 px-6 py-2 bg-green-500/10 inline-block shadow-sm">
+                    <span className="font-sans text-xs md:text-sm tracking-[0.25em] uppercase font-bold text-green-400 border border-green-500/40 px-4 sm:px-6 py-1.5 sm:py-2 bg-green-500/10 inline-block shadow-sm">
                       OFFICIAL SCORE LOCKED
                     </span>
                   ) : (
-                    <span className="font-sans text-xs md:text-sm tracking-[0.25em] uppercase font-bold text-yellow-400 border border-yellow-500/40 px-6 py-2 bg-yellow-500/10 inline-block shadow-sm animate-pulse">
+                    <span className="font-sans text-xs md:text-sm tracking-[0.25em] uppercase font-bold text-yellow-400 border border-yellow-500/40 px-4 sm:px-6 py-1.5 sm:py-2 bg-yellow-500/10 inline-block shadow-sm animate-pulse">
                       LIVE SCORING ACTIVE
                     </span>
                   )}

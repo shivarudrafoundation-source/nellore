@@ -15,7 +15,7 @@ export default function Footer() {
   ];
 
   return (
-    <footer className="bg-[#050505] text-luxury-white border-t border-luxury-gray-border/20 py-16 px-[48px] md:px-[64px]">
+    <footer className="bg-[#050505] text-luxury-white border-t border-luxury-gray-border/20 py-16 px-6 sm:px-[48px] md:px-[64px]">
       <div className="max-w-7xl mx-auto space-y-12">
         
         {/* Upper footer grid */}

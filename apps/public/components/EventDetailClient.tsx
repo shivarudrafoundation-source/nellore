@@ -36,9 +36,9 @@ export default function EventDetailClient({ event }: EventDetailClientProps) {
     : null;
 
   return (
-    <div className="space-y-16">
+    <div className="space-y-12 sm:space-y-16">
       {/* Event Header Card */}
-      <div className="border border-luxury-gray-border/20 bg-[#0A0A0A] p-8 md:p-12 flex flex-col md:flex-row items-center gap-8 justify-between">
+      <div className="border border-luxury-gray-border/20 bg-[#0A0A0A] p-6 sm:p-8 md:p-12 flex flex-col md:flex-row items-start md:items-center gap-6 md:gap-8 justify-between">
         <div className="space-y-4 text-left">
           <span className="font-sans text-[9px] tracking-widest text-luxury-gold uppercase font-bold block">
             {isCompleted ? 'COMPLETED EVENT RECORD' : 'OFFICIAL EVENT ENTRY'}

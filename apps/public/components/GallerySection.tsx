@@ -10,7 +10,7 @@ export default function GallerySection() {
   const photos = SHOW_DEMO_DATA ? demoPhotos['demo-ev-past-001'] : [];
 
   return (
-    <section id="gallery" className="py-24 bg-[#050505] text-luxury-white border-t border-luxury-gray-border/20 px-[48px] md:px-[64px]">
+    <section id="gallery" className="py-16 sm:py-24 bg-[#050505] text-luxury-white border-t border-luxury-gray-border/20 px-6 sm:px-[48px] md:px-[64px]">
       <div className="max-w-7xl mx-auto space-y-16">
         
         {/* Title block */}

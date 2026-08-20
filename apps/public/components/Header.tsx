@@ -21,6 +21,25 @@ export default function Header() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Lock body scroll and handle Escape key when mobile menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setMobileMenuOpen(false);
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    } else {
+      document.body.style.overflow = '';
+    }
+  }, [mobileMenuOpen]);
+
   const navLinks = [
     { label: 'ABOUT', href: '/#about' },
     { label: 'EVENTS', href: '/#events' },
@@ -40,7 +59,7 @@ export default function Header() {
         }`}
       >
         {/* Proper 3-Column Header Grid Layout */}
-        <div className="w-full max-w-7xl mx-auto px-[48px] md:px-[64px] grid grid-cols-[auto_1fr_auto] items-center">
+        <div className="w-full max-w-7xl mx-auto px-6 sm:px-[48px] md:px-[64px] grid grid-cols-[auto_1fr_auto] items-center">
           
           {/* LEFT: Siva Rudra official logo */}
           <Link href="/" className="flex items-center select-none cursor-pointer">
@@ -80,8 +99,9 @@ export default function Header() {
           {/* Mobile hamburger trigger (Right on mobile) */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden flex flex-col justify-center items-end w-8 h-8 gap-1.5 focus:outline-none ml-auto z-50 cursor-pointer"
+            className="lg:hidden flex flex-col justify-center items-end min-w-[44px] min-h-[44px] w-11 h-11 p-2 gap-1.5 focus:outline-none ml-auto z-50 cursor-pointer"
             aria-label="Toggle navigation menu"
+            aria-expanded={mobileMenuOpen}
           >
             <span 
               className={`h-[1px] bg-luxury-white transition-all duration-300 ${
@@ -110,9 +130,12 @@ export default function Header() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.4, ease: 'easeInOut' }}
-            className="fixed inset-0 bg-luxury-black z-40 flex flex-col justify-center px-8 md:px-16 lg:hidden"
+            className="fixed inset-0 bg-[#050505]/98 backdrop-blur-xl z-40 flex flex-col justify-center px-8 sm:px-12 md:px-16 lg:hidden"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setMobileMenuOpen(false);
+            }}
           >
-            <div className="space-y-8 flex flex-col">
+            <div className="space-y-6 flex flex-col max-w-md w-full mx-auto">
               {navLinks.map((link, idx) => (
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
@@ -123,7 +146,7 @@ export default function Header() {
                   <Link
                     href={link.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className="font-serif text-2xl md:text-3xl font-light text-luxury-white hover:text-luxury-gold transition-colors duration-300 uppercase tracking-widest block"
+                    className="font-serif text-2xl md:text-3xl font-light text-luxury-white hover:text-luxury-gold transition-colors duration-300 uppercase tracking-widest block py-2 min-h-[44px] flex items-center"
                   >
                     {link.label}
                   </Link>
@@ -139,7 +162,7 @@ export default function Header() {
                 <Link
                   href="/#register"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="inline-flex items-center justify-center w-full h-12 border border-luxury-gold/45 text-luxury-gold font-sans text-xs font-semibold tracking-luxury uppercase hover:bg-luxury-gold hover:text-luxury-black-pure transition-all duration-300"
+                  className="inline-flex items-center justify-center w-full min-h-[48px] h-12 border border-luxury-gold/60 bg-luxury-gold/10 text-luxury-gold font-sans text-xs font-semibold tracking-luxury uppercase hover:bg-luxury-gold hover:text-luxury-black-pure transition-all duration-300"
                 >
                   REGISTER NOW ↗
                 </Link>

@@ -68,7 +68,7 @@ export default function UpcomingEventsSection({ onRegisterClick }: UpcomingEvent
   }, []);
 
   return (
-    <section id="events" className="py-24 bg-[#0A0A0A] text-luxury-white border-t border-luxury-gray-border/20 px-[48px] md:px-[64px]">
+    <section id="events" className="py-16 sm:py-24 bg-[#0A0A0A] text-luxury-white border-t border-luxury-gray-border/20 px-6 sm:px-[48px] md:px-[64px]">
       <div className="max-w-7xl mx-auto space-y-16">
         
         {/* Header Block */}

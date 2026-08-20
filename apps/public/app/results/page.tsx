@@ -255,21 +255,21 @@ function ResultsContent() {
         </div>
 
         {/* Filter Controls Bar */}
-        <div className="p-6 bg-[#0A0A0A] border border-luxury-gray-border/20 flex flex-col md:flex-row gap-6 items-stretch md:items-center justify-between">
+        <div className="p-4 sm:p-6 bg-[#0A0A0A] border border-luxury-gray-border/20 flex flex-col md:flex-row gap-5 md:gap-6 items-stretch md:items-center justify-between">
           {/* Event Selector */}
           <div className="flex-1">
             <label className="block font-sans text-[9px] text-luxury-white/40 uppercase tracking-luxury mb-1.5 font-semibold">
               Select Competition Event
             </label>
             {events.length === 0 ? (
-              <div className="h-10 bg-[#050505] border border-luxury-gray-border/20 px-3 flex items-center font-sans text-xs text-luxury-white/40 uppercase">
+              <div className="h-11 bg-[#050505] border border-luxury-gray-border/20 px-3 flex items-center font-sans text-xs text-luxury-white/40 uppercase">
                 NO ACTIVE EVENTS FOUND
               </div>
             ) : (
               <select
                 value={selectedEventSlug}
                 onChange={(e) => handleEventChange(e.target.value)}
-                className="w-full h-10 bg-[#050505] border border-luxury-gray-border/30 px-3 font-sans text-xs text-luxury-white uppercase tracking-luxury outline-none focus:border-luxury-gold/50 cursor-pointer transition-colors"
+                className="w-full min-h-[44px] h-11 bg-[#050505] border border-luxury-gray-border/30 px-3 font-sans text-xs text-luxury-white uppercase tracking-luxury outline-none focus:border-luxury-gold/50 cursor-pointer transition-colors"
               >
                 {events.map((ev) => (
                   <option key={ev.id} value={ev.code || ev.id}>
@@ -280,7 +280,7 @@ function ResultsContent() {
             )}
           </div>
 
-          {/* Category Filter Pills */}
+          {/* Category Filter Pills with Touch-friendly Targets */}
           <div className="space-y-1.5">
             <label className="block font-sans text-[9px] text-luxury-white/40 uppercase tracking-luxury font-semibold">
               Filter by Category
@@ -289,7 +289,7 @@ function ResultsContent() {
               <button
                 type="button"
                 onClick={() => handleCategoryChange('')}
-                className={`px-3 py-1.5 font-sans text-[10px] tracking-luxury uppercase border transition-all duration-200 cursor-pointer ${
+                className={`min-h-[44px] px-4 py-2 font-sans text-[10px] sm:text-[11px] tracking-luxury uppercase border transition-all duration-200 cursor-pointer flex items-center justify-center ${
                   selectedCategory === ''
                     ? 'border-luxury-gold bg-luxury-gold/15 text-luxury-gold font-bold shadow-sm'
                     : 'border-luxury-gray-border/20 text-luxury-white/60 hover:text-white hover:border-luxury-white/40'
@@ -302,7 +302,7 @@ function ResultsContent() {
                   key={cat.id}
                   type="button"
                   onClick={() => handleCategoryChange(cat.id)}
-                  className={`px-3 py-1.5 font-sans text-[10px] tracking-luxury uppercase border transition-all duration-200 cursor-pointer ${
+                  className={`min-h-[44px] px-4 py-2 font-sans text-[10px] sm:text-[11px] tracking-luxury uppercase border transition-all duration-200 cursor-pointer flex items-center justify-center ${
                     selectedCategory === cat.id
                       ? 'border-luxury-gold bg-luxury-gold/15 text-luxury-gold font-bold shadow-sm'
                       : 'border-luxury-gray-border/20 text-luxury-white/60 hover:text-white hover:border-luxury-white/40'

@@ -55,7 +55,7 @@ export default function FeaturedEventSection({ onRegisterClick }: FeaturedEventS
   });
 
   return (
-    <section className="py-24 bg-[#050505] text-luxury-white border-t border-luxury-gray-border/20 px-[48px] md:px-[64px] relative overflow-hidden">
+    <section className="py-16 sm:py-24 bg-[#050505] text-luxury-white border-t border-luxury-gray-border/20 px-6 sm:px-[48px] md:px-[64px] relative overflow-hidden">
       {/* Background glow overlay */}
       <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[35vw] h-[35vh] bg-luxury-gold/5 filter blur-3xl rounded-full z-0 select-none pointer-events-none" />
 

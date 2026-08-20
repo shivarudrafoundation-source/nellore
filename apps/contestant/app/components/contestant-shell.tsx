@@ -27,6 +27,25 @@ export function ContestantShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
+  // Body scroll lock and Escape key handling for mobile drawer
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setMobileMenuOpen(false);
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    } else {
+      document.body.style.overflow = '';
+    }
+  }, [mobileMenuOpen]);
+
   useEffect(() => {
     async function loadContestant() {
       try {
@@ -138,7 +157,8 @@ export function ContestantShell({ children }: { children: React.ReactNode }) {
               </span>
               <button
                 onClick={() => setMobileMenuOpen(false)}
-                className="text-luxury-white/60 hover:text-white p-2"
+                className="text-luxury-white/60 hover:text-white min-w-[44px] min-h-[44px] flex items-center justify-center p-2"
+                aria-label="Close menu"
               >
                 ✕
               </button>
@@ -153,7 +173,7 @@ export function ContestantShell({ children }: { children: React.ReactNode }) {
                     key={item.path}
                     href={item.path}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center px-4 py-2.5 text-xs font-sans tracking-luxury uppercase transition-all rounded-sm ${
+                    className={`flex items-center px-4 min-h-[44px] text-xs font-sans tracking-luxury uppercase transition-all rounded-sm ${
                       isActive
                         ? 'bg-luxury-gold/10 text-luxury-gold border-l-2 border-luxury-gold font-bold'
                         : 'text-luxury-white/60 hover:text-white'
@@ -167,7 +187,7 @@ export function ContestantShell({ children }: { children: React.ReactNode }) {
             <div className="p-4 border-t border-luxury-gray-border/20">
               <button
                 onClick={handleLogout}
-                className="w-full py-2.5 px-4 text-left font-sans text-xs tracking-luxury uppercase text-red-400"
+                className="w-full min-h-[44px] flex items-center px-4 text-left font-sans text-xs tracking-luxury uppercase text-red-400"
               >
                 ← SECURE LOGOUT
               </button>

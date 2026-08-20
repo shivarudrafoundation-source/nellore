@@ -462,6 +462,7 @@ export default function JudgeScoringConsole() {
                             <div className="flex items-center gap-3 justify-end">
                               <input
                                 type="number"
+                                inputMode="decimal"
                                 step="0.25"
                                 min="0"
                                 max={crit.maxMarks}
@@ -469,7 +470,7 @@ export default function JudgeScoringConsole() {
                                 value={currentVal}
                                 onChange={(e) => handleScoreChange(crit.name, e.target.value, crit.maxMarks)}
                                 placeholder="0.00"
-                                className="w-24 h-11 bg-[#000000] border border-luxury-gray-border/40 focus:border-luxury-gold text-center font-mono text-base font-bold text-luxury-gold outline-none transition-colors disabled:opacity-50"
+                                className="w-24 min-h-[44px] h-11 bg-[#000000] border border-luxury-gray-border/40 focus:border-luxury-gold text-center font-mono text-base font-bold text-luxury-gold outline-none transition-colors disabled:opacity-50"
                               />
                               <span className="font-sans text-xs text-luxury-white/40 font-mono min-w-[50px]">
                                 / {crit.maxMarks}

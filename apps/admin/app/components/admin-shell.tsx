@@ -32,6 +32,25 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
+  // Body scroll lock and Escape key handling for mobile drawer
+  React.useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setMobileMenuOpen(false);
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    } else {
+      document.body.style.overflow = '';
+    }
+  }, [mobileMenuOpen]);
+
   const handleLogout = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -108,12 +127,18 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
       {/* 2. Mobile Sidebar Overlay Drawer */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 flex lg:hidden bg-black/60 backdrop-blur-sm transition-opacity duration-300">
+        <div 
+          className="fixed inset-0 z-50 flex lg:hidden bg-black/75 backdrop-blur-sm transition-opacity duration-300"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setMobileMenuOpen(false);
+          }}
+        >
           <div className="relative flex flex-col w-full max-w-xs bg-[#0A0A0A] border-r border-luxury-gray-border/20 shadow-2xl animate-slide-in">
             {/* Close Button */}
             <button
-              className="absolute top-4 right-4 text-luxury-white/50 hover:text-luxury-gold text-lg font-sans outline-none"
+              className="absolute top-3 right-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-luxury-white/50 hover:text-luxury-gold text-lg font-sans outline-none"
               onClick={() => setMobileMenuOpen(false)}
+              aria-label="Close sidebar navigation"
             >
               ✕
             </button>
@@ -141,7 +166,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   <Link
                     key={item.label}
                     href={item.path}
-                    className={`flex items-center px-4 h-10 font-sans text-[11px] tracking-luxury font-semibold border-l-2 uppercase ${
+                    className={`flex items-center px-4 min-h-[44px] h-11 font-sans text-[11px] tracking-luxury font-semibold border-l-2 uppercase ${
                       isActive
                         ? 'text-luxury-gold border-luxury-gold bg-luxury-gold/5'
                         : 'text-luxury-white/50 border-transparent hover:text-luxury-gold hover:bg-luxury-gold/2'
@@ -158,7 +183,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <div className="p-4 border-t border-luxury-gray-border/10 bg-[#000000]/15">
               <Button
                 variant="text"
-                className="w-full text-left font-sans text-[10px] tracking-luxury font-bold text-luxury-gold hover:text-white"
+                className="w-full text-left font-sans text-[10px] tracking-luxury font-bold text-luxury-gold hover:text-white min-h-[44px] flex items-center"
                 onClick={handleLogout}
               >
                 LOGOUT CONTROL PANEL ↗
