@@ -50,6 +50,36 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionResult, setSubmissionResult] = useState<any | null>(null);
+  const [currentUser, setCurrentUser] = useState<any | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // Check auth state and prefill profile
+  useEffect(() => {
+    if (isOpen) {
+      fetch(`${API}/auth/user/profile`, { credentials: 'include' })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data && data.user) {
+            setCurrentUser(data.user);
+            setFormData((prev) => ({
+              ...prev,
+              name: prev.name || data.user.name || '',
+              email: prev.email || data.user.email || '',
+              mobile: prev.mobile || data.user.mobile || '',
+              location: prev.location || data.user.location || '',
+            }));
+            setOtpVerified(true);
+          } else {
+            setCurrentUser(null);
+          }
+          setAuthChecked(true);
+        })
+        .catch(() => {
+          setCurrentUser(null);
+          setAuthChecked(true);
+        });
+    }
+  }, [isOpen]);
 
   // OTP Countdown timer
   useEffect(() => {
@@ -292,7 +322,43 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
           </h2>
         </div>
 
+        {/* AUTHENTICATION GATE */}
+        {authChecked && !currentUser && (
+          <div className="space-y-6 text-center py-6">
+            <div className="w-12 h-12 rounded-full border border-luxury-gold/50 bg-luxury-gold/10 mx-auto flex items-center justify-center text-luxury-gold text-lg font-serif">
+              🔒
+            </div>
+            <div className="space-y-2">
+              <span className="font-sans text-[10px] tracking-[0.24em] text-[#D4AF37] uppercase font-bold block">
+                AUTHENTICATION REQUIRED
+              </span>
+              <h3 className="font-serif text-2xl font-light text-white">
+                Sign In to Register
+              </h3>
+              <p className="font-sans text-xs text-white/60 max-w-md mx-auto leading-relaxed">
+                You must be logged in to your website account before registering for <strong>{event.name}</strong>. This ensures all registrations, payment verifications, and Contestant IDs are securely linked to your profile.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2 max-w-sm mx-auto">
+              <a
+                href={`/login?returnUrl=${encodeURIComponent(`/events/${event.code || event.id}`)}`}
+                className="flex-1 py-3 px-5 bg-[#D4AF37] hover:bg-[#E5C158] text-black font-semibold text-xs uppercase tracking-wider transition-colors text-center rounded-sm"
+              >
+                SIGN IN →
+              </a>
+              <a
+                href={`/signup?returnUrl=${encodeURIComponent(`/events/${event.code || event.id}`)}`}
+                className="flex-1 py-3 px-5 border border-white/20 hover:border-[#D4AF37] text-white font-semibold text-xs uppercase tracking-wider transition-colors text-center rounded-sm"
+              >
+                CREATE ACCOUNT
+              </a>
+            </div>
+          </div>
+        )}
+
         {/* Step Progress Indicators */}
+        {currentUser && (
         <div className="grid grid-cols-5 gap-1.5 sm:gap-2 border-b border-luxury-gray-border/10 pb-4">
           {[
             { n: 1, label: 'CATEGORY' },
@@ -317,9 +383,10 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
             </div>
           ))}
         </div>
+        )}
 
         {/* STEP 1: CATEGORY SELECTION */}
-        {step === 1 && (
+        {currentUser && step === 1 && (
           <div className="space-y-6">
             <div>
               <h3 className="font-serif text-lg font-light text-luxury-white">Select Pageant Division</h3>
@@ -770,12 +837,18 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
               </div>
             </div>
 
-            <div className="pt-4">
+            <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
+              <a
+                href="/profile"
+                className="min-h-[44px] h-11 px-8 border border-luxury-gold bg-luxury-gold text-luxury-black-pure font-sans text-xs font-semibold tracking-luxury uppercase hover:bg-[#E5C158] transition-all duration-300 inline-flex items-center justify-center"
+              >
+                VIEW IN MY EVENTS & STATUS →
+              </a>
               <button
                 onClick={onClose}
-                className="min-h-[44px] h-11 px-10 border border-luxury-gold bg-luxury-gold text-luxury-black-pure font-sans text-xs font-semibold tracking-luxury uppercase hover:bg-transparent hover:text-luxury-gold transition-all duration-300"
+                className="min-h-[44px] h-11 px-6 border border-white/20 text-white/70 font-sans text-xs uppercase tracking-luxury hover:text-white transition-all duration-300"
               >
-                RETURN TO HOME
+                CLOSE
               </button>
             </div>
           </div>

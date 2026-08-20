@@ -428,7 +428,7 @@ export class AuthService {
   async loginContestant(
     dto: { email?: string; contestantId?: string; password?: string },
     ipAddress?: string,
-  ): Promise<{ user: any; tokens: { accessToken: string; refreshToken: string } }> {
+  ): Promise<{ user: any; contestant?: any; tokens: { accessToken: string; refreshToken: string } }> {
     const rawEmail = String(dto.email || '').trim().toLowerCase();
     const rawContestantId = String(dto.contestantId || '').trim();
     const rawPassword = String(dto.password || '').trim();
@@ -513,17 +513,20 @@ export class AuthService {
       },
     });
 
+    const contestantData = {
+      id: contestant.id,
+      contestantId: contestant.id,
+      email: regEmail,
+      mobile: contestant.mobile,
+      eventId: contestant.eventId,
+      category: contestant.registration?.category?.name,
+      categoryCode: contestant.registration?.category?.code,
+      role: 'CONTESTANT',
+    };
+
     return {
-      user: {
-        id: contestant.id,
-        contestantId: contestant.id,
-        email: regEmail,
-        mobile: contestant.mobile,
-        eventId: contestant.eventId,
-        category: contestant.registration?.category?.name,
-        categoryCode: contestant.registration?.category?.code,
-        role: 'CONTESTANT',
-      },
+      user: contestantData,
+      contestant: contestantData,
       tokens,
     };
   }
@@ -654,6 +657,314 @@ export class AuthService {
     return {
       success: true,
       message: 'Your password has been updated successfully. You may now log in.',
+    };
+  }
+
+  /**
+   * Public User Sign-Up: Request OTP to Email
+   */
+  async requestUserSignupOtp(
+    dto: { email?: string },
+    ipAddress?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const rawEmail = String(dto.email || '').trim().toLowerCase();
+    if (!rawEmail || !rawEmail.includes('@')) {
+      throw new UnauthorizedException('Please provide a valid email address.');
+    }
+
+    // Check if account already exists
+    const existing = await this.db.user.findUnique({
+      where: { email: rawEmail },
+    });
+
+    if (existing) {
+      throw new UnauthorizedException('An account with this email already exists. Please sign in.');
+    }
+
+    const otp = await this.otpService.generateOtp(rawEmail, 'user-signup');
+
+    if (this.mailService) {
+      await this.mailService.sendOtpEmail(rawEmail, otp, 'Website Account Registration');
+    }
+
+    await this.auditService.log({
+      actorType: 'USER',
+      actorId: rawEmail,
+      action: 'OTP_VERIFIED',
+      entity: 'User',
+      ipAddress,
+      after: { emailMasked: rawEmail.replace(/(.{2})(.*)(?=@)/, (_, a, b) => a + '*'.repeat(b.length)) },
+    });
+
+    return {
+      success: true,
+      message: 'A secure 6-digit OTP has been sent to your email address.',
+    };
+  }
+
+  /**
+   * Public User Sign-Up: Verify OTP & Create Account
+   */
+  async verifyUserSignupAndCreate(
+    dto: {
+      email?: string;
+      otp?: string;
+      password?: string;
+      name?: string;
+      mobile?: string;
+      location?: string;
+    },
+    ipAddress?: string,
+  ): Promise<{ user: any; tokens: { accessToken: string; refreshToken: string } }> {
+    const rawEmail = String(dto.email || '').trim().toLowerCase();
+    const rawOtp = String(dto.otp || '').trim();
+    const rawPassword = String(dto.password || '').trim();
+
+    if (!rawEmail || !rawOtp || !rawPassword) {
+      throw new UnauthorizedException('Email, OTP, and password are required.');
+    }
+
+    if (rawPassword.length < 8) {
+      throw new UnauthorizedException('Password must be at least 8 characters in length.');
+    }
+
+    // 1. Verify single-use OTP
+    await this.otpService.verifyOtp(rawEmail, 'user-signup', rawOtp);
+
+    // 2. Check for duplicate account
+    const existing = await this.db.user.findUnique({
+      where: { email: rawEmail },
+    });
+
+    if (existing) {
+      throw new UnauthorizedException('An account with this email already exists.');
+    }
+
+    // 3. Hash password and create User record
+    const passwordHash = await bcrypt.hash(rawPassword, 10);
+    const user = await this.db.user.create({
+      data: {
+        email: rawEmail,
+        passwordHash,
+        name: dto.name ? String(dto.name).trim() : null,
+        mobile: dto.mobile ? String(dto.mobile).trim() : null,
+        location: dto.location ? String(dto.location).trim() : null,
+        role: 'USER',
+      },
+    });
+
+    // 4. Generate JWT tokens
+    const payload: JwtPayload = {
+      sub: user.id,
+      role: 'USER',
+      email: user.email,
+      mobile: user.mobile || undefined,
+    };
+
+    const tokens = await this.generateTokens(payload);
+
+    // 5. Audit Log
+    await this.auditService.log({
+      actorType: 'USER',
+      actorId: user.id,
+      action: 'USER_SIGNUP',
+      entity: 'User',
+      entityId: user.id,
+      ipAddress,
+      after: {
+        userId: user.id,
+        emailMasked: rawEmail.replace(/(.{2})(.*)(?=@)/, (_, a, b) => a + '*'.repeat(b.length)),
+      },
+    });
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        mobile: user.mobile,
+        location: user.location,
+        role: 'USER',
+      },
+      tokens,
+    };
+  }
+
+  /**
+   * Public User Sign-In: Email + Password
+   */
+  async loginUser(
+    dto: { email?: string; password?: string },
+    ipAddress?: string,
+  ): Promise<{ user: any; tokens: { accessToken: string; refreshToken: string } }> {
+    const rawEmail = String(dto.email || '').trim().toLowerCase();
+    const rawPassword = String(dto.password || '').trim();
+
+    if (!rawEmail || !rawPassword) {
+      throw new UnauthorizedException('Email and password are required.');
+    }
+
+    const user = await this.db.user.findUnique({
+      where: { email: rawEmail },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid email or password.');
+    }
+
+    const isPasswordValid = await bcrypt.compare(rawPassword, user.passwordHash);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid email or password.');
+    }
+
+    const payload: JwtPayload = {
+      sub: user.id,
+      role: 'USER',
+      email: user.email,
+      mobile: user.mobile || undefined,
+    };
+
+    const tokens = await this.generateTokens(payload);
+
+    await this.auditService.log({
+      actorType: 'USER',
+      actorId: user.id,
+      action: 'USER_LOGIN',
+      entity: 'User',
+      entityId: user.id,
+      ipAddress,
+      after: {
+        userId: user.id,
+        emailMasked: rawEmail.replace(/(.{2})(.*)(?=@)/, (_, a, b) => a + '*'.repeat(b.length)),
+      },
+    });
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        mobile: user.mobile,
+        location: user.location,
+        role: 'USER',
+      },
+      tokens,
+    };
+  }
+
+  /**
+   * Get User Profile & My Events
+   */
+  async getUserProfile(userId: string) {
+    const user = await this.db.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User account not found.');
+    }
+
+    // Retrieve all registrations associated with this user
+    const registrations = await this.db.registration.findMany({
+      where: {
+        OR: [
+          {
+            baseFields: {
+              path: ['userId'],
+              equals: user.id,
+            },
+          },
+          {
+            baseFields: {
+              path: ['email'],
+              equals: user.email,
+            },
+          },
+        ],
+      },
+      include: {
+        event: { select: { id: true, name: true, code: true, location: true, status: true } },
+        category: { select: { id: true, name: true, code: true } },
+        contestant: { select: { id: true, mobile: true, createdAt: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const myEvents = registrations.map((reg) => ({
+      registrationId: reg.id,
+      eventId: reg.eventId,
+      eventName: reg.event.name,
+      eventCode: reg.event.code,
+      categoryId: reg.categoryId,
+      categoryName: reg.category.name,
+      categoryCode: reg.category.code,
+      registrationStatus: 'REGISTERED',
+      paymentStatus: reg.paymentStatus, // 'UNPAID' | 'PAID'
+      contestantStatus: reg.contestantId ? 'ACTIVE' : 'NOT ASSIGNED',
+      contestantId: reg.contestantId || null,
+      contestantPortalAllowed: reg.paymentStatus === 'PAID' && !!reg.contestantId,
+      registeredAt: reg.createdAt,
+    }));
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        mobile: user.mobile,
+        location: user.location,
+        role: 'USER',
+      },
+      myEvents,
+    };
+  }
+
+  /**
+   * Update User Profile (Name, Mobile, Location only)
+   */
+  async updateUserProfile(
+    userId: string,
+    dto: { name?: string; mobile?: string; location?: string },
+    ipAddress?: string,
+  ) {
+    const user = await this.db.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User account not found.');
+    }
+
+    const updated = await this.db.user.update({
+      where: { id: userId },
+      data: {
+        name: dto.name !== undefined ? String(dto.name).trim() : user.name,
+        mobile: dto.mobile !== undefined ? String(dto.mobile).trim() : user.mobile,
+        location: dto.location !== undefined ? String(dto.location).trim() : user.location,
+      },
+    });
+
+    await this.auditService.log({
+      actorType: 'USER',
+      actorId: user.id,
+      action: 'USER_PROFILE_UPDATED',
+      entity: 'User',
+      entityId: user.id,
+      ipAddress,
+      after: {
+        name: updated.name,
+        mobile: updated.mobile,
+        location: updated.location,
+      },
+    });
+
+    return {
+      id: updated.id,
+      email: updated.email,
+      name: updated.name,
+      mobile: updated.mobile,
+      location: updated.location,
+      role: 'USER',
     };
   }
 }

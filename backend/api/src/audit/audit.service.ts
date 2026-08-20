@@ -51,11 +51,14 @@ export class AuditService {
    * Log security, auth, and state changes to the database
    */
   async log(params: {
-    actorType: 'ADMIN' | 'JUDGE' | 'CONTESTANT' | 'SYSTEM';
+    actorType: 'ADMIN' | 'JUDGE' | 'CONTESTANT' | 'USER' | 'SYSTEM';
     actorId: string;
     action:
       | 'ADMIN_LOGIN'
       | 'JUDGE_LOGIN'
+      | 'USER_SIGNUP'
+      | 'USER_LOGIN'
+      | 'USER_PROFILE_UPDATED'
       | 'PASSWORD_RESET'
       | 'OTP_VERIFIED'
       | 'REGISTRATION_CREATED'
@@ -74,6 +77,7 @@ export class AuditService {
       | 'REGISTRATION_UPDATED'
       | 'CONTESTANT_CREATED'
       | 'CONTESTANT_ACTIVATED'
+      | 'CONTESTANT_ID_ASSIGNED'
       | 'CONTESTANT_UPDATED'
       | 'PAYMENT_VERIFIED'
       | 'JUDGE_CREATED'

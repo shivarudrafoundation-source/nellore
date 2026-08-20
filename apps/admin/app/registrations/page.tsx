@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AuthGuard } from '../components/auth-guard';
 import { AdminShell } from '../components/admin-shell';
 import { Pagination } from '../components/pagination';
-import { Card } from '@srf/ui';
+import { Card, Button } from '@srf/ui';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -22,6 +22,13 @@ function RegistrationsContent() {
   const [paymentFilter, setPaymentFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Payment Verification Modal State
+  const [verifyModalOpen, setVerifyModalOpen] = useState(false);
+  const [selectedReg, setSelectedReg] = useState<any | null>(null);
+  const [enteredContestantId, setEnteredContestantId] = useState('');
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyError, setVerifyError] = useState('');
 
   // Load events
   useEffect(() => {
@@ -82,6 +89,52 @@ function RegistrationsContent() {
   useEffect(() => {
     fetchRegistrations(1);
   }, [fetchRegistrations]);
+
+  const openVerifyModal = (reg: any) => {
+    setSelectedReg(reg);
+    const eventCode = reg.event?.code || 'NLR26';
+    const catCode = reg.category?.code || 'GEN';
+    const randomSeq = String(Math.floor(1000 + Math.random() * 9000));
+    setEnteredContestantId(`SRF-${eventCode}-${catCode}-${randomSeq}`);
+    setVerifyError('');
+    setVerifyModalOpen(true);
+  };
+
+  const handleConfirmVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedReg) return;
+
+    const contestantId = enteredContestantId.trim().toUpperCase();
+    if (!contestantId) {
+      setVerifyError('Please enter a Contestant ID.');
+      return;
+    }
+
+    setVerifyLoading(true);
+    setVerifyError('');
+
+    try {
+      const res = await fetch(`${API}/admin/registrations/${selectedReg.id}/verify-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ contestantId }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to verify payment and assign Contestant ID.');
+      }
+
+      setVerifyModalOpen(false);
+      setSelectedReg(null);
+      fetchRegistrations(pagination.page);
+    } catch (err: any) {
+      setVerifyError(err.message || 'Verification failed.');
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -166,7 +219,7 @@ function RegistrationsContent() {
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-luxury-gray-border/10">
-                  {['Name', 'Mobile', 'Event', 'Category', 'Payment', 'Contestant ID', 'Date', 'Actions'].map((h) => (
+                  {['Name', 'Email', 'Event', 'Category', 'Payment', 'Contestant ID', 'Actions'].map((h) => (
                     <th
                       key={h}
                       className="font-sans text-[9px] tracking-luxury text-luxury-white/30 uppercase py-3 px-4 first:pl-6 last:pr-6"
@@ -187,7 +240,7 @@ function RegistrationsContent() {
                       <td className="font-sans text-xs text-luxury-white/90 py-3 px-4 pl-6 font-medium">
                         {base.name || 'Anonymous'}
                       </td>
-                      <td className="font-sans text-[11px] text-luxury-white/50 py-3 px-4">{base.mobile || '—'}</td>
+                      <td className="font-sans text-[11px] text-luxury-white/50 py-3 px-4">{base.email || base.mobile || '—'}</td>
                       <td className="font-sans text-[11px] text-luxury-white/60 py-3 px-4">{reg.event?.name}</td>
                       <td className="font-sans text-[11px] text-luxury-gold/60 py-3 px-4">{reg.category?.name}</td>
                       <td className="py-3 px-4">
@@ -196,7 +249,7 @@ function RegistrationsContent() {
                             reg.paymentStatus === 'PAID' ? 'text-green-400' : 'text-yellow-500/80'
                           }`}
                         >
-                          {reg.paymentStatus}
+                          {reg.paymentStatus === 'PAID' ? '✓ VERIFIED' : '⏳ PENDING'}
                         </span>
                       </td>
                       <td className="font-sans text-[11px] font-mono text-luxury-gold py-3 px-4">
@@ -205,22 +258,23 @@ function RegistrationsContent() {
                             {reg.contestantId}
                           </Link>
                         ) : (
-                          <span className="text-luxury-white/20">—</span>
+                          <span className="text-luxury-white/20">NOT ASSIGNED</span>
                         )}
                       </td>
-                      <td className="font-sans text-[11px] text-luxury-white/40 py-3 px-4 whitespace-nowrap">
-                        {new Date(reg.createdAt).toLocaleDateString('en-IN', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                      </td>
-                      <td className="py-3 px-4 pr-6">
+                      <td className="py-3 px-4 pr-6 flex items-center gap-2">
+                        {reg.paymentStatus === 'UNPAID' && (
+                          <button
+                            onClick={() => openVerifyModal(reg)}
+                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white font-sans text-[10px] uppercase font-bold tracking-wider rounded-sm transition-colors"
+                          >
+                            VERIFY PAYMENT
+                          </button>
+                        )}
                         <button
                           onClick={() => router.push(`/registrations/${reg.id}`)}
-                          className="font-sans text-[10px] tracking-luxury text-luxury-gold hover:text-luxury-white uppercase font-bold transition-colors"
+                          className="font-sans text-[10px] tracking-luxury text-luxury-gold hover:text-luxury-white uppercase font-bold transition-colors ml-1"
                         >
-                          VIEW DETAILS
+                          DETAILS →
                         </button>
                       </td>
                     </tr>
@@ -238,6 +292,84 @@ function RegistrationsContent() {
             />
           </div>
         </Card>
+      )}
+
+      {/* PAYMENT VERIFICATION MODAL */}
+      {verifyModalOpen && selectedReg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#0A0A0A] border border-luxury-gold/40 w-full max-w-md p-6 space-y-5 shadow-2xl rounded-sm">
+            <div className="border-b border-luxury-gray-border/20 pb-3">
+              <span className="font-sans text-[9px] tracking-[0.24em] text-luxury-gold uppercase font-bold block">
+                ADMIN PAYMENT VERIFICATION
+              </span>
+              <h3 className="font-serif text-xl font-light text-white mt-1">
+                Confirm & Assign Contestant ID
+              </h3>
+            </div>
+
+            {verifyError && (
+              <div className="p-3 bg-red-950/40 border border-red-500/50 text-red-300 text-xs rounded-sm">
+                {verifyError}
+              </div>
+            )}
+
+            <div className="bg-[#050505] border border-white/10 p-4 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-white/40">Applicant:</span>
+                <span className="text-white font-medium">{selectedReg.baseFields?.name || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/40">Email:</span>
+                <span className="text-white font-mono">{selectedReg.baseFields?.email || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/40">Event:</span>
+                <span className="text-white">{selectedReg.event?.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/40">Category:</span>
+                <span className="text-luxury-gold font-medium">{selectedReg.category?.name}</span>
+              </div>
+            </div>
+
+            <form onSubmit={handleConfirmVerify} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-[0.2em] text-white/60 mb-1.5">
+                  Assign Official Contestant ID *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={enteredContestantId}
+                  onChange={(e) => setEnteredContestantId(e.target.value.toUpperCase())}
+                  placeholder="e.g. SRF-NLR26-MISS-0012"
+                  className="w-full bg-[#050505] border border-luxury-gold/50 focus:border-luxury-gold px-3.5 py-2.5 font-mono text-sm text-luxury-gold font-bold focus:outline-none rounded-sm"
+                />
+                <p className="text-[10px] text-white/40 mt-1">
+                  Unique ID for stage scoring, dossier tracking & contestant login.
+                </p>
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <Button
+                  type="submit"
+                  disabled={verifyLoading}
+                  className="flex-1 bg-luxury-gold hover:bg-luxury-gold/80 text-black font-bold uppercase tracking-wider text-xs"
+                >
+                  {verifyLoading ? 'VERIFYING...' : 'CONFIRM & ASSIGN ↗'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setVerifyModalOpen(false)}
+                  className="text-xs"
+                >
+                  CANCEL
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

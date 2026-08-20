@@ -132,6 +132,7 @@ export class PublicRegistrationsController {
     @Req() req: any,
   ) {
     const ip = req.ip || req.headers?.['x-forwarded-for']?.toString() || undefined;
+    const userId = req.user?.sub || body.userId;
 
     // Verify OTP if passed inline
     if (body.otp) {
@@ -144,6 +145,6 @@ export class PublicRegistrationsController {
       await this.otpService.verifyOtp(identifier, body.eventId, cleanOtp);
     }
 
-    return this.registrationsService.createPublicRegistration(body, ip);
+    return this.registrationsService.createPublicRegistration({ ...body, userId }, ip);
   }
 }

@@ -5,9 +5,23 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [user, setUser] = useState<any | null>(null);
+
+  useEffect(() => {
+    fetch(`${API}/auth/user/profile`, { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.user) {
+          setUser(data.user);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -86,14 +100,23 @@ export default function Header() {
             ))}
           </nav>
 
-          {/* COLUMN 3: Register CTA (Right) */}
+          {/* COLUMN 3: Sign In / Account CTA (Right) */}
           <div className="hidden lg:block">
-            <Link
-              href="/#register"
-              className="inline-flex items-center justify-center h-[44px] px-5 border border-luxury-gold/45 bg-transparent text-luxury-gold font-sans text-[10px] font-semibold tracking-[0.2em] uppercase hover:bg-luxury-gold hover:text-luxury-black-pure transition-all duration-300"
-            >
-              REGISTER NOW ↗
-            </Link>
+            {user ? (
+              <Link
+                href="/profile"
+                className="inline-flex items-center justify-center h-[44px] px-5 border border-luxury-gold/45 bg-luxury-gold/10 text-luxury-gold font-sans text-[10px] font-semibold tracking-[0.2em] uppercase hover:bg-luxury-gold hover:text-luxury-black-pure transition-all duration-300 rounded-sm"
+              >
+                MY ACCOUNT →
+              </Link>
+            ) : (
+              <Link
+                href="/login"
+                className="inline-flex items-center justify-center h-[44px] px-5 border border-luxury-gold/45 bg-transparent text-luxury-gold font-sans text-[10px] font-semibold tracking-[0.2em] uppercase hover:bg-luxury-gold hover:text-luxury-black-pure transition-all duration-300 rounded-sm"
+              >
+                SIGN IN / SIGN UP
+              </Link>
+            )}
           </div>
 
           {/* Mobile hamburger trigger (Right on mobile) */}
@@ -159,13 +182,23 @@ export default function Header() {
                 transition={{ delay: navLinks.length * 0.05 + 0.1 }}
                 className="pt-6 border-t border-luxury-gray-border/40"
               >
-                <Link
-                  href="/#register"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="inline-flex items-center justify-center w-full min-h-[48px] h-12 border border-luxury-gold/60 bg-luxury-gold/10 text-luxury-gold font-sans text-xs font-semibold tracking-luxury uppercase hover:bg-luxury-gold hover:text-luxury-black-pure transition-all duration-300"
-                >
-                  REGISTER NOW ↗
-                </Link>
+                {user ? (
+                  <Link
+                    href="/profile"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="inline-flex items-center justify-center w-full min-h-[48px] h-12 border border-luxury-gold/60 bg-luxury-gold/10 text-luxury-gold font-sans text-xs font-semibold tracking-luxury uppercase hover:bg-luxury-gold hover:text-luxury-black-pure transition-all duration-300"
+                  >
+                    MY ACCOUNT & EVENTS →
+                  </Link>
+                ) : (
+                  <Link
+                    href="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="inline-flex items-center justify-center w-full min-h-[48px] h-12 border border-luxury-gold/60 bg-luxury-gold/10 text-luxury-gold font-sans text-xs font-semibold tracking-luxury uppercase hover:bg-luxury-gold hover:text-luxury-black-pure transition-all duration-300"
+                  >
+                    SIGN IN / SIGN UP
+                  </Link>
+                )}
               </motion.div>
             </div>
           </motion.div>

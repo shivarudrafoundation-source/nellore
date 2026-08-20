@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service.js';
 import { AuditService } from '../audit/audit.service.js';
+import { MailService } from '../mail/mail.service.js';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class RegistrationsService {
   constructor(
     private readonly db: DatabaseService,
     private readonly audit: AuditService,
+    private readonly mailService?: MailService,
   ) {}
 
   async findAll(query: {
@@ -153,6 +155,147 @@ export class RegistrationsService {
     }
 
     return candidateId;
+  }
+
+  /**
+   * Admin-only: Verify Payment and Assign Contestant ID in an atomic PostgreSQL transaction
+   */
+  async verifyPaymentAndAssignContestant(
+    id: string,
+    dto: { contestantId?: string },
+    actorId: string,
+    ipAddress?: string,
+  ) {
+    const rawContestantId = String(dto.contestantId || '').trim().toUpperCase();
+    if (!rawContestantId) {
+      throw new BadRequestException('Contestant ID must be provided by the admin.');
+    }
+
+    if (rawContestantId.length < 3 || !/^[A-Z0-9_-]+$/i.test(rawContestantId)) {
+      throw new BadRequestException('Invalid Contestant ID format. Must contain alphanumeric characters, hyphens or underscores.');
+    }
+
+    return this.db.$transaction(async (tx) => {
+      const registration = await tx.registration.findUnique({
+        where: { id },
+        include: {
+          event: { select: { id: true, code: true, name: true } },
+          category: { select: { id: true, code: true, name: true } },
+          contestant: true,
+        },
+      });
+
+      if (!registration) {
+        throw new NotFoundException('Registration not found.');
+      }
+
+      // 1. Check if Contestant ID is already assigned to a different registration
+      const existingWithId = await tx.contestant.findUnique({
+        where: { id: rawContestantId },
+      });
+
+      if (existingWithId && existingWithId.registrationId !== registration.id) {
+        throw new ConflictException(`Contestant ID "${rawContestantId}" is already assigned to another contestant.`);
+      }
+
+      // 2. Check if registration is already verified with this contestant ID (idempotency)
+      if (registration.paymentStatus === 'PAID' && registration.contestantId === rawContestantId && existingWithId) {
+        return {
+          registration,
+          contestant: existingWithId,
+          message: 'Payment is already verified and Contestant ID assigned.',
+        };
+      }
+
+      const base = (registration.baseFields as any) || {};
+      const mobile = base.mobile || 'N/A';
+      const email = base.email;
+      const applicantName = base.name || 'Contestant';
+
+      // 3. Create or update Contestant record
+      let contestant = existingWithId;
+      if (!contestant) {
+        const existingForReg = await tx.contestant.findUnique({
+          where: { registrationId: registration.id },
+        });
+
+        if (existingForReg) {
+          contestant = await tx.contestant.update({
+            where: { id: existingForReg.id },
+            data: { id: rawContestantId, mobile, eventId: registration.eventId },
+          });
+        } else {
+          contestant = await tx.contestant.create({
+            data: {
+              id: rawContestantId,
+              registrationId: registration.id,
+              mobile,
+              eventId: registration.eventId,
+            },
+          });
+        }
+      }
+
+      // 4. Update Registration status & contestantId
+      const updatedRegistration = await tx.registration.update({
+        where: { id: registration.id },
+        data: {
+          paymentStatus: 'PAID',
+          contestantId: contestant.id,
+        },
+        include: { event: true, category: true, contestant: true },
+      });
+
+      // 5. Audit logs (PAYMENT_VERIFIED, CONTESTANT_ID_ASSIGNED, CONTESTANT_ACTIVATED)
+      await this.audit.log({
+        actorType: 'ADMIN',
+        actorId,
+        action: 'PAYMENT_VERIFIED',
+        entity: 'Registration',
+        entityId: id,
+        before: { paymentStatus: registration.paymentStatus },
+        after: { paymentStatus: 'PAID' },
+        ipAddress,
+      });
+
+      await this.audit.log({
+        actorType: 'ADMIN',
+        actorId,
+        action: 'CONTESTANT_ID_ASSIGNED',
+        entity: 'Contestant',
+        entityId: contestant.id,
+        after: { contestantId: contestant.id, registrationId: registration.id },
+        ipAddress,
+      });
+
+      await this.audit.log({
+        actorType: 'ADMIN',
+        actorId,
+        action: 'CONTESTANT_ACTIVATED',
+        entity: 'Contestant',
+        entityId: contestant.id,
+        after: { status: 'ACTIVE', contestantId: contestant.id },
+        ipAddress,
+      });
+
+      // 6. Asynchronously trigger Contestant Activation Email
+      if (email && this.mailService) {
+        this.mailService
+          .sendContestantActivationEmail(email, {
+            name: applicantName,
+            contestantId: contestant.id,
+            categoryName: registration.category.name,
+            eventName: registration.event.name,
+          })
+          .catch(() => {});
+      }
+
+      return {
+        registration: updatedRegistration,
+        contestant,
+        message: 'Payment verified and Contestant ID assigned successfully.',
+      };
+    }, { timeout: 15000, maxWait: 10000 });
   }
 
   /**
@@ -433,7 +576,9 @@ export class RegistrationsService {
     dto: {
       eventId: string;
       categoryId: string;
+      userId?: string;
       baseFields: {
+        userId?: string;
         name: string;
         mobile: string;
         location: string;
@@ -441,6 +586,7 @@ export class RegistrationsService {
         email?: string;
         age: number | string;
         dob: string;
+        passwordHash?: string;
       };
       customFields?: Record<string, any>;
       idempotencyKey?: string;
@@ -456,6 +602,7 @@ export class RegistrationsService {
     }
 
     const { name, mobile, location, gender, email, age, dob } = dto.baseFields;
+    const effectiveUserId = dto.userId || dto.baseFields.userId;
 
     // 1. Validate Base Fields
     if (!name || typeof name !== 'string' || name.trim().length < 2) {
@@ -475,8 +622,9 @@ export class RegistrationsService {
       throw new BadRequestException('Gender is required.');
     }
 
-    if (email && email.trim()) {
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    const cleanEmail = email && email.trim() ? email.trim().toLowerCase() : undefined;
+    if (cleanEmail) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
         throw new BadRequestException('Invalid email address format.');
       }
     }
@@ -550,13 +698,17 @@ export class RegistrationsService {
         categoryId: true,
         baseFields: true,
         paymentStatus: true,
+        contestantId: true,
         createdAt: true,
       },
     });
 
     const matching = existingRegistrations.find((r) => {
       const base = r.baseFields as any;
-      return base && base.mobile === normalizedMobile;
+      if (!base) return false;
+      if (effectiveUserId && base.userId === effectiveUserId) return true;
+      if (cleanEmail && base.email === cleanEmail) return true;
+      return base.mobile === normalizedMobile;
     });
 
     if (matching) {
@@ -570,7 +722,8 @@ export class RegistrationsService {
         categoryName: category.name,
         applicantName: (matching.baseFields as any)?.name || name.trim(),
         mobile: normalizedMobile,
-        paymentStatus: 'UNPAID' as const,
+        paymentStatus: matching.paymentStatus,
+        contestantId: matching.contestantId || null,
         status: 'REGISTRATION_RECEIVED' as const,
         message: 'Your registration has already been received. Payment processing will be available shortly.',
         createdAt: matching.createdAt.toISOString(),
@@ -580,13 +733,15 @@ export class RegistrationsService {
     // 6. Prisma Transaction: Create UNPAID Registration & Audit Log
     return this.db.$transaction(async (tx) => {
       const sanitizedBaseFields = {
+        userId: effectiveUserId,
         name: name.trim(),
         mobile: normalizedMobile,
         location: location.trim(),
         gender: gender.trim().toUpperCase(),
-        email: email ? email.trim() : undefined,
+        email: cleanEmail,
         age: numAge,
         dob: parsedDob.toISOString().slice(0, 10),
+        passwordHash: dto.baseFields.passwordHash,
       };
 
       const newRegistration = await tx.registration.create({
@@ -595,15 +750,15 @@ export class RegistrationsService {
           categoryId: category.id,
           baseFields: sanitizedBaseFields,
           customFields: dto.customFields || {},
-          paymentStatus: 'UNPAID', // Strictly UNPAID in Phase 3A
-          contestantId: null,      // Contestant ID only generated upon payment verification in Phase 2C.1/3B
+          paymentStatus: 'UNPAID',
+          contestantId: null,
         },
       });
 
       // Audit Log
       await this.audit.log({
-        actorType: 'SYSTEM',
-        actorId: 'public-registration',
+        actorType: effectiveUserId ? 'USER' : 'SYSTEM',
+        actorId: effectiveUserId || 'public-registration',
         action: 'REGISTRATION_CREATED',
         entity: 'Registration',
         entityId: newRegistration.id,
@@ -617,6 +772,18 @@ export class RegistrationsService {
         ipAddress,
       });
 
+      // Trigger Registration Confirmation Email
+      if (cleanEmail && this.mailService) {
+        this.mailService
+          .sendRegistrationConfirmationEmail(cleanEmail, {
+            name: name.trim(),
+            categoryName: category.name,
+            eventName: event.name,
+            registrationId: newRegistration.id,
+          })
+          .catch(() => {});
+      }
+
       return {
         id: newRegistration.id,
         referenceNumber: newRegistration.id.slice(0, 8).toUpperCase(),
@@ -624,11 +791,11 @@ export class RegistrationsService {
         eventName: event.name,
         categoryId: category.id,
         categoryName: category.name,
-        applicantName: sanitizedBaseFields.name,
+        applicantName: name.trim(),
         mobile: normalizedMobile,
         paymentStatus: 'UNPAID' as const,
         status: 'REGISTRATION_RECEIVED' as const,
-        message: 'Your registration has been received. Payment processing will be available shortly.',
+        message: 'Registration submitted successfully. Payment status is PENDING verification.',
         createdAt: newRegistration.createdAt.toISOString(),
       };
     });

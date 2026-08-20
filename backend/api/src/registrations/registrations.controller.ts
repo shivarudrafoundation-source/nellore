@@ -35,10 +35,14 @@ export class RegistrationsController {
   }
 
   @Post(':id/verify-payment')
-  async verifyPayment(@Param('id') id: string, @Req() req: any) {
+  async verifyPayment(
+    @Param('id') id: string,
+    @Body() body: { contestantId?: string },
+    @Req() req: any,
+  ) {
     const user = req.user;
     const ip = req.ip || req.headers?.['x-forwarded-for']?.toString() || undefined;
-    return this.registrationsService.verifyPayment(id, user.sub, ip);
+    return this.registrationsService.verifyPaymentAndAssignContestant(id, body, user.sub, ip);
   }
 
   @Post(':id/create-contestant')

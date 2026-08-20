@@ -20,12 +20,23 @@ function RegistrationDetailContent() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
 
+  // Modal State
+  const [modalOpen, setModalOpen] = useState(false);
+  const [contestantIdInput, setContestantIdInput] = useState('');
+  const [modalError, setModalError] = useState('');
+
   const fetchRegistration = async () => {
     try {
       const res = await fetch(`${API}/admin/registrations/${id}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Unable to load registration details.');
       const d = await res.json();
       setRegistration(d);
+      if (!contestantIdInput) {
+        const eventCode = d.event?.code || 'NLR26';
+        const catCode = d.category?.code || 'GEN';
+        const randomSeq = String(Math.floor(1000 + Math.random() * 9000));
+        setContestantIdInput(`SRF-${eventCode}-${catCode}-${randomSeq}`);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -37,51 +48,37 @@ function RegistrationDetailContent() {
     fetchRegistration();
   }, [id]);
 
-  const handleVerifyPayment = async () => {
+  const handleVerifyPaymentWithId = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const contestantId = contestantIdInput.trim().toUpperCase();
+    if (!contestantId) {
+      setModalError('Please enter a Contestant ID.');
+      return;
+    }
+
     setActionLoading(true);
+    setModalError('');
     setActionMessage('');
     setError('');
+
     try {
       const res = await fetch(`${API}/admin/registrations/${id}/verify-payment`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
+        body: JSON.stringify({ contestantId }),
       });
-
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.message || 'Unable to verify payment.');
-      }
-
-      const updated = await res.json();
-      setRegistration(updated);
-      setActionMessage('Payment verified successfully! You may now activate the Contestant account.');
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleCreateContestant = async () => {
-    setActionLoading(true);
-    setActionMessage('');
-    setError('');
-    try {
-      const res = await fetch(`${API}/admin/registrations/${id}/create-contestant`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.message || 'Unable to create contestant.');
-      }
 
       const d = await res.json();
-      setRegistration(d.registration || { ...registration, contestantId: d.contestant?.id });
-      setActionMessage(`Contestant created & activated successfully! Official ID: ${d.contestant?.id}`);
+      if (!res.ok) {
+        throw new Error(d.message || 'Unable to verify payment and assign Contestant ID.');
+      }
+
+      setRegistration(d.registration || d);
+      setModalOpen(false);
+      setActionMessage(`Payment verified and Contestant ID "${contestantId}" assigned successfully!`);
     } catch (err: any) {
-      setError(err.message);
+      setModalError(err.message);
     } finally {
       setActionLoading(false);
     }
@@ -123,7 +120,7 @@ function RegistrationDetailContent() {
                   : 'border-yellow-500/30 text-yellow-500 bg-yellow-500/5'
               }`}
             >
-              PAYMENT: {registration.paymentStatus}
+              PAYMENT: {registration.paymentStatus === 'PAID' ? 'VERIFIED' : 'PENDING'}
             </span>
             <span
               className={`font-sans text-[10px] tracking-luxury uppercase font-bold px-2 py-0.5 border ${
@@ -132,7 +129,7 @@ function RegistrationDetailContent() {
                   : 'border-luxury-white/15 text-luxury-white/40'
               }`}
             >
-              CONTESTANT: {registration.contestantId ? 'ACTIVE' : 'NOT ACTIVATED'}
+              CONTESTANT: {registration.contestantId ? 'ACTIVE' : 'NOT ASSIGNED'}
             </span>
           </div>
         </div>
@@ -141,22 +138,10 @@ function RegistrationDetailContent() {
           {registration.paymentStatus === 'UNPAID' && (
             <Button
               size="sm"
-              onClick={handleVerifyPayment}
-              disabled={actionLoading}
-              className="bg-green-600 hover:bg-green-700 text-white"
+              onClick={() => setModalOpen(true)}
+              className="bg-green-600 hover:bg-green-700 text-white font-bold tracking-wider"
             >
-              {actionLoading ? 'VERIFYING...' : 'VERIFY PAYMENT ↗'}
-            </Button>
-          )}
-
-          {registration.paymentStatus === 'PAID' && !registration.contestantId && (
-            <Button
-              size="sm"
-              onClick={handleCreateContestant}
-              disabled={actionLoading}
-              className="bg-luxury-gold hover:bg-luxury-gold/80 text-luxury-black-pure font-bold"
-            >
-              {actionLoading ? 'CREATING...' : 'CREATE & ACTIVATE CONTESTANT ↗'}
+              VERIFY PAYMENT & ASSIGN ID ↗
             </Button>
           )}
         </div>
@@ -218,16 +203,16 @@ function RegistrationDetailContent() {
 
         <Card hoverEffect={false} className="bg-[#0A0A0A] border-luxury-gray-border/20 p-6 space-y-4">
           <h4 className="font-sans text-[10px] tracking-luxury text-luxury-gold uppercase font-bold">
-            Applicant Details (Private)
+            Applicant Details
           </h4>
           <div className="space-y-3">
             {[
-              { label: 'Full Name', value: base.name },
-              { label: 'Mobile Number', value: base.mobile },
-              { label: 'Email Address', value: base.email },
-              { label: 'Location / City', value: base.location },
+              { label: 'Legal Name', value: base.name },
+              { label: 'Email', value: base.email },
+              { label: 'Mobile', value: base.mobile },
+              { label: 'Location', value: base.location },
               { label: 'Gender', value: base.gender },
-              { label: 'Age', value: base.age },
+              { label: 'Age', value: base.age ? `${base.age} yrs` : null },
               { label: 'Date of Birth', value: base.dob },
             ].map((item) => (
               <div key={item.label} className="flex justify-between">
@@ -241,30 +226,80 @@ function RegistrationDetailContent() {
         </Card>
       </div>
 
-      {/* Custom Fields */}
-      {Object.keys(custom).length > 0 && (
-        <Card hoverEffect={false} className="bg-[#0A0A0A] border-luxury-gray-border/20 p-6 space-y-4">
-          <h4 className="font-sans text-[10px] tracking-luxury text-luxury-gold uppercase font-bold">
-            Custom Questionnaire Responses
-          </h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {Object.entries(custom).map(([k, v]) => (
-              <div key={k} className="p-3 bg-[#050505] border border-luxury-gray-border/10">
-                <span className="font-sans text-[10px] text-luxury-white/40 uppercase tracking-luxury block mb-1">
-                  {k}
-                </span>
-                <span className="font-sans text-xs text-luxury-white/80">{String(v)}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
+      {/* VERIFY PAYMENT & ASSIGN CONTESTANT ID MODAL */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#0A0A0A] border border-luxury-gold/40 w-full max-w-md p-6 space-y-5 shadow-2xl rounded-sm">
+            <div className="border-b border-luxury-gray-border/20 pb-3">
+              <span className="font-sans text-[9px] tracking-[0.24em] text-luxury-gold uppercase font-bold block">
+                PAYMENT VERIFICATION
+              </span>
+              <h3 className="font-serif text-xl font-light text-white mt-1">
+                Assign Contestant ID & Activate
+              </h3>
+            </div>
 
-      <div className="pt-4">
-        <Button variant="text" onClick={() => router.push('/registrations')}>
-          ← BACK TO REGISTRATIONS
-        </Button>
-      </div>
+            {modalError && (
+              <div className="p-3 bg-red-950/40 border border-red-500/50 text-red-300 text-xs rounded-sm">
+                {modalError}
+              </div>
+            )}
+
+            <div className="bg-[#050505] border border-white/10 p-4 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-white/40">Applicant:</span>
+                <span className="text-white font-medium">{base.name || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/40">Email:</span>
+                <span className="text-white font-mono">{base.email || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/40">Event:</span>
+                <span className="text-white">{registration.event?.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/40">Category:</span>
+                <span className="text-luxury-gold font-medium">{registration.category?.name}</span>
+              </div>
+            </div>
+
+            <form onSubmit={handleVerifyPaymentWithId} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-mono uppercase tracking-[0.2em] text-white/60 mb-1.5">
+                  Official Contestant ID *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={contestantIdInput}
+                  onChange={(e) => setContestantIdInput(e.target.value.toUpperCase())}
+                  placeholder="e.g. SRF-NLR26-MISS-0012"
+                  className="w-full bg-[#050505] border border-luxury-gold/50 focus:border-luxury-gold px-3.5 py-2.5 font-mono text-sm text-luxury-gold font-bold focus:outline-none rounded-sm"
+                />
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <Button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="flex-1 bg-luxury-gold hover:bg-luxury-gold/80 text-black font-bold uppercase tracking-wider text-xs"
+                >
+                  {actionLoading ? 'VERIFYING...' : 'CONFIRM & ASSIGN ↗'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setModalOpen(false)}
+                  className="text-xs"
+                >
+                  CANCEL
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

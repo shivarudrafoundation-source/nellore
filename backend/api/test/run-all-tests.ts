@@ -27,6 +27,7 @@ const testSuites = [
   'phase6f.spec.ts',
   'phase6g.spec.ts',
   'phase6h.spec.ts',
+  'account-first-registration.spec.ts',
 ];
 
 async function runAll() {

@@ -1,6 +1,6 @@
 export interface JwtPayload {
   sub: string;
-  role: 'ADMIN' | 'JUDGE' | 'CONTESTANT';
+  role: 'ADMIN' | 'JUDGE' | 'CONTESTANT' | 'USER';
   email?: string;
   mobile?: string;
   eventId?: string;

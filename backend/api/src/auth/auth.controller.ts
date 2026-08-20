@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Res, Req, UseGuards, UnauthorizedException, Get } from '@nestjs/common';
+import { Controller, Post, Body, Res, Req, UseGuards, UnauthorizedException, Get, Patch } from '@nestjs/common';
 import * as express from 'express';
 import { AuthService } from './auth.service.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
@@ -160,9 +160,66 @@ export class AuthController {
     return { success: true };
   }
 
+  @Post('user/signup/request-otp')
+  async userSignupRequestOtp(@Body() body: any, @Req() req: express.Request) {
+    const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
+    return this.authService.requestUserSignupOtp(body, ipAddress);
+  }
+
+  @Post('user/signup/verify')
+  async userSignupVerify(
+    @Body() body: any,
+    @Res({ passthrough: true }) res: express.Response,
+    @Req() req: express.Request,
+  ) {
+    const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
+    const result = await this.authService.verifyUserSignupAndCreate(body, ipAddress);
+    this.setCookies(res, result.tokens, req);
+    return { user: result.user };
+  }
+
+  @Post('user/login')
+  async userLogin(
+    @Body() body: any,
+    @Res({ passthrough: true }) res: express.Response,
+    @Req() req: express.Request,
+  ) {
+    const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
+    const result = await this.authService.loginUser(body, ipAddress);
+    this.setCookies(res, result.tokens, req);
+    return { user: result.user };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('user/profile')
+  async getUserProfile(@CurrentUser() user: any) {
+    return this.authService.getUserProfile(user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('user/my-events')
+  async getUserMyEvents(@CurrentUser() user: any) {
+    const profile = await this.authService.getUserProfile(user.sub);
+    return { myEvents: profile.myEvents };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('user/profile')
+  async updateUserProfile(
+    @CurrentUser() user: any,
+    @Body() body: any,
+    @Req() req: express.Request,
+  ) {
+    const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
+    return this.authService.updateUserProfile(user.sub, body, ipAddress);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('me')
   async getMe(@CurrentUser() user: any) {
+    if (user.role === 'USER') {
+      return this.authService.getUserProfile(user.sub);
+    }
     return { user };
   }
 }
