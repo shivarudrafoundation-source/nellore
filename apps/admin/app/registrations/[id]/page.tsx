@@ -37,30 +37,49 @@ function RegistrationDetailContent() {
     fetchRegistration();
   }, [id]);
 
-  const handleUpdatePayment = async (status: 'PAID' | 'UNPAID') => {
+  const handleVerifyPayment = async () => {
     setActionLoading(true);
     setActionMessage('');
     setError('');
     try {
-      const res = await fetch(`${API}/admin/registrations/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentStatus: status }),
+      const res = await fetch(`${API}/admin/registrations/${id}/verify-payment`, {
+        method: 'POST',
         credentials: 'include',
       });
 
       if (!res.ok) {
         const d = await res.json();
-        throw new Error(d.message || 'Unable to update payment status.');
+        throw new Error(d.message || 'Unable to verify payment.');
       }
 
       const updated = await res.json();
       setRegistration(updated);
-      setActionMessage(
-        status === 'PAID'
-          ? `Payment verified successfully! Assigned Contestant ID: ${updated.contestantId}`
-          : 'Payment status marked as UNPAID.',
-      );
+      setActionMessage('Payment verified successfully! You may now activate the Contestant account.');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCreateContestant = async () => {
+    setActionLoading(true);
+    setActionMessage('');
+    setError('');
+    try {
+      const res = await fetch(`${API}/admin/registrations/${id}/create-contestant`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.message || 'Unable to create contestant.');
+      }
+
+      const d = await res.json();
+      setRegistration(d.registration || { ...registration, contestantId: d.contestant?.id });
+      setActionMessage(`Contestant created & activated successfully! Official ID: ${d.contestant?.id}`);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -95,36 +114,49 @@ function RegistrationDetailContent() {
           <h2 className="font-serif text-2xl font-light text-luxury-white tracking-wide">
             {base.name || 'Registration Entry'}
           </h2>
-          <div className="flex items-center gap-3 mt-1">
+          <div className="flex flex-wrap items-center gap-3 mt-1">
             <span className="font-mono text-xs text-luxury-white/40">Ref: {registration.id}</span>
             <span
-              className={`font-sans text-[10px] tracking-luxury uppercase font-bold ${
-                registration.paymentStatus === 'PAID' ? 'text-green-400' : 'text-yellow-500/80'
+              className={`font-sans text-[10px] tracking-luxury uppercase font-bold px-2 py-0.5 border ${
+                registration.paymentStatus === 'PAID'
+                  ? 'border-green-500/30 text-green-400 bg-green-500/5'
+                  : 'border-yellow-500/30 text-yellow-500 bg-yellow-500/5'
               }`}
             >
-              {registration.paymentStatus}
+              PAYMENT: {registration.paymentStatus}
+            </span>
+            <span
+              className={`font-sans text-[10px] tracking-luxury uppercase font-bold px-2 py-0.5 border ${
+                registration.contestantId
+                  ? 'border-luxury-gold/30 text-luxury-gold bg-luxury-gold/5'
+                  : 'border-luxury-white/15 text-luxury-white/40'
+              }`}
+            >
+              CONTESTANT: {registration.contestantId ? 'ACTIVE' : 'NOT ACTIVATED'}
             </span>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          {registration.paymentStatus === 'UNPAID' ? (
+          {registration.paymentStatus === 'UNPAID' && (
             <Button
               size="sm"
-              onClick={() => handleUpdatePayment('PAID')}
+              onClick={handleVerifyPayment}
               disabled={actionLoading}
               className="bg-green-600 hover:bg-green-700 text-white"
             >
-              {actionLoading ? 'PROCESSING...' : 'VERIFY & APPROVE PAYMENT ↗'}
+              {actionLoading ? 'VERIFYING...' : 'VERIFY PAYMENT ↗'}
             </Button>
-          ) : (
+          )}
+
+          {registration.paymentStatus === 'PAID' && !registration.contestantId && (
             <Button
               size="sm"
-              variant="outline"
-              onClick={() => handleUpdatePayment('UNPAID')}
+              onClick={handleCreateContestant}
               disabled={actionLoading}
+              className="bg-luxury-gold hover:bg-luxury-gold/80 text-luxury-black-pure font-bold"
             >
-              {actionLoading ? 'PROCESSING...' : 'MARK UNPAID'}
+              {actionLoading ? 'CREATING...' : 'CREATE & ACTIVATE CONTESTANT ↗'}
             </Button>
           )}
         </div>

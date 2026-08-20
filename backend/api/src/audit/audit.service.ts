@@ -72,6 +72,7 @@ export class AuditService {
       | 'ROUND_DELETED'
       | 'REGISTRATION_UPDATED'
       | 'CONTESTANT_CREATED'
+      | 'CONTESTANT_ACTIVATED'
       | 'CONTESTANT_UPDATED'
       | 'PAYMENT_VERIFIED'
       | 'JUDGE_CREATED'

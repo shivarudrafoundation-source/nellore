@@ -156,7 +156,150 @@ export class RegistrationsService {
   }
 
   /**
-   * Atomically verify payment and create/link Contestant (Idempotent)
+   * Admin-only: Explicitly verify payment for a registration (Idempotent)
+   */
+  async verifyPayment(id: string, actorId: string, ipAddress?: string) {
+    return this.db.$transaction(async (tx) => {
+      const registration = await tx.registration.findUnique({
+        where: { id },
+        include: { event: true, category: true, contestant: true },
+      });
+
+      if (!registration) {
+        throw new NotFoundException('Registration not found.');
+      }
+
+      if (registration.paymentStatus === 'PAID') {
+        return registration;
+      }
+
+      const updated = await tx.registration.update({
+        where: { id },
+        data: { paymentStatus: 'PAID' },
+        include: { event: true, category: true, contestant: true },
+      });
+
+      await this.audit.log({
+        actorType: 'ADMIN',
+        actorId,
+        action: 'PAYMENT_VERIFIED',
+        entity: 'Registration',
+        entityId: id,
+        before: { paymentStatus: 'UNPAID' },
+        after: { paymentStatus: 'PAID' },
+        ipAddress,
+      });
+
+      return updated;
+    });
+  }
+
+  /**
+   * Admin-only: Create and activate Contestant from PAID registration (Idempotent & Concurrency-Safe)
+   */
+  async createContestant(id: string, actorId: string, ipAddress?: string) {
+    return this.db.$transaction(async (tx) => {
+      const registration = await tx.registration.findUnique({
+        where: { id },
+        include: {
+          event: { select: { id: true, code: true, name: true } },
+          category: { select: { id: true, code: true, name: true } },
+          contestant: true,
+        },
+      });
+
+      if (!registration) {
+        throw new NotFoundException('Registration not found.');
+      }
+
+      // Hard business rule: Cannot activate contestant if payment is UNPAID
+      if (registration.paymentStatus !== 'PAID') {
+        throw new BadRequestException('Payment must be verified before creating or activating a contestant.');
+      }
+
+      // Idempotency: Return existing contestant if already created
+      if (registration.contestant) {
+        return {
+          contestant: registration.contestant,
+          registration,
+          message: 'Contestant is already active.',
+        };
+      }
+
+      const existingContestant = await tx.contestant.findUnique({
+        where: { registrationId: registration.id },
+      });
+
+      if (existingContestant) {
+        // Link if not linked
+        if (registration.contestantId !== existingContestant.id) {
+          await tx.registration.update({
+            where: { id: registration.id },
+            data: { contestantId: existingContestant.id },
+          });
+        }
+        return {
+          contestant: existingContestant,
+          registration,
+          message: 'Contestant is already active.',
+        };
+      }
+
+      // Generate unique sequential contestant ID: SRF-{EVENT_CODE}-{CAT_CODE}-{SEQUENCE}
+      const contestantId = await this.generateContestantId(
+        tx,
+        registration.event.code,
+        registration.category.code,
+      );
+
+      const base = (registration.baseFields as any) || {};
+      const mobile = base.mobile || 'N/A';
+
+      const newContestant = await tx.contestant.create({
+        data: {
+          id: contestantId,
+          registrationId: registration.id,
+          mobile,
+          eventId: registration.eventId,
+        },
+      });
+
+      const updatedReg = await tx.registration.update({
+        where: { id: registration.id },
+        data: { contestantId: newContestant.id },
+        include: { event: true, category: true, contestant: true },
+      });
+
+      await this.audit.log({
+        actorType: 'ADMIN',
+        actorId,
+        action: 'CONTESTANT_CREATED',
+        entity: 'Contestant',
+        entityId: newContestant.id,
+        after: { contestantId: newContestant.id, registrationId: registration.id },
+        ipAddress,
+      });
+
+      await this.audit.log({
+        actorType: 'ADMIN',
+        actorId,
+        action: 'CONTESTANT_ACTIVATED',
+        entity: 'Contestant',
+        entityId: newContestant.id,
+        after: { status: 'ACTIVE', contestantId: newContestant.id },
+        ipAddress,
+      });
+
+      return {
+        contestant: newContestant,
+        registration: updatedReg,
+        message: 'Contestant created and activated successfully.',
+      };
+    });
+  }
+
+  /**
+   * Status update handler for PATCH /admin/registrations/:id (Atomic verification + creation)
    */
   async updateStatus(
     id: string,
@@ -168,8 +311,8 @@ export class RegistrationsService {
       const registration = await tx.registration.findUnique({
         where: { id },
         include: {
-          event: { select: { id: true, code: true } },
-          category: { select: { id: true, code: true } },
+          event: { select: { id: true, code: true, name: true } },
+          category: { select: { id: true, code: true, name: true } },
           contestant: true,
         },
       });
@@ -183,13 +326,10 @@ export class RegistrationsService {
         contestantId: registration.contestantId,
       };
 
-      // If marking as PAID and contestant does not yet exist
       if (data.paymentStatus === 'PAID') {
         let contestant = registration.contestant;
 
-        // Idempotency: only create if not already created
         if (!contestant) {
-          // Double check if contestant exists by registrationId
           const existingContestant = await tx.contestant.findUnique({
             where: { registrationId: registration.id },
           });
@@ -224,6 +364,16 @@ export class RegistrationsService {
               after: { contestantId: contestant.id, registrationId: registration.id },
               ipAddress,
             });
+
+            await this.audit.log({
+              actorType: 'ADMIN',
+              actorId,
+              action: 'CONTESTANT_ACTIVATED',
+              entity: 'Contestant',
+              entityId: contestant.id,
+              after: { status: 'ACTIVE', contestantId: contestant.id },
+              ipAddress,
+            });
           }
         }
 
@@ -250,7 +400,6 @@ export class RegistrationsService {
         return updatedReg;
       }
 
-      // If marking as UNPAID
       if (data.paymentStatus === 'UNPAID') {
         const updatedReg = await tx.registration.update({
           where: { id },

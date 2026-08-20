@@ -21,6 +21,7 @@ const testSuites = [
   'production-cleanliness.spec.ts',
   'phase6a.spec.ts',
   'phase6b.spec.ts',
+  'phase6c.spec.ts',
 ];
 
 async function runAll() {
@@ -56,8 +57,8 @@ async function runAll() {
         await new Promise((r) => setTimeout(r, 1200));
       } catch (err: any) {
         if (attempts < 3) {
-          console.log(`\n[Retry ${attempts}/2] Pausing 3s for database connection recycling before retry of ${suite}...`);
-          await new Promise((r) => setTimeout(r, 3000));
+          console.log(`\n[Retry ${attempts}/2] Pausing 5s for database connection recycling before retry of ${suite}...`);
+          await new Promise((r) => setTimeout(r, 5000));
         } else {
           console.error(`\n✖ Test Suite FAILED: ${suite}`);
           process.exit(1);
