@@ -1,14 +1,59 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Category } from '../data/types';
-import { SHOW_DEMO_DATA } from '../data/config';
-import { demoUpcomingEvents } from '../data/demoData';
+
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export default function CategoriesSection() {
-  const categories: Category[] = SHOW_DEMO_DATA 
-    ? demoUpcomingEvents[0].categories 
-    : [];
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    async function loadCategories() {
+      try {
+        const res = await fetch(`${API}/public/events`, { signal: controller.signal });
+        if (res.ok) {
+          const events = await res.json();
+          const activeEvents = Array.isArray(events) ? events : events.events || [];
+          // Extract unique categories across active/upcoming events
+          const catMap = new Map<string, Category>();
+          for (const ev of activeEvents) {
+            if (Array.isArray(ev.categories)) {
+              for (const c of ev.categories) {
+                if (!catMap.has(c.id || c.code)) {
+                  catMap.set(c.id || c.code, {
+                    id: c.id || c.code,
+                    name: c.name,
+                    code: c.code,
+                    description: c.description || undefined,
+                  });
+                }
+              }
+            }
+          }
+          setCategories(Array.from(catMap.values()));
+        }
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          console.warn('Failed to load categories from API:', err);
+        }
+        setCategories([]);
+      } finally {
+        clearTimeout(timeoutId);
+        setLoading(false);
+      }
+    }
+
+    loadCategories();
+    return () => {
+      controller.abort();
+      clearTimeout(timeoutId);
+    };
+  }, []);
 
   return (
     <section id="categories" className="py-16 sm:py-24 bg-[#0A0A0A] text-luxury-white border-t border-luxury-gray-border/20 px-6 sm:px-[48px] md:px-[64px]">

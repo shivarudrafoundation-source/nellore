@@ -1,13 +1,18 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Event } from '../data/types';
-import { SHOW_DEMO_DATA } from '../data/config';
-import { demoPastEvents } from '../data/demoData';
+
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export default function PastEventsSection() {
-  const events: Event[] = SHOW_DEMO_DATA ? demoPastEvents : [];
+  const [events, setEvents] = useState<Event[]>([]);
+
+  useEffect(() => {
+    // In production, past completed events populate here once completed
+    setEvents([]);
+  }, []);
 
   return (
     <section id="past-events" className="py-16 sm:py-24 bg-[#050505] text-luxury-white border-t border-luxury-gray-border/20 px-6 sm:px-[48px] md:px-[64px]">

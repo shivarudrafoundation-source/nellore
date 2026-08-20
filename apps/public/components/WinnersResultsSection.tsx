@@ -2,14 +2,9 @@
 
 import React from 'react';
 import { Winner } from '../data/types';
-import { SHOW_DEMO_DATA } from '../data/config';
-import { demoWinners } from '../data/demoData';
 
 export default function WinnersResultsSection() {
-  // Bind dynamic data based on Demo Toggle state
-  const winners: Winner[] = SHOW_DEMO_DATA 
-    ? demoWinners['demo-ev-past-001'] 
-    : [];
+  const winners: Winner[] = [];
 
   return (
     <section id="winners" className="py-16 sm:py-24 bg-[#0A0A0A] text-luxury-white border-t border-luxury-gray-border/20 px-6 sm:px-[48px] md:px-[64px]">

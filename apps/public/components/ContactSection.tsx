@@ -1,21 +1,15 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CONTACT_CONFIG, SHOW_DEMO_DATA } from '../data/config';
-import { demoContact } from '../data/demoData';
+import { CONTACT_CONFIG } from '../data/config';
 
 export default function ContactSection() {
   const [emailSent, setEmailSent] = useState(false);
   const [formData, setFormData] = useState({ name: '', email: '', message: '' });
 
-  // Fallback config logic: If production is empty and SHOW_DEMO_DATA is true, load demo values
-  const hasPhone = !!CONTACT_CONFIG.phone;
-  const hasEmail = !!CONTACT_CONFIG.email;
-  const hasLocation = !!CONTACT_CONFIG.location;
-
-  const phone = hasPhone ? CONTACT_CONFIG.phone : (SHOW_DEMO_DATA ? demoContact.phone : '');
-  const email = hasEmail ? CONTACT_CONFIG.email : (SHOW_DEMO_DATA ? demoContact.email : '');
-  const location = hasLocation ? CONTACT_CONFIG.location : (SHOW_DEMO_DATA ? demoContact.location : '');
+  const phone = CONTACT_CONFIG.phone || '';
+  const email = CONTACT_CONFIG.email || '';
+  const location = CONTACT_CONFIG.location || '';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

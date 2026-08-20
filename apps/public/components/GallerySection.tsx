@@ -2,12 +2,10 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { SHOW_DEMO_DATA } from '../data/config';
-import { demoPhotos } from '../data/demoData';
 
 export default function GallerySection() {
   const [activePhoto, setActivePhoto] = useState<string | null>(null);
-  const photos = SHOW_DEMO_DATA ? demoPhotos['demo-ev-past-001'] : [];
+  const photos: string[] = [];
 
   return (
     <section id="gallery" className="py-16 sm:py-24 bg-[#050505] text-luxury-white border-t border-luxury-gray-border/20 px-6 sm:px-[48px] md:px-[64px]">
