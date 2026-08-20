@@ -11,10 +11,11 @@ import {
 import { ScoringService } from './scoring.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
+import { JudgeAssignmentGuard } from '../auth/guards/judge-assignment.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 
 @Controller('judge')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, JudgeAssignmentGuard)
 @Roles('JUDGE')
 export class ScoringController {
   constructor(private readonly scoringService: ScoringService) {}

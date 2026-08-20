@@ -70,14 +70,20 @@ export default function JudgeScoringConsole() {
       }
 
       const data = await res.json();
-      setAssignment(data.assignment);
+      const assignmentData = data.assignment || {
+        judge: data.judge,
+        event: data.event,
+        category: data.category,
+        round: data.round,
+      };
+      setAssignment(assignmentData);
       setContestants(data.contestants || []);
 
       if (data.contestants && data.contestants.length > 0 && !selectedContestantId) {
         selectContestant(data.contestants[0]);
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to connect to scoring server.');
+      setErrorMsg(err.message || 'Unable to save score. Try Again.');
     } finally {
       setLoading(false);
     }
@@ -176,7 +182,7 @@ export default function JudgeScoringConsole() {
       const result = await res.json();
       setIsLocked(result.locked);
       setConfirmLockModal(false);
-      setSuccessMsg(lock ? 'SCORE LOCKED & PERMANENTLY RECORDED' : 'Score draft saved successfully.');
+      setSuccessMsg(lock ? 'Saved. This score is locked and cannot be edited unless an Admin unlocks it.' : 'Saved. Score draft saved successfully.');
 
       // Update in contestant list
       setContestants((prev) =>
@@ -197,7 +203,7 @@ export default function JudgeScoringConsole() {
         }),
       );
     } catch (err: any) {
-      setErrorMsg(err.message || 'Error occurred while saving score.');
+      setErrorMsg(err.message ? `Unable to save score. Try Again. (${err.message})` : 'Unable to save score. Try Again.');
     } finally {
       setSaveLoading(false);
     }
@@ -527,10 +533,10 @@ export default function JudgeScoringConsole() {
                   ) : (
                     <div className="p-4 bg-green-500/5 border border-green-500/20 text-center space-y-1">
                       <p className="font-sans text-xs font-bold text-green-400 tracking-luxury uppercase">
-                        🔒 Evaluation Finalized & Locked
+                        🔒 Score Locked
                       </p>
-                      <p className="font-sans text-[11px] text-luxury-white/40">
-                        This evaluation is officially sealed and cannot be modified.
+                      <p className="font-sans text-[11px] text-luxury-white/60">
+                        This score is locked and cannot be edited unless an Admin unlocks it.
                       </p>
                     </div>
                   )}
@@ -552,7 +558,7 @@ export default function JudgeScoringConsole() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-[#0A0A0A] border border-luxury-gold/40 w-full max-w-md p-8 space-y-6 shadow-2xl">
             <h3 className="font-serif text-xl font-light text-luxury-white tracking-wide">
-              SUBMIT FINAL SCORE?
+              FINAL SUBMISSION
             </h3>
             <div className="p-4 bg-black border border-luxury-gray-border/20 space-y-2">
               <div className="flex justify-between text-xs">
@@ -565,7 +571,7 @@ export default function JudgeScoringConsole() {
               </div>
             </div>
             <p className="font-sans text-xs text-yellow-500/90 leading-relaxed">
-              ⚠️ Warning: Once submitted, this score is permanently locked. You will NOT be able to modify it after locking.
+              ⚠️ Warning: This score is locked and cannot be edited unless an Admin unlocks it.
             </p>
             <div className="flex justify-end gap-3 pt-2">
               <Button

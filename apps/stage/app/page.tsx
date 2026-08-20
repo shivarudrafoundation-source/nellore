@@ -6,7 +6,7 @@ import { useRealtimeScores, RealtimeConnectionState } from '../hooks/useRealtime
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-type StageMode = 'STANDBY' | 'LIVE' | 'FINAL' | 'RESULTS_NOT_PUBLISHED' | 'EVENT_COMPLETED';
+type StageMode = 'STANDBY' | 'LIVE' | 'FINAL' | 'ROUND_RESULTS' | 'RESULTS_NOT_PUBLISHED' | 'EVENT_COMPLETED';
 
 interface LiveScoreData {
   eventId?: string;
@@ -29,10 +29,23 @@ interface WinnerData {
   maxMarks: number;
 }
 
+interface RoundStandingsData {
+  roundName: string;
+  categoryName: string;
+  roundMaxMarks: number;
+  standings: Array<{
+    rank: number;
+    contestantId: string;
+    score: number;
+    maxMarks: number;
+  }>;
+}
+
 export default function StageLiveDisplay() {
   const [stageMode, setStageMode] = useState<StageMode>('LIVE');
   const [events, setEvents] = useState<any[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
+  const [roundResults, setRoundResults] = useState<RoundStandingsData | null>(null);
 
   // Live score state
   const [activeScore, setActiveScore] = useState<LiveScoreData | null>({
@@ -103,6 +116,57 @@ export default function StageLiveDisplay() {
       return; // Ignore stale event
     }
     lastEventTimestampRef.current = eventTime;
+
+    if (event.type === 'EVENT_FINALIZED') {
+      if (event.winners && event.winners.length > 0) {
+        setWinners(
+          event.winners.map((w: any) => ({
+            contestantId: w.winnerContestantId || w.contestantId,
+            category: w.categoryName || w.category,
+            categoryCode: w.categoryCode || 'CAT',
+            finalScore: Number(w.winnerFinalScore || w.finalScore || 0),
+            maxMarks: w.winnerMaxMarks || w.maxMarks || 230,
+          })),
+        );
+        setStageMode('FINAL');
+      }
+      return;
+    }
+
+    if (event.type === 'RESULTS_PUBLISHED') {
+      if (event.winners && event.winners.length > 0) {
+        setWinners(
+          event.winners.map((w: any) => ({
+            contestantId: w.winnerContestantId || w.contestantId,
+            category: w.categoryName || w.category,
+            categoryCode: w.categoryCode || 'CAT',
+            finalScore: Number(w.winnerFinalScore || w.finalScore || 0),
+            maxMarks: w.winnerMaxMarks || w.maxMarks || 230,
+          })),
+        );
+      } else {
+        checkPublishedResults();
+      }
+      setStageMode('FINAL');
+      return;
+    }
+
+    if (event.type === 'RESULTS_UNPUBLISHED') {
+      setWinners([]);
+      setStageMode('STANDBY');
+      return;
+    }
+
+    if (event.type === 'ROUND_ENDED') {
+      setRoundResults({
+        roundName: event.roundName || 'Competitive Round',
+        categoryName: event.categoryName || 'Category',
+        roundMaxMarks: event.roundMaxMarks || 50,
+        standings: event.standings || [],
+      });
+      setStageMode('ROUND_RESULTS');
+      return;
+    }
 
     const newScore: LiveScoreData = {
       eventId: event.eventId,
@@ -290,6 +354,56 @@ export default function StageLiveDisplay() {
               </div>
             </div>
           </div>
+        ) : stageMode === 'ROUND_RESULTS' && roundResults ? (
+          /* MODE D: ROUND RESULTS (Phase 6F) */
+          <div className="w-full max-w-5xl text-center space-y-6 animate-fadeIn">
+            <span className="px-6 py-2 bg-luxury-gold text-black font-sans text-xs md:text-sm tracking-[0.3em] uppercase font-bold inline-block shadow-lg">
+              OFFICIAL ROUND RESULTS
+            </span>
+
+            <div className="space-y-1">
+              <h3 className="font-serif text-2xl sm:text-3xl md:text-4xl text-luxury-white uppercase tracking-widest font-light">
+                {roundResults.categoryName} • {roundResults.roundName}
+              </h3>
+              <p className="font-mono text-xs text-luxury-gold tracking-widest uppercase">
+                MAX MARKS: {roundResults.roundMaxMarks} PTS
+              </p>
+            </div>
+
+            <div className="border border-luxury-gold/40 bg-[#0A0A0A] p-6 max-w-4xl mx-auto shadow-[0_0_80px_rgba(212,175,55,0.12)]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[55vh] overflow-y-auto pr-2">
+                {roundResults.standings.map((st) => (
+                  <div
+                    key={st.contestantId}
+                    className="p-4 bg-[#050505] border border-luxury-gray-border/20 flex items-center justify-between hover:border-luxury-gold/40 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <span className="font-mono text-xl font-bold text-luxury-gold w-10 text-left">
+                        #{st.rank}
+                      </span>
+                      <div className="text-left">
+                        <span className="font-mono text-base font-bold text-luxury-white block">
+                          {st.contestantId}
+                        </span>
+                        <span className="font-sans text-[10px] text-luxury-white/40 uppercase tracking-wider block">
+                          CONTESTANT
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="font-mono text-xl font-bold text-luxury-gold">
+                        {Number(st.score).toFixed(2)}
+                      </span>
+                      <span className="font-mono text-xs text-luxury-white/40 block">
+                        / {st.maxMarks} PTS
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         ) : (
           /* MODE C: LIVE SCORING SCREEN (DEFAULT & ACTIVE) */
           activeScore && (
@@ -400,6 +514,7 @@ export default function StageLiveDisplay() {
           <option value="LIVE">Live Scoring Mode</option>
           <option value="STANDBY">Standby Mode</option>
           <option value="FINAL">Final Winner Mode</option>
+          <option value="ROUND_RESULTS">Round Results Mode</option>
         </select>
 
         <button

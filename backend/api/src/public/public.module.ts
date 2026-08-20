@@ -8,9 +8,10 @@ import { DatabaseModule } from '../database/database.module.js';
 import { AuditModule } from '../audit/audit.module.js';
 
 import { ScoringModule } from '../scoring/scoring.module.js';
+import { RoundsModule } from '../rounds/rounds.module.js';
 
 @Module({
-  imports: [DatabaseModule, AuditModule, ScoringModule],
+  imports: [DatabaseModule, AuditModule, ScoringModule, RoundsModule],
   controllers: [PublicEventsController, PublicRegistrationsController],
   providers: [EventsService, RegistrationsService, OtpService],
 })

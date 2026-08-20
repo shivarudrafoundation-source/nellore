@@ -33,6 +33,10 @@ function RoundsContent() {
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [endRoundTarget, setEndRoundTarget] = useState<any>(null);
+  const [endingRound, setEndingRound] = useState(false);
+  const [endRoundError, setEndRoundError] = useState<any>(null);
+  const [endRoundSuccess, setEndRoundSuccess] = useState<any>(null);
 
   // Load events
   useEffect(() => {
@@ -110,6 +114,31 @@ function RoundsContent() {
       setDeleteError(err.message);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleEndRound = async () => {
+    if (!endRoundTarget) return;
+    setEndingRound(true);
+    setEndRoundError(null);
+    setEndRoundSuccess(null);
+    try {
+      const res = await fetch(`${API}/admin/rounds/${endRoundTarget.id}/end`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setEndRoundError(data);
+        return;
+      }
+      setEndRoundSuccess(data);
+      fetchRounds(pagination.page);
+    } catch (err: any) {
+      setEndRoundError({ message: 'ROUND CANNOT BE ENDED YET', error: err.message });
+    } finally {
+      setEndingRound(false);
     }
   };
 
@@ -248,6 +277,23 @@ function RoundsContent() {
                     </td>
                     <td className="py-3 px-4 pr-6">
                       <div className="flex items-center gap-2">
+                        {round.status === 'ACTIVE' && (
+                          <button
+                            onClick={() => {
+                              setEndRoundTarget(round);
+                              setEndRoundError(null);
+                              setEndRoundSuccess(null);
+                            }}
+                            className="font-sans text-[10px] tracking-luxury text-yellow-400 hover:text-yellow-300 uppercase font-bold transition-colors bg-yellow-400/10 border border-yellow-400/30 px-2 py-1"
+                          >
+                            END ROUND
+                          </button>
+                        )}
+                        {round.status === 'COMPLETED' && (
+                          <span className="font-sans text-[9px] tracking-luxury text-luxury-gold uppercase font-bold">
+                            ROUND COMPLETED
+                          </span>
+                        )}
                         <button
                           onClick={() => router.push(`/rounds/${round.id}/edit`)}
                           className="font-sans text-[10px] tracking-luxury text-luxury-white/40 hover:text-luxury-gold uppercase font-bold transition-colors"
@@ -292,6 +338,81 @@ function RoundsContent() {
         }}
         loading={deleting}
       />
+
+      {/* Phase 6F: End Round Confirmation & Diagnostics Modal */}
+      {endRoundTarget && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <Card hoverEffect={false} className="bg-[#0A0A0A] border-luxury-gold/50 max-w-lg w-full p-6 space-y-6">
+            <div>
+              <h3 className="font-serif text-xl font-light text-luxury-white tracking-wide">
+                END THIS ROUND?
+              </h3>
+              <p className="font-sans text-xs text-luxury-white/50 tracking-luxury uppercase mt-1">
+                {endRoundTarget.name} • {endRoundTarget.category?.name}
+              </p>
+            </div>
+
+            <div className="p-4 bg-black border border-luxury-gray-border/20 text-xs text-luxury-white/70 space-y-2">
+              <p>
+                Once ended, the round standings will be finalized and Judges will no longer be able to submit normal scores for this round.
+              </p>
+            </div>
+
+            {endRoundError && (
+              <div className="p-4 bg-red-950/40 border border-red-500/40 space-y-2 text-left">
+                <p className="font-sans text-xs font-bold text-red-400 tracking-wider uppercase">
+                  {endRoundError.message || 'ROUND CANNOT BE ENDED YET'}
+                </p>
+                {endRoundError.totalContestants !== undefined && (
+                  <div className="text-[11px] font-mono text-luxury-white/80 space-y-1">
+                    <div>Total Contestants: {endRoundError.totalContestants}</div>
+                    <div>Completed Scores: {endRoundError.completedScores} / {endRoundError.totalRequiredScores || (endRoundError.completedScores + endRoundError.remainingScores)}</div>
+                    <div className="text-red-400 font-bold">Remaining Scores: {endRoundError.remainingScores}</div>
+                  </div>
+                )}
+                {endRoundError.error && typeof endRoundError.error === 'string' && (
+                  <p className="text-[10px] text-red-300/80">{endRoundError.error}</p>
+                )}
+              </div>
+            )}
+
+            {endRoundSuccess && (
+              <div className="p-4 bg-green-950/40 border border-green-500/40 text-center space-y-2">
+                <p className="font-sans text-xs font-bold text-green-400 tracking-wider uppercase">
+                  ROUND COMPLETED
+                </p>
+                <p className="text-[11px] text-luxury-white/70">
+                  Authoritative standings calculated for {endRoundSuccess.totalContestants} contestants.
+                </p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEndRoundTarget(null);
+                  setEndRoundError(null);
+                  setEndRoundSuccess(null);
+                }}
+                disabled={endingRound}
+              >
+                {endRoundSuccess ? 'CLOSE' : 'CANCEL'}
+              </Button>
+              {!endRoundSuccess && (
+                <Button
+                  size="sm"
+                  onClick={handleEndRound}
+                  disabled={endingRound}
+                >
+                  {endingRound ? 'ENDING ROUND...' : 'CONFIRM & END ROUND'}
+                </Button>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

@@ -11,7 +11,7 @@ import { Card, Button } from '@srf/ui';
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 function ScoringContent() {
-  const [activeTab, setActiveTab] = useState<'LEDGER' | 'FINAL_MATRIX'>('FINAL_MATRIX');
+  const [activeTab, setActiveTab] = useState<'LEDGER' | 'FINAL_MATRIX' | 'ROUND_STANDINGS'>('FINAL_MATRIX');
 
   // Ledger state
   const [scores, setScores] = useState<any[]>([]);
@@ -21,6 +21,7 @@ function ScoringContent() {
   const [selectedLockStatus, setSelectedLockStatus] = useState('');
   const [contestantSearch, setContestantSearch] = useState('');
   const [selectedScoreModal, setSelectedScoreModal] = useState<any | null>(null);
+  const [unlockConfirmScore, setUnlockConfirmScore] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lastLiveUpdateMsg, setLastLiveUpdateMsg] = useState<string | null>(null);
@@ -30,6 +31,15 @@ function ScoringContent() {
   const [finalScores, setFinalScores] = useState<any[]>([]);
   const [finalCategoryFilter, setFinalCategoryFilter] = useState('');
   const [finalLoading, setFinalLoading] = useState(false);
+
+  // Round Standings state (Phase 6F)
+  const [standingsEventId, setStandingsEventId] = useState('');
+  const [standingsCategoryId, setStandingsCategoryId] = useState('');
+  const [standingsRoundId, setStandingsRoundId] = useState('');
+  const [standingsCategories, setStandingsCategories] = useState<any[]>([]);
+  const [standingsRounds, setStandingsRounds] = useState<any[]>([]);
+  const [roundStandingsData, setRoundStandingsData] = useState<any | null>(null);
+  const [standingsLoading, setStandingsLoading] = useState(false);
 
   // Result Publication State
   const [publication, setPublication] = useState<any>(null);
@@ -46,6 +56,7 @@ function ScoringContent() {
           setEvents(d.data || []);
           if (d.data && d.data.length > 0 && !selectedEventId) {
             setSelectedEventId(d.data[0].id);
+            setStandingsEventId(d.data[0].id);
           }
         }
       } catch (err) {
@@ -54,6 +65,78 @@ function ScoringContent() {
     }
     loadEvents();
   }, []);
+
+  // Fetch categories for Standings
+  useEffect(() => {
+    if (!standingsEventId) return;
+    async function loadStandingsCats() {
+      try {
+        const res = await fetch(`${API}/admin/categories?eventId=${standingsEventId}&limit=50`, { credentials: 'include' });
+        if (res.ok) {
+          const d = await res.json();
+          setStandingsCategories(d.data || []);
+          if (d.data && d.data.length > 0) {
+            setStandingsCategoryId(d.data[0].id);
+          } else {
+            setStandingsCategoryId('');
+            setStandingsRounds([]);
+            setStandingsRoundId('');
+          }
+        }
+      } catch {}
+    }
+    loadStandingsCats();
+  }, [standingsEventId]);
+
+  // Fetch rounds for Standings
+  useEffect(() => {
+    if (!standingsCategoryId) {
+      setStandingsRounds([]);
+      setStandingsRoundId('');
+      return;
+    }
+    async function loadStandingsRounds() {
+      try {
+        const res = await fetch(`${API}/admin/rounds?categoryId=${standingsCategoryId}&limit=50`, { credentials: 'include' });
+        if (res.ok) {
+          const d = await res.json();
+          setStandingsRounds(d.data || []);
+          if (d.data && d.data.length > 0) {
+            setStandingsRoundId(d.data[0].id);
+          } else {
+            setStandingsRoundId('');
+            setRoundStandingsData(null);
+          }
+        }
+      } catch {}
+    }
+    loadStandingsRounds();
+  }, [standingsCategoryId]);
+
+  // Fetch Round Standings
+  useEffect(() => {
+    if (!standingsRoundId) {
+      setRoundStandingsData(null);
+      return;
+    }
+    async function fetchStandings() {
+      setStandingsLoading(true);
+      try {
+        const res = await fetch(`${API}/admin/rounds/${standingsRoundId}/standings`, { credentials: 'include' });
+        if (res.ok) {
+          const d = await res.json();
+          setRoundStandingsData(d);
+        } else {
+          setRoundStandingsData(null);
+        }
+      } catch {
+        setRoundStandingsData(null);
+      } finally {
+        setStandingsLoading(false);
+      }
+    }
+    fetchStandings();
+  }, [standingsRoundId]);
 
   // 2. Fetch Publication Status
   const fetchPublicationStatus = useCallback(async () => {
@@ -332,6 +415,16 @@ function ScoringContent() {
         >
           ROUND EVALUATION LEDGER & UNLOCK CONSOLE
         </button>
+        <button
+          onClick={() => setActiveTab('ROUND_STANDINGS')}
+          className={`pb-3 font-sans text-xs tracking-luxury uppercase font-bold transition-colors ${
+            activeTab === 'ROUND_STANDINGS'
+              ? 'text-luxury-gold border-b-2 border-luxury-gold'
+              : 'text-luxury-white/40 hover:text-luxury-white'
+          }`}
+        >
+          ROUND STANDINGS & RANKINGS
+        </button>
       </div>
 
       {activeTab === 'FINAL_MATRIX' ? (
@@ -480,7 +573,7 @@ function ScoringContent() {
             )}
           </Card>
         </div>
-      ) : (
+      ) : activeTab === 'LEDGER' ? (
         /* TAB 2: ROUND EVALUATION LEDGER & UNLOCK CONSOLE */
         <div className="space-y-6">
           <Card hoverEffect={false} className="bg-[#0A0A0A] border-luxury-gray-border/20 p-4">
@@ -492,7 +585,17 @@ function ScoringContent() {
                 onChange={(e) => setContestantSearch(e.target.value)}
                 className="flex-1 h-10 bg-[#050505] border border-luxury-gray-border/20 px-4 font-sans text-sm text-luxury-white placeholder:text-luxury-white/20 outline-none focus:border-luxury-gold/40 transition-colors"
               />
-
+              <select
+                value={selectedEventId}
+                onChange={(e) => setSelectedEventId(e.target.value)}
+                className="h-10 bg-[#050505] border border-luxury-gray-border/20 px-4 font-sans text-xs text-luxury-white uppercase tracking-luxury outline-none focus:border-luxury-gold/40 min-w-[160px]"
+              >
+                {events.map((ev) => (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.name}
+                  </option>
+                ))}
+              </select>
               <select
                 value={selectedLockStatus}
                 onChange={(e) => setSelectedLockStatus(e.target.value)}
@@ -543,75 +646,60 @@ function ScoringContent() {
                         key={s.id}
                         className="border-b border-luxury-gray-border/5 hover:bg-luxury-gold/[0.02] transition-colors"
                       >
-                        <td className="py-3 px-4 pl-6">
-                          <span className="font-mono text-xs font-bold text-luxury-white">{s.contestantId}</span>
+                        <td className="py-3 px-4 pl-6 font-mono text-xs font-bold text-luxury-white">
+                          {s.contestantId}
                         </td>
-                        <td className="font-sans text-xs text-luxury-white/70 py-3 px-4">
-                          <span className="block text-luxury-white">{s.round?.category?.event?.name || '—'}</span>
-                          <span className="font-sans text-[10px] text-luxury-gold">
-                            {s.round?.category?.name || '—'}
-                          </span>
+                        <td className="py-3 px-4 font-sans text-xs text-luxury-white/70">
+                          {s.round?.category?.name || '—'}
                         </td>
-                        <td className="font-sans text-xs text-luxury-white/90 py-3 px-4">
-                          {s.round?.name || '—'} (Day {s.round?.day || 1})
+                        <td className="py-3 px-4 font-sans text-xs text-luxury-white/60">
+                          {s.round?.name || '—'}
                         </td>
-                        <td className="font-sans text-xs text-luxury-white/80 py-3 px-4">
-                          <span className="font-medium">{s.judge?.name || (s.judgeId === null ? 'Admin' : 'Unassigned')}</span>
-                          <span className="block font-mono text-[10px] text-luxury-white/40">{s.judge?.email}</span>
+                        <td className="py-3 px-4 font-sans text-xs text-luxury-gold/80 font-medium">
+                          {s.judge?.name || 'Admin'}
                         </td>
-                        <td className="py-3 px-4">
-                          <span className="font-mono text-sm font-bold text-luxury-gold">
-                            {Number(s.value).toFixed(2)}
-                          </span>
-                          <span className="font-mono text-xs text-luxury-white/40">
-                            {' '}/ {s.round?.maxMarks || 50} pts
-                          </span>
+                        <td className="py-3 px-4 font-mono text-xs font-bold text-luxury-gold">
+                          {Number(s.value).toFixed(2)} / {s.round?.maxMarks || 50}
                         </td>
                         <td className="py-3 px-4">
-                          {s.locked ? (
-                            <span className="font-sans text-[9px] tracking-luxury uppercase font-bold text-green-400 border border-green-500/30 px-2 py-0.5 bg-green-500/5">
-                              LOCKED
-                            </span>
-                          ) : (
-                            <span className="font-sans text-[9px] tracking-luxury uppercase font-bold text-yellow-500 border border-yellow-500/30 px-2 py-0.5 bg-yellow-500/5">
-                              EDIT ENABLED
-                            </span>
-                          )}
+                          <span
+                            className={`font-sans text-[10px] tracking-luxury uppercase font-bold ${
+                              s.locked ? 'text-green-400' : 'text-yellow-400'
+                            }`}
+                          >
+                            {s.locked ? 'LOCKED' : 'DRAFT'}
+                          </span>
                         </td>
-                        <td className="font-sans text-[11px] text-luxury-white/40 py-3 px-4 whitespace-nowrap">
-                          {new Date(s.submittedAt).toLocaleTimeString('en-IN', {
+                        <td className="py-3 px-4 font-mono text-[10px] text-luxury-white/40">
+                          {new Date(s.submittedAt).toLocaleTimeString([], {
                             hour: '2-digit',
                             minute: '2-digit',
-                            second: '2-digit',
                           })}
                         </td>
-                        <td className="py-3 px-4 pr-6 flex items-center gap-3">
+                        <td className="py-3 px-4 pr-6">
                           <button
                             onClick={() => setSelectedScoreModal(s)}
-                            className="font-sans text-[10px] tracking-luxury text-luxury-gold hover:text-white uppercase font-bold"
+                            className="font-sans text-[10px] tracking-luxury text-luxury-gold/70 hover:text-luxury-gold uppercase font-bold mr-3"
                           >
                             CRITERIA ↗
                           </button>
 
-                          {/* Admin Score Unlock / Lock Actions */}
-                          {s.id && !s.id.startsWith('live-') && s.judgeId !== null && (
-                            s.locked ? (
-                              <button
-                                disabled={actionLoadingId === s.id}
-                                onClick={() => handleUnlockScore(s.id)}
-                                className="font-sans text-[10px] tracking-luxury text-yellow-400 hover:text-yellow-300 uppercase font-bold border border-yellow-500/30 px-2 py-0.5 bg-yellow-500/10"
-                              >
-                                {actionLoadingId === s.id ? '...' : 'UNLOCK 🔓'}
-                              </button>
-                            ) : (
-                              <button
-                                disabled={actionLoadingId === s.id}
-                                onClick={() => handleLockScore(s.id)}
-                                className="font-sans text-[10px] tracking-luxury text-red-400 hover:text-red-300 uppercase font-bold border border-red-500/30 px-2 py-0.5 bg-red-500/10"
-                              >
-                                {actionLoadingId === s.id ? '...' : 'LOCK 🔒'}
-                              </button>
-                            )
+                          {s.locked ? (
+                            <button
+                              disabled={actionLoadingId === s.id}
+                              onClick={() => setUnlockConfirmScore(s)}
+                              className="font-sans text-[10px] tracking-luxury text-yellow-400/80 hover:text-yellow-300 uppercase font-bold border border-yellow-500/30 px-2 py-0.5 bg-yellow-500/10"
+                            >
+                              {actionLoadingId === s.id ? '...' : 'UNLOCK 🔓'}
+                            </button>
+                          ) : (
+                            <button
+                              disabled={actionLoadingId === s.id}
+                              onClick={() => handleLockScore(s.id)}
+                              className="font-sans text-[10px] tracking-luxury text-red-400 hover:text-red-300 uppercase font-bold border border-red-500/30 px-2 py-0.5 bg-red-500/10"
+                            >
+                              {actionLoadingId === s.id ? '...' : 'LOCK 🔒'}
+                            </button>
                           )}
                         </td>
                       </tr>
@@ -629,6 +717,122 @@ function ScoringContent() {
                 onPageChange={(p) => fetchScores(p)}
               />
             </div>
+          </Card>
+        </div>
+      ) : (
+        /* TAB 3: ROUND STANDINGS & RANKINGS (Phase 6F) */
+        <div className="space-y-6">
+          <Card hoverEffect={false} className="bg-[#0A0A0A] border-luxury-gray-border/20 p-4">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <select
+                value={standingsEventId}
+                onChange={(e) => setStandingsEventId(e.target.value)}
+                className="h-10 bg-[#050505] border border-luxury-gray-border/20 px-4 font-sans text-xs text-luxury-white uppercase tracking-luxury outline-none focus:border-luxury-gold/40 flex-1"
+              >
+                {events.map((ev) => (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={standingsCategoryId}
+                onChange={(e) => setStandingsCategoryId(e.target.value)}
+                className="h-10 bg-[#050505] border border-luxury-gray-border/20 px-4 font-sans text-xs text-luxury-white/70 uppercase tracking-luxury outline-none focus:border-luxury-gold/40 flex-1"
+              >
+                <option value="">Select Category</option>
+                {standingsCategories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.code})
+                  </option>
+                ))}
+              </select>
+              <select
+                value={standingsRoundId}
+                onChange={(e) => setStandingsRoundId(e.target.value)}
+                className="h-10 bg-[#050505] border border-luxury-gray-border/20 px-4 font-sans text-xs text-luxury-white/70 uppercase tracking-luxury outline-none focus:border-luxury-gold/40 flex-1"
+              >
+                <option value="">Select Round</option>
+                {standingsRounds.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name} ({r.status})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </Card>
+
+          <Card hoverEffect={false} className="bg-[#0A0A0A] border-luxury-gray-border/20 p-0 overflow-hidden">
+            {standingsLoading ? (
+              <div className="p-8 text-center text-luxury-white/40 font-sans text-xs">
+                LOADING ROUND STANDINGS...
+              </div>
+            ) : !roundStandingsData || !roundStandingsData.standings || roundStandingsData.standings.length === 0 ? (
+              <div className="p-16 text-center">
+                <span className="font-sans text-xs tracking-luxury text-luxury-white/30 uppercase">
+                  NO ROUND RESULTS AVAILABLE
+                </span>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <div className="p-4 bg-[#070707] border-b border-luxury-gray-border/10 flex justify-between items-center">
+                  <div>
+                    <span className="font-sans text-xs font-bold text-luxury-gold uppercase tracking-wider">
+                      {roundStandingsData.round?.name} — {roundStandingsData.round?.category?.name}
+                    </span>
+                    <span className="ml-3 font-mono text-[10px] text-luxury-white/40">
+                      MAX: {roundStandingsData.round?.maxMarks} PTS
+                    </span>
+                  </div>
+                  <span className="font-sans text-[10px] uppercase tracking-luxury text-green-400 font-bold border border-green-500/30 px-2 py-0.5 bg-green-500/10">
+                    STATUS: {roundStandingsData.round?.status}
+                  </span>
+                </div>
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-luxury-gray-border/10">
+                      {['Rank', 'Contestant ID', 'Category', 'Round', 'Total Score', 'Status'].map((h) => (
+                        <th
+                          key={h}
+                          className="font-sans text-[9px] tracking-luxury text-luxury-white/30 uppercase py-3 px-4 first:pl-6 last:pr-6"
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {roundStandingsData.standings.map((st: any) => (
+                      <tr
+                        key={st.contestantId}
+                        className="border-b border-luxury-gray-border/5 hover:bg-luxury-gold/[0.02] transition-colors"
+                      >
+                        <td className="py-3 px-4 pl-6 font-mono text-sm font-bold text-luxury-gold">
+                          #{st.rank}
+                        </td>
+                        <td className="py-3 px-4 font-mono text-xs font-bold text-luxury-white">
+                          {st.contestantId}
+                        </td>
+                        <td className="py-3 px-4 font-sans text-xs text-luxury-white/70">
+                          {st.category} ({st.categoryCode})
+                        </td>
+                        <td className="py-3 px-4 font-sans text-xs text-luxury-white/60">
+                          {st.round}
+                        </td>
+                        <td className="py-3 px-4 font-mono text-sm font-bold text-luxury-gold">
+                          {Number(st.totalScore).toFixed(2)} / {st.maxMarks} PTS
+                        </td>
+                        <td className="py-3 px-4 pr-6">
+                          <span className="font-sans text-[10px] tracking-luxury uppercase font-bold text-green-400">
+                            {st.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </Card>
         </div>
       )}
@@ -679,6 +883,68 @@ function ScoringContent() {
               </Button>
               <Button size="sm" variant="solid" disabled={pubLoading} onClick={handleTogglePublish}>
                 {pubLoading ? 'SAVING...' : isResultsPublished ? 'CONFIRM UNPUBLISH 🚫' : 'CONFIRM PUBLISH 📢'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Unlock Confirmation Modal */}
+      {unlockConfirmScore && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#0A0A0A] border border-yellow-500/40 w-full max-w-md p-8 space-y-6 shadow-2xl">
+            <div className="space-y-2">
+              <span className="font-sans text-[10px] tracking-luxury text-yellow-500 uppercase font-bold block">
+                ADMINISTRATIVE ACTION
+              </span>
+              <h3 className="font-serif text-2xl font-light text-luxury-white">
+                UNLOCK THIS SCORE?
+              </h3>
+            </div>
+
+            <div className="p-4 bg-[#050505] border border-luxury-gray-border/20 space-y-2 text-xs font-sans">
+              <div className="flex justify-between">
+                <span className="text-luxury-white/50 uppercase">Contestant:</span>
+                <span className="font-mono text-luxury-gold font-bold">{unlockConfirmScore.contestantId}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-luxury-white/50 uppercase">Round:</span>
+                <span className="text-luxury-white font-bold">{unlockConfirmScore.round?.name || '—'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-luxury-white/50 uppercase">Judge:</span>
+                <span className="text-luxury-white font-bold">{unlockConfirmScore.judge?.name || 'Judge'}</span>
+              </div>
+              <div className="flex justify-between border-t border-luxury-gray-border/10 pt-2">
+                <span className="text-luxury-white/50 uppercase">Recorded Score:</span>
+                <span className="font-mono text-luxury-gold font-bold">{Number(unlockConfirmScore.value).toFixed(2)} pts</span>
+              </div>
+            </div>
+
+            <p className="font-sans text-xs text-luxury-white/70 leading-relaxed">
+              The Judge will be allowed to edit this exact score. After resubmission it will automatically lock again.
+            </p>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={actionLoadingId === unlockConfirmScore.id}
+                onClick={() => setUnlockConfirmScore(null)}
+              >
+                CANCEL
+              </Button>
+              <Button
+                size="sm"
+                variant="solid"
+                disabled={actionLoadingId === unlockConfirmScore.id}
+                onClick={async () => {
+                  const id = unlockConfirmScore.id;
+                  setUnlockConfirmScore(null);
+                  await handleUnlockScore(id);
+                }}
+              >
+                {actionLoadingId === unlockConfirmScore.id ? 'UNLOCKING...' : 'UNLOCK'}
               </Button>
             </div>
           </div>

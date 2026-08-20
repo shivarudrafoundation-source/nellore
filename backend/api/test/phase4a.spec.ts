@@ -5,6 +5,7 @@ import { AuditService } from '../src/audit/audit.service.js';
 import { EventsService } from '../src/events/events.service.js';
 import { ContestantsService } from '../src/contestants/contestants.service.js';
 import { ScoringService } from '../src/scoring/scoring.service.js';
+import { RoundsService } from '../src/rounds/rounds.service.js';
 import { PublicEventsController } from '../src/public/public-events.controller.js';
 import bcrypt from 'bcrypt';
 
@@ -34,7 +35,8 @@ async function runPhase4ATests() {
   const eventsService = new EventsService(dbService, auditService);
   const contestantsService = new ContestantsService(dbService, auditService);
   const scoringService = new ScoringService(dbService, auditService);
-  const publicEventsController = new PublicEventsController(eventsService, scoringService, dbService);
+  const roundsService = new RoundsService(dbService, auditService, scoringService);
+  const publicEventsController = new PublicEventsController(eventsService, scoringService, roundsService, dbService);
 
   const testSuffix = Date.now().toString().slice(-5);
 

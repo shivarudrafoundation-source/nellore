@@ -23,6 +23,10 @@ const testSuites = [
   'phase6b.spec.ts',
   'phase6c.spec.ts',
   'phase6d.spec.ts',
+  'phase6e.spec.ts',
+  'phase6f.spec.ts',
+  'phase6g.spec.ts',
+  'phase6h.spec.ts',
 ];
 
 async function runAll() {
@@ -45,7 +49,7 @@ async function runAll() {
     let success = false;
     let attempts = 0;
     
-    while (!success && attempts < 3) {
+    while (!success && attempts < 4) {
       attempts++;
       try {
         execSync(`npx tsx "${fullPath}"`, {
@@ -55,11 +59,11 @@ async function runAll() {
         success = true;
         passed++;
         // Clean Supabase connection recycling pause
-        await new Promise((r) => setTimeout(r, 1200));
+        await new Promise((r) => setTimeout(r, 2000));
       } catch (err: any) {
-        if (attempts < 3) {
-          console.log(`\n[Retry ${attempts}/2] Pausing 5s for database connection recycling before retry of ${suite}...`);
-          await new Promise((r) => setTimeout(r, 5000));
+        if (attempts < 4) {
+          console.log(`\n[Retry ${attempts}/3] Pausing 10s for database connection recycling before retry of ${suite}...`);
+          await new Promise((r) => setTimeout(r, 10000));
         } else {
           console.error(`\n✖ Test Suite FAILED: ${suite}`);
           process.exit(1);

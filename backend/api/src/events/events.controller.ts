@@ -54,4 +54,23 @@ export class EventsController {
     const ip = req.ip || req.headers?.['x-forwarded-for']?.toString() || undefined;
     return this.eventsService.remove(id, user.sub, ip);
   }
+
+  @Post(':id/end-final-round')
+  async endFinalRound(
+    @Param('id') id: string,
+    @Body() body: { categoryId?: string; roundId?: string },
+    @Req() req: any,
+  ) {
+    const user = req.user;
+    const ip = req.ip || req.headers?.['x-forwarded-for']?.toString() || undefined;
+    return this.eventsService.endFinalRound(id, user.sub, body, ip);
+  }
+
+  @Get(':id/final-results')
+  async getFinalResults(
+    @Param('id') id: string,
+    @Query('categoryId') categoryId?: string,
+  ) {
+    return this.eventsService.getFinalResults(id, categoryId);
+  }
 }

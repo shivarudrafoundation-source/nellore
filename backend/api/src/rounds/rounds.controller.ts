@@ -51,4 +51,16 @@ export class RoundsController {
     const ip = req.ip || req.headers?.['x-forwarded-for']?.toString() || undefined;
     return this.roundsService.remove(id, user.sub, ip);
   }
+
+  @Post(':id/end')
+  async endRound(@Param('id') id: string, @Req() req: any) {
+    const user = req.user;
+    const ip = req.ip || req.headers?.['x-forwarded-for']?.toString() || undefined;
+    return this.roundsService.endRound(id, user.sub, ip);
+  }
+
+  @Get(':id/standings')
+  async getStandings(@Param('id') id: string) {
+    return this.roundsService.getRoundStandings(id);
+  }
 }

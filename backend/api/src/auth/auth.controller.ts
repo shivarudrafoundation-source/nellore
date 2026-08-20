@@ -95,6 +95,30 @@ export class AuthController {
     return this.authService.resetJudgePassword(body, ipAddress);
   }
 
+  @Post('contestant/login')
+  async contestantLogin(
+    @Body() body: any,
+    @Res({ passthrough: true }) res: express.Response,
+    @Req() req: express.Request,
+  ) {
+    const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
+    const result = await this.authService.loginContestant(body, ipAddress);
+    this.setCookies(res, result.tokens, req);
+    return { user: result.user };
+  }
+
+  @Post('contestant/forgot-password/request-otp')
+  async contestantForgotPasswordRequestOtp(@Body() body: any, @Req() req: express.Request) {
+    const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
+    return this.authService.requestContestantForgotPasswordOtp(body, ipAddress);
+  }
+
+  @Post('contestant/forgot-password/reset')
+  async contestantForgotPasswordReset(@Body() body: any, @Req() req: express.Request) {
+    const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
+    return this.authService.resetContestantPasswordWithOtp(body, ipAddress);
+  }
+
   @Post('contestant/send-otp')
   async contestantSendOtp(@Body() body: any, @Req() req: express.Request) {
     const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;

@@ -17,6 +17,10 @@ import { RedisPubSubService } from './redis-pubsub.service.js';
 import {
   SafeScoreRealtimeEvent,
   PublicStageScoreEvent,
+  RoundEndedRealtimeEvent,
+  EventFinalizedRealtimeEvent,
+  ResultsPublishedRealtimeEvent,
+  ResultsUnpublishedRealtimeEvent,
   RealtimeRooms,
 } from './realtime.types.js';
 
@@ -217,5 +221,81 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     };
     const stageRoom = RealtimeRooms.stage(event.competitionEventId);
     this.server.to(stageRoom).emit('score:stage_event', publicStageEvent);
+  }
+
+  /**
+   * Broadcast round-ended event to appropriate rooms (admin, stage, round)
+   */
+  broadcastRoundEndedEvent(event: RoundEndedRealtimeEvent) {
+    if (!this.server) return;
+
+    // 1. Admin Room
+    const adminRoom = RealtimeRooms.admin(event.competitionEventId);
+    this.server.to(adminRoom).emit('round:ended', event);
+    this.server.to(adminRoom).emit('score:event', event);
+
+    // 2. Assigned Round Room
+    const roundRoom = RealtimeRooms.round(event.roundId);
+    this.server.to(roundRoom).emit('round:ended', event);
+
+    // 3. Stage Room (Sanitized standings, zero PII)
+    const stageRoom = RealtimeRooms.stage(event.competitionEventId);
+    this.server.to(stageRoom).emit('round:ended', event);
+    this.server.to(stageRoom).emit('score:stage_event', {
+      eventId: event.eventId,
+      competitionEventId: event.competitionEventId,
+      categoryId: event.categoryId,
+      categoryName: event.categoryName,
+      roundId: event.roundId,
+      roundName: event.roundName,
+      roundMaxMarks: event.roundMaxMarks,
+      totalContestants: event.totalContestants,
+      standings: event.standings,
+      type: 'ROUND_ENDED',
+      timestamp: event.timestamp,
+    });
+  }
+
+  /**
+   * Broadcast event-finalized event to appropriate rooms (admin, stage, event)
+   */
+  broadcastEventFinalizedEvent(event: EventFinalizedRealtimeEvent) {
+    if (!this.server) return;
+
+    // 1. Admin Room
+    const adminRoom = RealtimeRooms.admin(event.competitionEventId);
+    this.server.to(adminRoom).emit('event:finalized', event);
+    this.server.to(adminRoom).emit('score:event', event);
+
+    // 2. Stage Room (Sanitized winners and rankings, zero PII)
+    const stageRoom = RealtimeRooms.stage(event.competitionEventId);
+    this.server.to(stageRoom).emit('event:finalized', event);
+    this.server.to(stageRoom).emit('score:stage_event', {
+      eventId: event.eventId,
+      competitionEventId: event.competitionEventId,
+      competitionEventName: event.competitionEventName,
+      totalCategories: event.totalCategories,
+      winners: event.winners,
+      allCategoryRankings: event.allCategoryRankings,
+      type: 'EVENT_FINALIZED',
+      timestamp: event.timestamp,
+    });
+  }
+
+  /**
+   * Broadcast results published / unpublished event
+   */
+  broadcastResultsPublicationEvent(event: ResultsPublishedRealtimeEvent | ResultsUnpublishedRealtimeEvent) {
+    if (!this.server) return;
+
+    // 1. Admin Room
+    const adminRoom = RealtimeRooms.admin(event.competitionEventId);
+    this.server.to(adminRoom).emit('results:publication', event);
+    this.server.to(adminRoom).emit('score:event', event);
+
+    // 2. Stage Room
+    const stageRoom = RealtimeRooms.stage(event.competitionEventId);
+    this.server.to(stageRoom).emit('results:publication', event);
+    this.server.to(stageRoom).emit('score:stage_event', event);
   }
 }

@@ -414,4 +414,235 @@ export class AuthService {
       tokens,
     };
   }
+
+  /**
+   * Contestant 3-Factor Login: Email + Contestant ID + Password
+   */
+  async loginContestant(
+    dto: { email?: string; contestantId?: string; password?: string },
+    ipAddress?: string,
+  ): Promise<{ user: any; tokens: { accessToken: string; refreshToken: string } }> {
+    const rawEmail = String(dto.email || '').trim().toLowerCase();
+    const rawContestantId = String(dto.contestantId || '').trim();
+    const rawPassword = String(dto.password || '').trim();
+
+    if (!rawEmail || !rawContestantId || !rawPassword) {
+      throw new UnauthorizedException('Email, Contestant ID, and Password are all required.');
+    }
+
+    // 1. Fetch contestant by authoritative Contestant ID
+    const contestant = await this.db.contestant.findFirst({
+      where: {
+        id: { equals: rawContestantId, mode: 'insensitive' },
+      },
+      include: {
+        registration: {
+          include: { category: true, event: true },
+        },
+      },
+    });
+
+    if (!contestant || !contestant.registration) {
+      throw new UnauthorizedException('Invalid Contestant ID, email, or password.');
+    }
+
+    // 2. Validate Contestant Activation State (must be PAID & linked)
+    if (
+      contestant.registration.paymentStatus !== 'PAID' ||
+      contestant.registration.contestantId !== contestant.id
+    ) {
+      throw new UnauthorizedException('Contestant account is not activated.');
+    }
+
+    const baseFields = (contestant.registration.baseFields as any) || {};
+
+    // 3. Validate Disabled State
+    if (baseFields.isDisabled === true || baseFields.isActive === false) {
+      throw new UnauthorizedException('Contestant account is disabled.');
+    }
+
+    // 4. Validate Email matches registration
+    const regEmail = String(baseFields.email || '').trim().toLowerCase();
+    if (regEmail !== rawEmail) {
+      throw new UnauthorizedException('Invalid Contestant ID, email, or password.');
+    }
+
+    // 5. Validate Password
+    const passwordHash = baseFields.passwordHash;
+    if (!passwordHash) {
+      // If no password set yet, default password is mobile number or require reset
+      if (rawPassword !== contestant.mobile) {
+        throw new UnauthorizedException('Invalid Contestant ID, email, or password.');
+      }
+    } else {
+      const isPasswordValid = await bcrypt.compare(rawPassword, passwordHash);
+      if (!isPasswordValid) {
+        throw new UnauthorizedException('Invalid Contestant ID, email, or password.');
+      }
+    }
+
+    // 6. Generate JWT tokens
+    const payload: JwtPayload = {
+      sub: contestant.id,
+      role: 'CONTESTANT',
+      mobile: contestant.mobile,
+      eventId: contestant.eventId,
+    };
+
+    const tokens = await this.generateTokens(payload);
+
+    // 7. Audit Log
+    await this.auditService.log({
+      actorType: 'CONTESTANT',
+      actorId: contestant.id,
+      action: 'CONTESTANT_LOGIN' as any,
+      entity: 'Contestant',
+      entityId: contestant.id,
+      ipAddress,
+      after: {
+        contestantId: contestant.id,
+        emailMasked: rawEmail.replace(/(.{2})(.*)(?=@)/, (_, a, b) => a + '*'.repeat(b.length)),
+        eventId: contestant.eventId,
+      },
+    });
+
+    return {
+      user: {
+        id: contestant.id,
+        contestantId: contestant.id,
+        email: regEmail,
+        mobile: contestant.mobile,
+        eventId: contestant.eventId,
+        category: contestant.registration?.category?.name,
+        categoryCode: contestant.registration?.category?.code,
+        role: 'CONTESTANT',
+      },
+      tokens,
+    };
+  }
+
+  /**
+   * Contestant Forgot Password: Request OTP to registered email
+   */
+  async requestContestantForgotPasswordOtp(
+    dto: { email?: string },
+    ipAddress?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const rawEmail = String(dto.email || '').trim().toLowerCase();
+    if (!rawEmail || !rawEmail.includes('@')) {
+      throw new UnauthorizedException('Please enter a valid registered email address.');
+    }
+
+    // Find registration with matching email and paid status
+    const registration = await this.db.registration.findFirst({
+      where: {
+        paymentStatus: 'PAID',
+        contestantId: { not: null },
+        baseFields: {
+          path: ['email'],
+          string_contains: rawEmail,
+        },
+      },
+      include: { contestant: true },
+    });
+
+    if (!registration || !registration.contestant) {
+      throw new UnauthorizedException('No active contestant account found with this email address.');
+    }
+
+    // Generate 5-minute single-use OTP
+    await this.otpService.generateOtp(rawEmail, 'contestant-forgot-password');
+
+    await this.auditService.log({
+      actorType: 'CONTESTANT',
+      actorId: registration.contestant.id,
+      action: 'CONTESTANT_OTP_REQUESTED',
+      entity: 'Contestant',
+      entityId: registration.contestant.id,
+      ipAddress,
+      after: { emailMasked: rawEmail.replace(/(.{2})(.*)(?=@)/, (_, a, b) => a + '*'.repeat(b.length)) },
+    });
+
+    return {
+      success: true,
+      message: 'A secure 6-digit OTP has been sent to your registered email address.',
+    };
+  }
+
+  /**
+   * Contestant Forgot Password: Verify OTP and Reset Password
+   */
+  async resetContestantPasswordWithOtp(
+    dto: { email?: string; otp?: string; newPassword?: string; confirmPassword?: string },
+    ipAddress?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const rawEmail = String(dto.email || '').trim().toLowerCase();
+    const rawOtp = String(dto.otp || '').trim();
+    const rawNewPassword = String(dto.newPassword || '').trim();
+
+    if (!rawEmail || !rawOtp || !rawNewPassword) {
+      throw new UnauthorizedException('Email, OTP, and New Password are required.');
+    }
+
+    if (rawNewPassword.length < 8) {
+      throw new UnauthorizedException('New password must be at least 8 characters in length.');
+    }
+
+    if (dto.confirmPassword && rawNewPassword !== String(dto.confirmPassword).trim()) {
+      throw new UnauthorizedException('New password and confirmation password do not match.');
+    }
+
+    // 1. Verify single-use OTP
+    await this.otpService.verifyOtp(rawEmail, 'contestant-forgot-password', rawOtp);
+
+    // 2. Find registration
+    const registration = await this.db.registration.findFirst({
+      where: {
+        paymentStatus: 'PAID',
+        contestantId: { not: null },
+        baseFields: {
+          path: ['email'],
+          string_contains: rawEmail,
+        },
+      },
+      include: { contestant: true },
+    });
+
+    if (!registration || !registration.contestant) {
+      throw new UnauthorizedException('Contestant account not found.');
+    }
+
+    // 3. Hash new password & update registration baseFields
+    const newPasswordHash = await bcrypt.hash(rawNewPassword, 10);
+    const existingBase = (registration.baseFields as any) || {};
+
+    await this.db.registration.update({
+      where: { id: registration.id },
+      data: {
+        baseFields: {
+          ...existingBase,
+          passwordHash: newPasswordHash,
+        },
+      },
+    });
+
+    // 4. Audit Log (Never log password or hash)
+    await this.auditService.log({
+      actorType: 'CONTESTANT',
+      actorId: registration.contestant.id,
+      action: 'PASSWORD_RESET',
+      entity: 'Contestant',
+      entityId: registration.contestant.id,
+      ipAddress,
+      after: {
+        passwordReset: true,
+        emailMasked: rawEmail.replace(/(.{2})(.*)(?=@)/, (_, a, b) => a + '*'.repeat(b.length)),
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Your password has been updated successfully. You may now log in.',
+    };
+  }
 }

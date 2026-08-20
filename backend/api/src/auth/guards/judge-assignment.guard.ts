@@ -31,6 +31,10 @@ export class JudgeAssignmentGuard implements CanActivate {
       throw new UnauthorizedException('Judge account not found.');
     }
 
+    if (!judge.isActive) {
+      throw new ForbiddenException('Judge account is disabled. Please contact administrator.');
+    }
+
     // Extract eventId, categoryId, roundId from params, query, or body
     const eventId =
       request.params.eventId ||

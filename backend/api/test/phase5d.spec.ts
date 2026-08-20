@@ -4,6 +4,7 @@ import { DatabaseService } from '../src/database/database.service.js';
 import { AuditService } from '../src/audit/audit.service.js';
 import { EventsService } from '../src/events/events.service.js';
 import { PublicEventsController } from '../src/public/public-events.controller.js';
+import { RoundsService } from '../src/rounds/rounds.service.js';
 import { ScoringService } from '../src/scoring/scoring.service.js';
 import { RealtimeService } from '../src/realtime/realtime.service.js';
 import { RedisPubSubService } from '../src/realtime/redis-pubsub.service.js';
@@ -38,10 +39,12 @@ async function runPhase5DTests() {
   };
   const realtimeService = new RealtimeService(redisPubSub, mockGateway as any);
   const scoringService = new ScoringService(dbService, auditService, realtimeService);
+  const roundsService = new RoundsService(dbService, auditService, scoringService);
 
   const publicEventsController = new PublicEventsController(
     eventsService,
     scoringService,
+    roundsService,
     dbService,
   );
 

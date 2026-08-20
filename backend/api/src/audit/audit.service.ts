@@ -70,6 +70,7 @@ export class AuditService {
       | 'ROUND_CREATED'
       | 'ROUND_UPDATED'
       | 'ROUND_DELETED'
+      | 'ROUND_ENDED'
       | 'REGISTRATION_UPDATED'
       | 'CONTESTANT_CREATED'
       | 'CONTESTANT_ACTIVATED'
@@ -90,6 +91,10 @@ export class AuditService {
       | 'CONTESTANT_OTP_REQUESTED'
       | 'RESULT_PUBLISHED'
       | 'RESULT_UNPUBLISHED'
+      | 'RESULTS_PUBLISHED'
+      | 'RESULTS_UNPUBLISHED'
+      | 'EVENT_FINALIZED'
+      | 'WINNER_DECLARED'
       | 'ANNOUNCEMENT_CREATED'
       | 'ANNOUNCEMENT_UPDATED'
       | 'ANNOUNCEMENT_DELETED';

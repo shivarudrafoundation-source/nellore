@@ -66,6 +66,7 @@ function AuditLogsContent() {
           <option value="EVENT_CREATED">Event Created</option>
           <option value="CATEGORY_CREATED">Category Created</option>
           <option value="ROUND_CREATED">Round Created</option>
+          <option value="ROUND_ENDED">Round Ended</option>
           <option value="PAYMENT_VERIFIED">Payment Verified</option>
         </select>
       </div>

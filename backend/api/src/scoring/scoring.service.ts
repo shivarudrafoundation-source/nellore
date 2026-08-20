@@ -53,6 +53,69 @@ export class ScoringService {
   }
 
   /**
+   * Validates criteria payload and authoritatively calculates total server-side
+   */
+  validateAndCalculateSubScores(
+    subScoresPayload: any,
+    criteria: CriterionDefinition[],
+  ): { validatedScores: Record<string, number>; total: number } {
+    if (!subScoresPayload || typeof subScoresPayload !== 'object' || Array.isArray(subScoresPayload)) {
+      throw new BadRequestException('Invalid subScores payload. Expected an object of criterion scores.');
+    }
+
+    const allowedCriteriaNames = new Set(criteria.map((c) => c.name));
+    const payloadKeys = Object.keys(subScoresPayload);
+
+    // 1. Reject unexpected or unknown criteria
+    for (const key of payloadKeys) {
+      if (!allowedCriteriaNames.has(key)) {
+        throw new BadRequestException(`Unexpected or unknown criterion '${key}'.`);
+      }
+    }
+
+    const validatedScores: Record<string, number> = {};
+    let sum = 0;
+
+    // 2. Validate every required criterion is present and meets numeric constraints
+    for (const crit of criteria) {
+      const val = subScoresPayload[crit.name];
+      if (val === undefined || val === null || val === '') {
+        throw new BadRequestException(`Score for required criterion '${crit.name}' is missing.`);
+      }
+
+      if (typeof val === 'boolean' || typeof val === 'object') {
+        throw new BadRequestException(`Score for '${crit.name}' must be a valid number.`);
+      }
+
+      if (typeof val === 'string' && val.trim() === '') {
+        throw new BadRequestException(`Score for required criterion '${crit.name}' is missing.`);
+      }
+
+      const numVal = Number(val);
+      if (isNaN(numVal) || !isFinite(numVal)) {
+        throw new BadRequestException(`Score for '${crit.name}' must be a valid number.`);
+      }
+
+      if (numVal < 0) {
+        throw new BadRequestException(`Score for '${crit.name}' cannot be negative.`);
+      }
+
+      if (numVal > crit.maxMarks) {
+        throw new BadRequestException(
+          `Score for '${crit.name}' (${numVal}) exceeds maximum allowable marks (${crit.maxMarks}).`,
+        );
+      }
+
+      const precisionVal = Math.round(numVal * 100) / 100;
+      validatedScores[crit.name] = precisionVal;
+      sum += precisionVal;
+    }
+
+    const total = Math.round(sum * 100) / 100;
+    return { validatedScores, total };
+  }
+
+  /**
    * Fetch active Judge's DB-verified competition assignment
    */
   async getJudgeAssignment(judgeId: string) {
@@ -132,30 +195,41 @@ export class ScoringService {
       orderBy: { id: 'asc' },
     });
 
+    const transformedContestants = contestants.map((c) => {
+      const score = c.scores[0] || null;
+      return {
+        id: c.id,
+        score: score
+          ? {
+              id: score.id,
+              subScores: score.subScores,
+              totalScore: score.value,
+              locked: score.locked,
+              submittedAt: score.submittedAt,
+            }
+          : null,
+      };
+    });
+
     return {
-      event: { id: assignment.event.id, name: assignment.event.name },
-      category: { id: assignment.category.id, name: assignment.category.name },
+      assignment: {
+        judge: assignment.judge,
+        event: assignment.event,
+        category: assignment.category,
+        round: assignment.round,
+      },
+      judge: assignment.judge,
+      event: { id: assignment.event.id, name: assignment.event.name, code: assignment.event.code, location: (assignment.event as any).location },
+      category: { id: assignment.category.id, name: assignment.category.name, code: assignment.category.code },
       round: {
         id: assignment.round.id,
         name: assignment.round.name,
+        day: assignment.round.day,
         maxMarks: assignment.round.maxMarks,
+        status: assignment.round.status,
         criteria: assignment.round.criteria,
       },
-      contestants: contestants.map((c) => {
-        const score = c.scores[0] || null;
-        return {
-          id: c.id,
-          score: score
-            ? {
-                id: score.id,
-                subScores: score.subScores,
-                totalScore: score.value,
-                locked: score.locked,
-                submittedAt: score.submittedAt,
-              }
-            : null,
-        };
-      }),
+      contestants: transformedContestants,
     };
   }
 
@@ -248,42 +322,11 @@ export class ScoringService {
       throw new ForbiddenException('Access denied. Contestant does not belong to your assigned event and category.');
     }
 
-    if (!dto.subScores || typeof dto.subScores !== 'object' || Array.isArray(dto.subScores)) {
-      throw new BadRequestException('Invalid subScores payload. Expected object of criterion scores.');
-    }
-
     // 2. Validate Criteria & Calculate Total Server-Side
-    const criteria = assignment.round.criteria;
-    const validatedScores: Record<string, number> = {};
-    let calculatedTotal = 0;
-
-    for (const crit of criteria) {
-      const val = dto.subScores[crit.name];
-      if (val === undefined || val === null || val === '') {
-        throw new BadRequestException(`Score for '${crit.name}' is required.`);
-      }
-
-      const numVal = Number(val);
-      if (isNaN(numVal) || !isFinite(numVal)) {
-        throw new BadRequestException(`Score for '${crit.name}' must be a valid number.`);
-      }
-
-      if (numVal < 0) {
-        throw new BadRequestException(`Score for '${crit.name}' cannot be negative.`);
-      }
-
-      if (numVal > crit.maxMarks) {
-        throw new BadRequestException(
-          `Score for '${crit.name}' (${numVal}) exceeds maximum allowable marks (${crit.maxMarks}).`,
-        );
-      }
-
-      const precisionVal = Math.round(numVal * 100) / 100;
-      validatedScores[crit.name] = precisionVal;
-      calculatedTotal += precisionVal;
-    }
-
-    const finalTotal = Math.round(calculatedTotal * 100) / 100;
+    const { validatedScores, total: finalTotal } = this.validateAndCalculateSubScores(
+      dto.subScores,
+      assignment.round.criteria,
+    );
 
     // 3. Database Transaction & Lock Guard
     const transactionResult = await this.db.$transaction(async (tx) => {

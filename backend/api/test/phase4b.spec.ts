@@ -7,6 +7,7 @@ import { RealtimeService } from '../src/realtime/realtime.service.js';
 import { RedisPubSubService } from '../src/realtime/redis-pubsub.service.js';
 import { ContestantsService } from '../src/contestants/contestants.service.js';
 import { EventsService } from '../src/events/events.service.js';
+import { RoundsService } from '../src/rounds/rounds.service.js';
 import { PublicEventsController } from '../src/public/public-events.controller.js';
 import bcrypt from 'bcrypt';
 
@@ -38,7 +39,8 @@ async function runPhase4BTests() {
   const scoringService = new ScoringService(dbService, auditService, realtimeService);
   const contestantsService = new ContestantsService(dbService, auditService);
   const eventsService = new EventsService(dbService, auditService);
-  const publicEventsController = new PublicEventsController(eventsService, scoringService, dbService);
+  const roundsService = new RoundsService(dbService, auditService, scoringService);
+  const publicEventsController = new PublicEventsController(eventsService, scoringService, roundsService, dbService);
 
   const testSuffix = Date.now().toString().slice(-5);
 

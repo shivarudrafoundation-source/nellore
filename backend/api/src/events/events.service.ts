@@ -1,6 +1,8 @@
-import { Injectable, BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, NotFoundException, Optional } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service.js';
 import { AuditService } from '../audit/audit.service.js';
+import { ScoringService } from '../scoring/scoring.service.js';
+import { RealtimeService } from '../realtime/realtime.service.js';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -11,6 +13,8 @@ export class EventsService {
   constructor(
     private readonly db: DatabaseService,
     private readonly audit: AuditService,
+    @Optional() private readonly scoringService?: ScoringService,
+    @Optional() private readonly realtime?: RealtimeService,
   ) {}
 
   public invalidatePublicCache() {
@@ -512,5 +516,294 @@ export class EventsService {
 
     this.slugCache.set(cacheKey, { data: result, expiresAt: now + 15000 });
     return result;
+  }
+
+  /**
+   * Phase 6G: End Final Round & Finalize Competition Event
+   */
+  async endFinalRound(
+    eventId: string,
+    adminId: string,
+    body?: { categoryId?: string; roundId?: string },
+    ipAddress?: string,
+  ) {
+    // 1. Fetch Event with categories, rounds, and contestants
+    const event = await this.db.event.findUnique({
+      where: { id: eventId },
+      include: {
+        categories: {
+          include: {
+            rounds: {
+              orderBy: [{ day: 'asc' }, { sortOrder: 'asc' }],
+            },
+            registrations: {
+              where: { paymentStatus: 'PAID' },
+              include: { contestant: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Event not found.');
+    }
+
+    // 2. Check Idempotency: If already COMPLETED, return authoritative finalized state safely
+    if (event.status === 'COMPLETED') {
+      const finalRankings = await this.getFinalResults(eventId, body?.categoryId);
+      return {
+        success: true,
+        alreadyFinalized: true,
+        message: 'Event is already officially finalized.',
+        eventId: event.id,
+        status: 'COMPLETED',
+        winners: finalRankings.winners,
+        finalRankings: finalRankings.allCategoryRankings,
+      };
+    }
+
+    // 3. Validate Event status
+    if (event.status === 'DRAFT' || event.status === 'CANCELLED') {
+      throw new BadRequestException(`Cannot finalize an event in ${event.status} status.`);
+    }
+
+    // 4. Filter target categories if specified
+    const targetCategories = body?.categoryId
+      ? event.categories.filter((c) => c.id === body.categoryId)
+      : event.categories;
+
+    if (targetCategories.length === 0) {
+      throw new BadRequestException('No valid categories found for final round completion.');
+    }
+
+    // 5. Validate all required rounds and scores
+    let totalRoundsCompleted = 0;
+    let totalRoundsRemaining = 0;
+    let totalPaidContestants = 0;
+    let totalMissingScores = 0;
+
+    for (const cat of targetCategories) {
+      const paidContestants = cat.registrations
+        .map((r) => r.contestant)
+        .filter((c): c is NonNullable<typeof c> => c !== null);
+
+      totalPaidContestants += paidContestants.length;
+
+      if (cat.rounds.length === 0) {
+        throw new BadRequestException({
+          message: 'FINAL EVENT CANNOT BE COMPLETED YET',
+          error: `Category ${cat.name} has no rounds configured.`,
+          roundsCompleted: 0,
+          roundsRemaining: 1,
+          totalContestants: paidContestants.length,
+          missingScores: paidContestants.length,
+        });
+      }
+
+      // If body.roundId is specified, verify it is the final round (highest day/sortOrder)
+      if (body?.roundId) {
+        const finalRound = cat.rounds[cat.rounds.length - 1];
+        if (body.roundId !== finalRound.id) {
+          throw new BadRequestException({
+            message: 'FINAL EVENT CANNOT BE COMPLETED YET',
+            error: 'Specified round is not the designated final round for this category.',
+            roundsCompleted: totalRoundsCompleted,
+            roundsRemaining: totalRoundsRemaining + 1,
+            totalContestants: paidContestants.length,
+            missingScores: totalMissingScores,
+          });
+        }
+      }
+
+      for (const round of cat.rounds) {
+        if (round.status === 'COMPLETED') {
+          totalRoundsCompleted++;
+        } else {
+          totalRoundsRemaining++;
+        }
+
+        // Check scores for each contestant in this round
+        const scores = await this.db.score.findMany({
+          where: { roundId: round.id },
+        });
+
+        for (const c of paidContestants) {
+          const contestantScores = scores.filter((s) => s.contestantId === c.id);
+          const hasLockedScore = contestantScores.length > 0 && contestantScores.every((s) => s.locked);
+          if (!hasLockedScore) {
+            totalMissingScores++;
+          }
+        }
+      }
+    }
+
+    if (totalRoundsRemaining > 0 || totalMissingScores > 0) {
+      throw new BadRequestException({
+        message: 'FINAL EVENT CANNOT BE COMPLETED YET',
+        error: 'All required rounds must be completed and all scores must be locked before final event completion.',
+        roundsCompleted: totalRoundsCompleted,
+        roundsRemaining: totalRoundsRemaining,
+        totalContestants: totalPaidContestants,
+        missingScores: totalMissingScores,
+      });
+    }
+
+    // 6. Atomic PostgreSQL Transaction
+    let stateChanged = false;
+    await this.db.$transaction(
+      async (tx) => {
+        const current = await tx.event.findUnique({
+          where: { id: event.id },
+          select: { id: true, status: true },
+        });
+
+        if (!current || current.status === 'COMPLETED') {
+          return;
+        }
+
+        await tx.event.update({
+          where: { id: event.id },
+          data: { status: 'COMPLETED' },
+        });
+        stateChanged = true;
+      },
+      { maxWait: 10000, timeout: 20000 },
+    );
+
+    this.invalidatePublicCache();
+
+    // 7. Calculate Authoritative Final Rankings & Official Winners
+    const finalResults = await this.getFinalResults(eventId, body?.categoryId);
+    const winners = finalResults.winners;
+    const allCategoryRankings = finalResults.allCategoryRankings;
+
+    // 8. Post-Commit Actions
+    if (stateChanged) {
+      await this.audit.log({
+        actorType: 'ADMIN',
+        actorId: adminId,
+        action: 'EVENT_FINALIZED',
+        entity: 'Event',
+        entityId: event.id,
+        before: { status: event.status },
+        after: {
+          status: 'COMPLETED',
+          name: event.name,
+          totalCategories: targetCategories.length,
+          totalWinners: winners.length,
+        },
+        ipAddress,
+      });
+
+      for (const w of winners) {
+        await this.audit.log({
+          actorType: 'ADMIN',
+          actorId: adminId,
+          action: 'WINNER_DECLARED',
+          entity: 'Contestant',
+          entityId: w.winnerContestantId,
+          before: null,
+          after: {
+            eventId: event.id,
+            categoryId: w.categoryId,
+            categoryName: w.categoryName,
+            contestantId: w.winnerContestantId,
+            finalScore: w.winnerFinalScore,
+            rank: 1,
+          },
+          ipAddress,
+        });
+      }
+
+      if (this.realtime) {
+        try {
+          await this.realtime.publishEventFinalizedEvent({
+            competitionEventId: event.id,
+            competitionEventName: event.name,
+            totalCategories: targetCategories.length,
+            winners,
+            allCategoryRankings,
+          });
+        } catch {}
+      }
+    }
+
+    return {
+      success: true,
+      message: 'EVENT FINALIZED — OFFICIAL WINNER DECLARED',
+      eventId: event.id,
+      status: 'COMPLETED',
+      winners,
+      finalRankings: allCategoryRankings,
+    };
+  }
+
+  /**
+   * Fetch Authoritative Final Results & Winners for Event
+   */
+  async getFinalResults(eventId: string, categoryId?: string) {
+    const rawScores = this.scoringService
+      ? await this.scoringService.getFinalScores({ eventId, categoryId })
+      : [];
+
+    const categories = await this.db.category.findMany({
+      where: {
+        eventId,
+        ...(categoryId ? { id: categoryId } : {}),
+      },
+      select: { id: true, name: true, code: true },
+    });
+
+    const allCategoryRankings: Record<string, any[]> = {};
+    const winners: any[] = [];
+
+    for (const cat of categories) {
+      const catScores = rawScores.filter(
+        (s) => s.category === cat.name || s.categoryCode === cat.code,
+      );
+
+      // Deterministic descending sort: score DESC, contestantId ASC tie-breaker
+      catScores.sort((a, b) => {
+        if (b.finalScore !== a.finalScore) {
+          return b.finalScore - a.finalScore;
+        }
+        return a.contestantId.localeCompare(b.contestantId);
+      });
+
+      const ranked = catScores.map((s, idx) => ({
+        rank: idx + 1,
+        contestantId: s.contestantId,
+        category: cat.name,
+        categoryCode: cat.code,
+        finalScore: s.finalScore,
+        maxMarks: s.maxMarks,
+        adminScore: s.adminScore,
+        judgeScores: s.judgeScores,
+        judgeTotal: s.judgeTotal,
+        isLocked: s.isLocked,
+        status: s.isLocked ? 'OFFICIAL' : 'PROVISIONAL',
+      }));
+
+      allCategoryRankings[cat.id] = ranked;
+
+      if (ranked.length > 0) {
+        const top1 = ranked[0];
+        winners.push({
+          categoryId: cat.id,
+          categoryName: cat.name,
+          categoryCode: cat.code,
+          winnerContestantId: top1.contestantId,
+          winnerFinalScore: top1.finalScore,
+          winnerMaxMarks: top1.maxMarks,
+          rank: 1,
+        });
+      }
+    }
+
+    return {
+      allCategoryRankings,
+      winners,
+    };
   }
 }
