@@ -67,6 +67,13 @@ export class JudgesController {
     return this.judgesService.assign(id, body as any, user.sub, ip);
   }
 
+  @Post(':id/assignments')
+  async createAssignment(@Param('id') id: string, @Body() body: Record<string, any>, @Req() req: any) {
+    const user = req.user;
+    const ip = req.ip || req.headers?.['x-forwarded-for']?.toString() || undefined;
+    return this.judgesService.assign(id, body as any, user.sub, ip);
+  }
+
   @Post(':id/reset-password')
   async resetPassword(@Param('id') id: string, @Req() req: any) {
     const user = req.user;

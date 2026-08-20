@@ -198,7 +198,8 @@ export class RegistrationsService {
    * Admin-only: Create and activate Contestant from PAID registration (Idempotent & Concurrency-Safe)
    */
   async createContestant(id: string, actorId: string, ipAddress?: string) {
-    return this.db.$transaction(async (tx) => {
+    return this.db.$transaction(
+      async (tx) => {
       const registration = await tx.registration.findUnique({
         where: { id },
         include: {
@@ -295,7 +296,7 @@ export class RegistrationsService {
         registration: updatedReg,
         message: 'Contestant created and activated successfully.',
       };
-    });
+    }, { timeout: 15000, maxWait: 10000 });
   }
 
   /**
