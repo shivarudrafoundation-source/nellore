@@ -87,8 +87,10 @@ async function bootstrap() {
     credentials: true,
   });
 
+  app.enableShutdownHooks();
+
   const port = process.env.PORT || 4000;
-  const server = await app.listen(port);
+  await app.listen(port, '0.0.0.0');
 
   // Configure HTTP Keep-Alive timeouts to prevent socket hangs during load bursts
   const httpServer = app.getHttpServer();
@@ -97,7 +99,7 @@ async function bootstrap() {
     httpServer.headersTimeout = 66000;
   }
 
-  console.log(`NestJS server initialized on port ${port}`);
+  console.log(`NestJS server initialized on 0.0.0.0:${port}`);
 }
 
 bootstrap();
