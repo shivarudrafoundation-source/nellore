@@ -5,33 +5,34 @@ interface OtpData {
   hashedOtp: string | null;
   expiresAt: Date | null;
   requestTimestamps: number[];
+  failedAttempts: number;
 }
 
 @Injectable()
 export class OtpService {
   private readonly logger = new Logger(OtpService.name);
-  // Key format: "mobile:eventId"
+  // Key format: "identifier:eventId" (identifier can be normalized mobile or lowercase email)
   private otpCache = new Map<string, OtpData>();
 
   /**
-   * Generates, hashes, and stores a 5-minute OTP for a mobile number.
+   * Generates, hashes, and stores a 5-minute OTP for an identifier (email or mobile).
    * Enforces a rate limit of 5 requests per hour.
    */
-  async generateOtp(mobile: string, eventId: string): Promise<string> {
-    const key = `${mobile}:${eventId}`;
+  async generateOtp(identifier: string, eventId: string): Promise<string> {
+    const key = `${identifier.toLowerCase().trim()}:${eventId}`;
     const now = Date.now();
     const oneHourAgo = now - 60 * 60 * 1000;
 
     let cached = this.otpCache.get(key);
     if (!cached) {
-      cached = { hashedOtp: null, expiresAt: null, requestTimestamps: [] };
+      cached = { hashedOtp: null, expiresAt: null, requestTimestamps: [], failedAttempts: 0 };
     }
 
     // Filter out requests older than 1 hour
     cached.requestTimestamps = cached.requestTimestamps.filter((ts) => ts > oneHourAgo);
 
     if (cached.requestTimestamps.length >= 5) {
-      this.logger.warn(`Rate limit exceeded for OTP request on ${mobile}`);
+      this.logger.warn(`Rate limit exceeded for OTP request on ${this.maskIdentifier(identifier)}`);
       throw new HttpException('Rate limit exceeded. Maximum 5 OTP requests per hour.', HttpStatus.TOO_MANY_REQUESTS);
     }
 
@@ -44,20 +45,20 @@ export class OtpService {
     cached.requestTimestamps.push(now);
     cached.hashedOtp = hashedOtp;
     cached.expiresAt = expiresAt;
+    cached.failedAttempts = 0;
 
     this.otpCache.set(key, cached);
 
-    // In a production app SMS gateway is invoked here
-    this.logger.log(`OTP generated successfully for mobile ending with ${mobile.slice(-4)}`);
+    this.logger.log(`OTP generated successfully for identifier: ${this.maskIdentifier(identifier)}`);
 
     return otp;
   }
 
   /**
-   * Verifies the OTP, checks expiry, and prevents reuse.
+   * Verifies the OTP, checks expiry, limits brute force, and prevents reuse.
    */
-  async verifyOtp(mobile: string, eventId: string, otp: string): Promise<boolean> {
-    const key = `${mobile}:${eventId}`;
+  async verifyOtp(identifier: string, eventId: string, otp: string): Promise<boolean> {
+    const key = `${identifier.toLowerCase().trim()}:${eventId}`;
     const cached = this.otpCache.get(key);
 
     if (!cached || !cached.hashedOtp || !cached.expiresAt) {
@@ -65,19 +66,37 @@ export class OtpService {
     }
 
     if (new Date() > cached.expiresAt) {
+      cached.hashedOtp = null;
+      cached.expiresAt = null;
       throw new UnauthorizedException('OTP has expired.');
     }
 
-    const isValid = await bcrypt.compare(otp, cached.hashedOtp);
+    if (cached.failedAttempts >= 5) {
+      cached.hashedOtp = null;
+      cached.expiresAt = null;
+      throw new UnauthorizedException('Too many invalid attempts. OTP invalidated.');
+    }
+
+    const isValid = await bcrypt.compare(otp.trim(), cached.hashedOtp);
     if (!isValid) {
+      cached.failedAttempts += 1;
       throw new UnauthorizedException('Invalid OTP code.');
     }
 
     // Consume the OTP so it cannot be reused, but preserve rate limit history
     cached.hashedOtp = null;
     cached.expiresAt = null;
+    cached.failedAttempts = 0;
     this.otpCache.set(key, cached);
 
     return true;
+  }
+
+  private maskIdentifier(id: string): string {
+    if (id.includes('@')) {
+      const [user, domain] = id.split('@');
+      return `${user.slice(0, 2)}***@${domain}`;
+    }
+    return `******${id.slice(-4)}`;
   }
 }

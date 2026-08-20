@@ -739,15 +739,15 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
               <h3 className="font-serif text-2xl font-light text-luxury-white">
                 {submissionResult.applicantName}
               </h3>
-              <p className="font-sans text-xs text-luxury-white/50 max-w-md mx-auto">
-                {submissionResult.message || 'Your registration has been received. Payment processing will be available shortly.'}
+              <p className="font-sans text-xs text-luxury-white/60 max-w-md mx-auto leading-relaxed">
+                Your registration has been received. Contestant account activation will be completed by the Admin after payment verification.
               </p>
             </div>
 
             {/* Reference Ledger Card */}
             <div className="p-5 sm:p-6 bg-[#050505] border border-luxury-gold/30 text-left space-y-3 max-w-md mx-auto">
               <div className="flex justify-between text-xs font-sans">
-                <span className="text-luxury-white/40 uppercase">Reference ID:</span>
+                <span className="text-luxury-white/40 uppercase">Reference Number:</span>
                 <span className="font-mono text-luxury-gold font-bold">{submissionResult.referenceNumber}</span>
               </div>
               <div className="flex justify-between text-xs font-sans">
@@ -765,7 +765,7 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
               <div className="flex justify-between text-xs font-sans items-center pt-2 border-t border-luxury-gray-border/10">
                 <span className="text-luxury-white/40 uppercase">Payment Status:</span>
                 <span className="font-sans text-[9px] tracking-widest uppercase font-bold text-yellow-500 border border-yellow-500/30 px-2 py-0.5 bg-yellow-500/5">
-                  {submissionResult.paymentStatus || 'UNPAID'}
+                  PAYMENT PENDING
                 </span>
               </div>
             </div>

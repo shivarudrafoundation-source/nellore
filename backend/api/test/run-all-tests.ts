@@ -20,6 +20,7 @@ const testSuites = [
   'phase5e.spec.ts',
   'production-cleanliness.spec.ts',
   'phase6a.spec.ts',
+  'phase6b.spec.ts',
 ];
 
 async function runAll() {

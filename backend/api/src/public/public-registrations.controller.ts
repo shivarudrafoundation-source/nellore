@@ -21,19 +21,33 @@ export class PublicRegistrationsController {
   ) {}
 
   /**
-   * Request 6-digit OTP for registration verification
+   * Request 6-digit OTP for registration verification (Email or Mobile)
    */
   @Post('request-otp')
   async requestOtp(
-    @Body() body: { mobile: string; eventId: string; categoryId?: string },
+    @Body() body: { email?: string; mobile?: string; eventId: string; categoryId?: string },
   ) {
-    if (!body.mobile || !body.eventId) {
-      throw new BadRequestException('Mobile number and Event ID are required.');
+    if (!body.eventId) {
+      throw new BadRequestException('Event ID is required.');
     }
 
-    const normalizedMobile = String(body.mobile).trim().replace(/\D/g, '');
-    if (!/^[6-9]\d{9}$/.test(normalizedMobile)) {
-      throw new BadRequestException('Valid 10-digit Indian mobile number is required.');
+    if (!body.email && !body.mobile) {
+      throw new BadRequestException('Email address or mobile number is required.');
+    }
+
+    let identifier = '';
+    if (body.email && body.email.trim()) {
+      const email = body.email.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new BadRequestException('Valid email address is required.');
+      }
+      identifier = email;
+    } else if (body.mobile) {
+      const normalizedMobile = String(body.mobile).trim().replace(/\D/g, '');
+      if (!/^[6-9]\d{9}$/.test(normalizedMobile)) {
+        throw new BadRequestException('Valid 10-digit Indian mobile number is required.');
+      }
+      identifier = normalizedMobile;
     }
 
     // Verify event exists and registration is open
@@ -63,40 +77,49 @@ export class PublicRegistrationsController {
       }
     }
 
-    // Generate & Hash OTP via existing OtpService
-    await this.otpService.generateOtp(normalizedMobile, event.id);
+    // Generate & Hash OTP via OtpService
+    await this.otpService.generateOtp(identifier, event.id);
 
     return {
       success: true,
-      message: 'Verification OTP has been generated and dispatched to your registered mobile number.',
+      message: `Verification OTP has been generated and dispatched to your ${identifier.includes('@') ? 'email address' : 'mobile number'}.`,
     };
   }
 
   /**
-   * Verify mobile OTP
+   * Verify OTP (Email or Mobile)
    */
   @Post('verify-otp')
   async verifyOtp(
-    @Body() body: { mobile: string; eventId: string; otp: string },
+    @Body() body: { email?: string; mobile?: string; eventId: string; otp: string },
   ) {
-    if (!body.mobile || !body.eventId || !body.otp) {
-      throw new BadRequestException('Mobile, Event ID, and 6-digit OTP code are required.');
+    if (!body.eventId || !body.otp) {
+      throw new BadRequestException('Event ID and 6-digit OTP code are required.');
     }
 
-    const normalizedMobile = String(body.mobile).trim().replace(/\D/g, '');
-    const cleanOtp = String(body.otp).trim();
+    if (!body.email && !body.mobile) {
+      throw new BadRequestException('Email address or mobile number is required.');
+    }
 
+    let identifier = '';
+    if (body.email && body.email.trim()) {
+      identifier = body.email.trim().toLowerCase();
+    } else if (body.mobile) {
+      identifier = String(body.mobile).trim().replace(/\D/g, '');
+    }
+
+    const cleanOtp = String(body.otp).trim();
     if (!/^\d{6}$/.test(cleanOtp)) {
       throw new BadRequestException('OTP must be a 6-digit number.');
     }
 
-    await this.otpService.verifyOtp(normalizedMobile, body.eventId, cleanOtp);
+    await this.otpService.verifyOtp(identifier, body.eventId, cleanOtp);
 
     return {
       success: true,
       verified: true,
-      mobile: normalizedMobile,
-      message: 'Mobile number verified successfully.',
+      identifier,
+      message: 'Contact verification successful.',
     };
   }
 
@@ -112,13 +135,13 @@ export class PublicRegistrationsController {
 
     // Verify OTP if passed inline
     if (body.otp) {
-      const mobile = body.baseFields?.mobile;
-      if (!mobile) {
-        throw new BadRequestException('Mobile number is required in baseFields for OTP verification.');
+      const identifier = (body.baseFields?.email ? String(body.baseFields.email).trim().toLowerCase() : '') ||
+                         (body.baseFields?.mobile ? String(body.baseFields.mobile).trim().replace(/\D/g, '') : '');
+      if (!identifier) {
+        throw new BadRequestException('Email or mobile number is required in baseFields for OTP verification.');
       }
-      const normalizedMobile = String(mobile).trim().replace(/\D/g, '');
       const cleanOtp = String(body.otp).trim();
-      await this.otpService.verifyOtp(normalizedMobile, body.eventId, cleanOtp);
+      await this.otpService.verifyOtp(identifier, body.eventId, cleanOtp);
     }
 
     return this.registrationsService.createPublicRegistration(body, ip);
