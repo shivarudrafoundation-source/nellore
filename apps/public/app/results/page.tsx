@@ -5,8 +5,7 @@ import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { getApiBaseUrl } from '@srf/ui';
 
 interface PublicResultItem {
   rank: number;
@@ -35,6 +34,7 @@ interface ResultsResponse {
 type FetchState = 'IDLE' | 'LOADING' | 'SUCCESS' | 'EMPTY' | 'ERROR';
 
 function ResultsContent() {
+  const API = getApiBaseUrl();
   const searchParams = useSearchParams();
   const router = useRouter();
 

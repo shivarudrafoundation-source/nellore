@@ -5,9 +5,17 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
+import { getApiBaseUrl } from '@srf/ui';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-const CONTESTANT_PORTAL_URL = process.env.NEXT_PUBLIC_CONTESTANT_URL || 'https://my.sivarudrafoundation.com';
+function getContestantPortalUrl(): string {
+  if (process.env.NEXT_PUBLIC_CONTESTANT_URL) {
+    return process.env.NEXT_PUBLIC_CONTESTANT_URL;
+  }
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return 'http://localhost:3004';
+  }
+  return 'https://my.sivarudrafoundation.com';
+}
 
 interface UserProfile {
   id: string;
@@ -35,6 +43,8 @@ interface MyEvent {
 }
 
 export default function ProfilePage() {
+  const API_BASE = getApiBaseUrl();
+  const CONTESTANT_PORTAL_URL = getContestantPortalUrl();
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [myEvents, setMyEvents] = useState<MyEvent[]>([]);

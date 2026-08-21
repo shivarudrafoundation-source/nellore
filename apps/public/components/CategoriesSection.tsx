@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { Category } from '../data/types';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { getApiBaseUrl } from '@srf/ui';
 
 export default function CategoriesSection() {
+  const API = getApiBaseUrl();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 

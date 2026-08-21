@@ -13,10 +13,10 @@ import GallerySection from '../components/GallerySection';
 import ContactSection from '../components/ContactSection';
 import Footer from '../components/Footer';
 import RegistrationFlow from '../components/RegistrationFlow';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { getApiBaseUrl } from '@srf/ui';
 
 export default function Home() {
+  const API = getApiBaseUrl();
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<PublicEvent | null>(null);
 

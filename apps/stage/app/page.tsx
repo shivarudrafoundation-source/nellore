@@ -3,8 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { useRealtimeScores, RealtimeConnectionState } from '../hooks/useRealtimeScores';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { getApiBaseUrl } from '@srf/ui';
 
 type StageMode = 'STANDBY' | 'LIVE' | 'FINAL' | 'ROUND_RESULTS' | 'RESULTS_NOT_PUBLISHED' | 'EVENT_COMPLETED';
 
@@ -42,6 +41,7 @@ interface RoundStandingsData {
 }
 
 export default function StageLiveDisplay() {
+  const API = getApiBaseUrl();
   const [stageMode, setStageMode] = useState<StageMode>('LIVE');
   const [events, setEvents] = useState<any[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);

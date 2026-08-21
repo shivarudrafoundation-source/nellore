@@ -4,14 +4,14 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { PublicEvent } from './UpcomingEventsSection';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { getApiBaseUrl } from '@srf/ui';
 
 interface FeaturedEventSectionProps {
   onRegisterClick: (event: PublicEvent) => void;
 }
 
 export default function FeaturedEventSection({ onRegisterClick }: FeaturedEventSectionProps) {
+  const API = getApiBaseUrl();
   const [featuredEvent, setFeaturedEvent] = useState<PublicEvent | null>(null);
 
   useEffect(() => {

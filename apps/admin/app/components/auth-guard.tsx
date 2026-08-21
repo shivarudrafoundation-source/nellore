@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { getApiBaseUrl } from '@srf/ui';
 
 interface User {
   sub: string;
@@ -20,7 +21,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     async function checkAuth() {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+        const apiUrl = getApiBaseUrl();
         const res = await fetch(`${apiUrl}/auth/me`, {
           method: 'GET',
           credentials: 'include',

@@ -160,3 +160,37 @@ export const PageLayout = ({ children, title, subtitle }: PageLayoutProps) => {
     </div>
   );
 };
+
+// 6. Dynamic API & WebSocket Base URL Resolvers (Localhost in dev, sivarudrafoundation.com in prod)
+export function getApiBaseUrl(): string {
+  if (typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  if (typeof window !== 'undefined' && window.location) {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return 'http://localhost:4000';
+    }
+    return 'https://api.sivarudrafoundation.com';
+  }
+  return typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'production'
+    ? 'https://api.sivarudrafoundation.com'
+    : 'http://localhost:4000';
+}
+
+export function getWsBaseUrl(): string {
+  if (typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_WS_URL) {
+    return process.env.NEXT_PUBLIC_WS_URL;
+  }
+  if (typeof window !== 'undefined' && window.location) {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return 'http://localhost:4000';
+    }
+    return 'https://api.sivarudrafoundation.com';
+  }
+  return typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'production'
+    ? 'https://api.sivarudrafoundation.com'
+    : 'http://localhost:4000';
+}
+

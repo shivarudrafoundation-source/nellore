@@ -2,11 +2,10 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { PageLayout, Card, Input, Button } from '@srf/ui';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { PageLayout, Card, Input, Button, getApiBaseUrl } from '@srf/ui';
 
 export default function JudgeLogin() {
+  const API = getApiBaseUrl();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');

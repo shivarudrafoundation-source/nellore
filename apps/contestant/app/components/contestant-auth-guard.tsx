@@ -2,14 +2,14 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { getApiBaseUrl } from '@srf/ui';
 
 interface ContestantAuthGuardProps {
   children: React.ReactNode;
 }
 
 export function ContestantAuthGuard({ children }: ContestantAuthGuardProps) {
+  const API = getApiBaseUrl();
   const router = useRouter();
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
 

@@ -59,10 +59,14 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
   ) {}
 
   afterInit(server: Server) {
-    const adapterClients = this.redisPubSub.getAdapterClients();
-    if (adapterClients) {
-      server.adapter(createAdapter(adapterClients.pubClient, adapterClients.subClient));
-      this.logger.log('Socket.IO Redis Adapter successfully attached for horizontal multi-instance scaling.');
+    try {
+      const adapterClients = this.redisPubSub?.getAdapterClients?.();
+      if (adapterClients) {
+        server.adapter(createAdapter(adapterClients.pubClient, adapterClients.subClient));
+        this.logger.log('Socket.IO Redis Adapter successfully attached for horizontal multi-instance scaling.');
+      }
+    } catch (err: any) {
+      this.logger.warn(`Redis adapter initialization bypassed: ${err.message}`);
     }
   }
 

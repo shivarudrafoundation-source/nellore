@@ -4,11 +4,10 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ContestantAuthGuard } from './components/contestant-auth-guard';
 import { ContestantShell } from './components/contestant-shell';
-import { Card, Button } from '@srf/ui';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { Card, Button, getApiBaseUrl } from '@srf/ui';
 
 function DashboardContent() {
+  const API = getApiBaseUrl();
   const [overview, setOverview] = useState<any>(null);
   const [scores, setScores] = useState<any>(null);
   const [loading, setLoading] = useState(true);

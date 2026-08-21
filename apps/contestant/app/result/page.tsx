@@ -3,11 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { ContestantAuthGuard } from '../components/contestant-auth-guard';
 import { ContestantShell } from '../components/contestant-shell';
-import { Card } from '@srf/ui';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { Card, getApiBaseUrl } from '@srf/ui';
 
 function ResultContent() {
+  const API = getApiBaseUrl();
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

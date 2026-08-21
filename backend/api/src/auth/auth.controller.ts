@@ -14,10 +14,11 @@ export class AuthController {
     const origin = (req?.headers.origin || '') as string;
     const isCustomDomain = origin.includes('sivarudrafoundation.com');
     const isVercelDomain = origin.includes('vercel.app');
+    const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1') || !origin;
 
     return {
       httpOnly: true,
-      secure: true,
+      secure: !isLocalhost && process.env.NODE_ENV === 'production',
       sameSite: (isVercelDomain && !isCustomDomain ? 'none' : 'lax') as 'none' | 'lax',
       domain: isCustomDomain ? process.env.COOKIE_DOMAIN || '.sivarudrafoundation.com' : undefined,
       path: '/',
@@ -164,6 +165,24 @@ export class AuthController {
   async userSignupRequestOtp(@Body() body: any, @Req() req: express.Request) {
     const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
     return this.authService.requestUserSignupOtp(body, ipAddress);
+  }
+
+  @Post('user/signup/verify-otp')
+  async userSignupVerifyOtp(@Body() body: any, @Req() req: express.Request) {
+    const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
+    return this.authService.verifySignupOtp(body, ipAddress);
+  }
+
+  @Post('user/signup/create-account')
+  async userSignupCreateAccount(
+    @Body() body: any,
+    @Res({ passthrough: true }) res: express.Response,
+    @Req() req: express.Request,
+  ) {
+    const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
+    const result = await this.authService.createPermanentUserAccount(body, ipAddress);
+    this.setCookies(res, result.tokens, req);
+    return { user: result.user };
   }
 
   @Post('user/signup/verify')

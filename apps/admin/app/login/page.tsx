@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { PageLayout, Card, Input, Button } from '@srf/ui';
+import { PageLayout, Card, Input, Button, getApiBaseUrl } from '@srf/ui';
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('');
@@ -16,7 +16,7 @@ export default function AdminLogin() {
     setLoading(true);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const apiUrl = getApiBaseUrl();
       const res = await fetch(`${apiUrl}/auth/admin/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

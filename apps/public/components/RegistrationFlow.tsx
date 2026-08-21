@@ -3,8 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { PublicEvent } from './UpcomingEventsSection';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { getApiBaseUrl } from '@srf/ui';
 
 interface RegistrationFlowProps {
   isOpen: boolean;
@@ -13,6 +12,7 @@ interface RegistrationFlowProps {
 }
 
 export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: RegistrationFlowProps) {
+  const API = getApiBaseUrl();
   const [step, setStep] = useState(1);
   const [event, setEvent] = useState<PublicEvent | null>(null);
   const [categoryId, setCategoryId] = useState<string>('');

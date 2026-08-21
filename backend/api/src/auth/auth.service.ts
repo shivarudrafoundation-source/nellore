@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ForbiddenException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ForbiddenException, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { generateSecret, verifySync, generateURI } from 'otplib';
@@ -475,7 +475,20 @@ export class AuthService {
     }
 
     // 5. Validate Password
-    const passwordHash = baseFields.passwordHash;
+    let passwordHash = baseFields.passwordHash;
+    if (!passwordHash && baseFields.userId) {
+      const userRecord = await this.db.user.findUnique({ where: { id: baseFields.userId } });
+      if (userRecord?.passwordHash) {
+        passwordHash = userRecord.passwordHash;
+      }
+    }
+    if (!passwordHash && regEmail) {
+      const userRecord = await this.db.user.findUnique({ where: { email: regEmail } });
+      if (userRecord?.passwordHash) {
+        passwordHash = userRecord.passwordHash;
+      }
+    }
+
     if (!passwordHash) {
       // If no password set yet, default password is mobile number or require reset
       if (rawPassword !== contestant.mobile) {
@@ -661,15 +674,22 @@ export class AuthService {
   }
 
   /**
-   * Public User Sign-Up: Request OTP to Email
+   * Public User Sign-Up Step 1: Request OTP to Email (Validates Name + Email + Duplicate check)
    */
   async requestUserSignupOtp(
-    dto: { email?: string },
+    dto: { name?: string; email?: string },
     ipAddress?: string,
   ): Promise<{ success: boolean; message: string }> {
+    const rawName = String(dto.name || '').trim();
     const rawEmail = String(dto.email || '').trim().toLowerCase();
-    if (!rawEmail || !rawEmail.includes('@')) {
-      throw new UnauthorizedException('Please provide a valid email address.');
+
+    if (dto.name !== undefined && (!rawName || rawName.length < 2)) {
+      throw new BadRequestException('Please provide your full name (minimum 2 characters).');
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!rawEmail || !emailRegex.test(rawEmail)) {
+      throw new BadRequestException('Please provide a valid email address.');
     }
 
     // Check if account already exists
@@ -678,7 +698,7 @@ export class AuthService {
     });
 
     if (existing) {
-      throw new UnauthorizedException('An account with this email already exists. Please sign in.');
+      throw new ConflictException('This email is already registered. Please Sign In.');
     }
 
     const otp = await this.otpService.generateOtp(rawEmail, 'user-signup');
@@ -690,7 +710,7 @@ export class AuthService {
     await this.auditService.log({
       actorType: 'USER',
       actorId: rawEmail,
-      action: 'OTP_VERIFIED',
+      action: 'OTP_REQUESTED' as any,
       entity: 'User',
       ipAddress,
       after: { emailMasked: rawEmail.replace(/(.{2})(.*)(?=@)/, (_, a, b) => a + '*'.repeat(b.length)) },
@@ -703,7 +723,163 @@ export class AuthService {
   }
 
   /**
-   * Public User Sign-Up: Verify OTP & Create Account
+   * Public User Sign-Up Step 2: Verify Email OTP & Issue Cryptographically Signed Signup Token (15m expiry)
+   */
+  async verifySignupOtp(
+    dto: { email?: string; otp?: string; name?: string },
+    ipAddress?: string,
+  ): Promise<{ success: boolean; signupToken: string; message: string }> {
+    const rawEmail = String(dto.email || '').trim().toLowerCase();
+    const rawOtp = String(dto.otp || '').trim();
+    const rawName = String(dto.name || '').trim();
+
+    if (!rawEmail || !rawOtp) {
+      throw new BadRequestException('Email and OTP are required.');
+    }
+
+    // 1. Verify single-use OTP
+    await this.otpService.verifyOtp(rawEmail, 'user-signup', rawOtp);
+
+    // 2. Generate signed short-lived signup verification token (15 minutes)
+    const secret = process.env.JWT_SECRET || 'fallback-secret-key-siva-rudra-foundation-2026';
+    const signupToken = await this.jwtService.signAsync(
+      {
+        email: rawEmail,
+        name: rawName || undefined,
+        purpose: 'signup-verified',
+      },
+      {
+        secret,
+        expiresIn: '15m',
+      },
+    );
+
+    await this.auditService.log({
+      actorType: 'USER',
+      actorId: rawEmail,
+      action: 'OTP_VERIFIED',
+      entity: 'User',
+      ipAddress,
+      after: { emailMasked: rawEmail.replace(/(.{2})(.*)(?=@)/, (_, a, b) => a + '*'.repeat(b.length)) },
+    });
+
+    return {
+      success: true,
+      signupToken,
+      message: 'Email verified successfully. Please set your password.',
+    };
+  }
+
+  /**
+   * Public User Sign-Up Step 3: Set Password & Create Permanent User Account in PostgreSQL
+   */
+  async createPermanentUserAccount(
+    dto: {
+      signupToken?: string;
+      password?: string;
+      confirmPassword?: string;
+      name?: string;
+      mobile?: string;
+      location?: string;
+    },
+    ipAddress?: string,
+  ): Promise<{ user: any; tokens: { accessToken: string; refreshToken: string } }> {
+    const { signupToken } = dto;
+    const rawPassword = String(dto.password || '').trim();
+    const rawConfirm = dto.confirmPassword !== undefined ? String(dto.confirmPassword).trim() : rawPassword;
+
+    if (!signupToken) {
+      throw new UnauthorizedException('Valid signup verification token is required.');
+    }
+
+    if (!rawPassword) {
+      throw new BadRequestException('Password is required.');
+    }
+
+    if (rawPassword !== rawConfirm) {
+      throw new BadRequestException('Passwords do not match. Please re-enter.');
+    }
+
+    if (rawPassword.length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters in length.');
+    }
+
+    // Verify signupToken
+    let decoded: any;
+    try {
+      const secret = process.env.JWT_SECRET || 'fallback-secret-key-siva-rudra-foundation-2026';
+      decoded = await this.jwtService.verifyAsync(signupToken, { secret });
+    } catch (err: any) {
+      throw new UnauthorizedException('Verification token has expired or is invalid. Please request a new OTP.');
+    }
+
+    if (decoded.purpose !== 'signup-verified' || !decoded.email) {
+      throw new UnauthorizedException('Invalid verification token purpose.');
+    }
+
+    const rawEmail = String(decoded.email).trim().toLowerCase();
+    const userName = String(dto.name || decoded.name || '').trim();
+
+    // Check if user exists (race/duplicate prevention)
+    const existing = await this.db.user.findUnique({
+      where: { email: rawEmail },
+    });
+
+    if (existing) {
+      throw new ConflictException('This email is already registered. Please Sign In.');
+    }
+
+    // Hash password with bcrypt
+    const passwordHash = await bcrypt.hash(rawPassword, 10);
+
+    const user = await this.db.user.create({
+      data: {
+        email: rawEmail,
+        passwordHash,
+        name: userName || null,
+        mobile: dto.mobile ? String(dto.mobile).trim() : null,
+        location: dto.location ? String(dto.location).trim() : null,
+        role: 'USER',
+      },
+    });
+
+    const payload: JwtPayload = {
+      sub: user.id,
+      role: 'USER',
+      email: user.email,
+      mobile: user.mobile || undefined,
+    };
+
+    const tokens = await this.generateTokens(payload);
+
+    await this.auditService.log({
+      actorType: 'USER',
+      actorId: user.id,
+      action: 'USER_SIGNUP',
+      entity: 'User',
+      entityId: user.id,
+      ipAddress,
+      after: {
+        userId: user.id,
+        emailMasked: rawEmail.replace(/(.{2})(.*)(?=@)/, (_, a, b) => a + '*'.repeat(b.length)),
+      },
+    });
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        mobile: user.mobile,
+        location: user.location,
+        role: 'USER',
+      },
+      tokens,
+    };
+  }
+
+  /**
+   * Legacy Combined Signup Helper (Backward Compatibility)
    */
   async verifyUserSignupAndCreate(
     dto: {
@@ -721,11 +897,11 @@ export class AuthService {
     const rawPassword = String(dto.password || '').trim();
 
     if (!rawEmail || !rawOtp || !rawPassword) {
-      throw new UnauthorizedException('Email, OTP, and password are required.');
+      throw new BadRequestException('Email, OTP, and password are required.');
     }
 
     if (rawPassword.length < 8) {
-      throw new UnauthorizedException('Password must be at least 8 characters in length.');
+      throw new BadRequestException('Password must be at least 8 characters in length.');
     }
 
     // 1. Verify single-use OTP
@@ -737,7 +913,7 @@ export class AuthService {
     });
 
     if (existing) {
-      throw new UnauthorizedException('An account with this email already exists.');
+      throw new ConflictException('This email is already registered. Please Sign In.');
     }
 
     // 3. Hash password and create User record

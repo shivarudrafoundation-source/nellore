@@ -3,8 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { getApiBaseUrl } from '@srf/ui';
 
 interface PublicCategory {
   id: string;
@@ -35,6 +34,7 @@ interface UpcomingEventsSectionProps {
 }
 
 export default function UpcomingEventsSection({ onRegisterClick }: UpcomingEventsSectionProps) {
+  const API = getApiBaseUrl();
   const [events, setEvents] = useState<PublicEvent[]>([]);
   const [loading, setLoading] = useState(true);
 

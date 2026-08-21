@@ -3,8 +3,7 @@ import Link from 'next/link';
 import Header from '../../../components/Header';
 import Footer from '../../../components/Footer';
 import EventDetailClient from '../../../components/EventDetailClient';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { getApiBaseUrl } from '@srf/ui';
 
 interface PageProps {
   params: {
@@ -13,6 +12,7 @@ interface PageProps {
 }
 
 async function getEvent(slug: string) {
+  const API = getApiBaseUrl();
   try {
     const res = await fetch(`${API}/public/events/${slug}`, {
       cache: 'no-store',

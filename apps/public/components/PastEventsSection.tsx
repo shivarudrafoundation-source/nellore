@@ -3,10 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Event } from '../data/types';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { getApiBaseUrl } from '@srf/ui';
 
 export default function PastEventsSection() {
+  const API = getApiBaseUrl();
   const [events, setEvents] = useState<Event[]>([]);
 
   useEffect(() => {

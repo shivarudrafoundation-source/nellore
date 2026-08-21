@@ -34,6 +34,13 @@ export class EventsController {
     return this.eventsService.findOne(id);
   }
 
+  @Post('upload-logo')
+  async uploadLogo(@Body() body: any, @Req() req: any) {
+    const user = req.user;
+    const ip = req.ip || req.headers?.['x-forwarded-for']?.toString() || undefined;
+    return this.eventsService.uploadLogo(body, user.sub, ip);
+  }
+
   @Post()
   async create(@Body() body: Record<string, any>, @Req() req: any) {
     const user = req.user;

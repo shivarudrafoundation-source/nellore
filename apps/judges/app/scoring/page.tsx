@@ -3,9 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Card, Button } from '@srf/ui';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { Card, Button, getApiBaseUrl } from '@srf/ui';
 
 interface Criterion {
   name: string;
@@ -32,6 +30,7 @@ interface ContestantItem {
 }
 
 export default function JudgeScoringConsole() {
+  const API = getApiBaseUrl();
   const router = useRouter();
 
   const [assignment, setAssignment] = useState<Assignment | null>(null);

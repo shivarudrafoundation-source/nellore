@@ -3,11 +3,10 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Card, Button } from '@srf/ui';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { Card, Button, getApiBaseUrl } from '@srf/ui';
 
 export default function ContestantLoginPage() {
+  const API = getApiBaseUrl();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [contestantId, setContestantId] = useState('');

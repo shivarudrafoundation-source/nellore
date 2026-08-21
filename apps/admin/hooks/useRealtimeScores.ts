@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { getWsBaseUrl } from '@srf/ui';
 
 export type RealtimeConnectionState = 'CONNECTED' | 'RECONNECTING' | 'OFFLINE';
 
@@ -24,7 +25,7 @@ export function useRealtimeScores({
   onScoreEventRef.current = onScoreEvent;
 
   useEffect(() => {
-    const wsUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const wsUrl = getWsBaseUrl();
     const socket = io(`${wsUrl}/realtime`, {
       withCredentials: true,
       transports: ['websocket', 'polling'],
