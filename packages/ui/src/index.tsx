@@ -168,29 +168,8 @@ export function getApiBaseUrl(): string {
     if (host === 'localhost' || host === '127.0.0.1') {
       return 'http://localhost:4000';
     }
-    if (
-      typeof process !== 'undefined' &&
-      process.env &&
-      process.env.NEXT_PUBLIC_API_URL &&
-      !process.env.NEXT_PUBLIC_API_URL.includes('localhost') &&
-      !process.env.NEXT_PUBLIC_API_URL.includes('127.0.0.1')
-    ) {
-      return process.env.NEXT_PUBLIC_API_URL;
-    }
-    return 'https://api.sivarudrafoundation.com';
   }
-  if (
-    typeof process !== 'undefined' &&
-    process.env &&
-    process.env.NEXT_PUBLIC_API_URL &&
-    !process.env.NEXT_PUBLIC_API_URL.includes('localhost') &&
-    !process.env.NEXT_PUBLIC_API_URL.includes('127.0.0.1')
-  ) {
-    return process.env.NEXT_PUBLIC_API_URL;
-  }
-  return typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'production'
-    ? 'https://api.sivarudrafoundation.com'
-    : 'http://localhost:4000';
+  return 'https://api.sivarudrafoundation.com';
 }
 
 export function getWsBaseUrl(): string {
@@ -199,29 +178,8 @@ export function getWsBaseUrl(): string {
     if (host === 'localhost' || host === '127.0.0.1') {
       return 'http://localhost:4000';
     }
-    if (
-      typeof process !== 'undefined' &&
-      process.env &&
-      process.env.NEXT_PUBLIC_WS_URL &&
-      !process.env.NEXT_PUBLIC_WS_URL.includes('localhost') &&
-      !process.env.NEXT_PUBLIC_WS_URL.includes('127.0.0.1')
-    ) {
-      return process.env.NEXT_PUBLIC_WS_URL;
-    }
-    return 'https://api.sivarudrafoundation.com';
   }
-  if (
-    typeof process !== 'undefined' &&
-    process.env &&
-    process.env.NEXT_PUBLIC_WS_URL &&
-    !process.env.NEXT_PUBLIC_WS_URL.includes('localhost') &&
-    !process.env.NEXT_PUBLIC_WS_URL.includes('127.0.0.1')
-  ) {
-    return process.env.NEXT_PUBLIC_WS_URL;
-  }
-  return typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'production'
-    ? 'https://api.sivarudrafoundation.com'
-    : 'http://localhost:4000';
+  return 'wss://api.sivarudrafoundation.com/realtime';
 }
 
 export function getContestantPortalUrl(): string {
@@ -230,7 +188,6 @@ export function getContestantPortalUrl(): string {
     if (host === 'localhost' || host === '127.0.0.1') {
       return 'http://localhost:3004';
     }
-    return 'https://my.sivarudrafoundation.com';
   }
   return 'https://my.sivarudrafoundation.com';
 }
