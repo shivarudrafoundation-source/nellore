@@ -163,15 +163,30 @@ export const PageLayout = ({ children, title, subtitle }: PageLayoutProps) => {
 
 // 6. Dynamic API & WebSocket Base URL Resolvers (Localhost in dev, sivarudrafoundation.com in prod)
 export function getApiBaseUrl(): string {
-  if (typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
-  }
   if (typeof window !== 'undefined' && window.location) {
     const host = window.location.hostname;
     if (host === 'localhost' || host === '127.0.0.1') {
       return 'http://localhost:4000';
     }
+    if (
+      typeof process !== 'undefined' &&
+      process.env &&
+      process.env.NEXT_PUBLIC_API_URL &&
+      !process.env.NEXT_PUBLIC_API_URL.includes('localhost') &&
+      !process.env.NEXT_PUBLIC_API_URL.includes('127.0.0.1')
+    ) {
+      return process.env.NEXT_PUBLIC_API_URL;
+    }
     return 'https://api.sivarudrafoundation.com';
+  }
+  if (
+    typeof process !== 'undefined' &&
+    process.env &&
+    process.env.NEXT_PUBLIC_API_URL &&
+    !process.env.NEXT_PUBLIC_API_URL.includes('localhost') &&
+    !process.env.NEXT_PUBLIC_API_URL.includes('127.0.0.1')
+  ) {
+    return process.env.NEXT_PUBLIC_API_URL;
   }
   return typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'production'
     ? 'https://api.sivarudrafoundation.com'
@@ -179,18 +194,44 @@ export function getApiBaseUrl(): string {
 }
 
 export function getWsBaseUrl(): string {
-  if (typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_WS_URL) {
-    return process.env.NEXT_PUBLIC_WS_URL;
-  }
   if (typeof window !== 'undefined' && window.location) {
     const host = window.location.hostname;
     if (host === 'localhost' || host === '127.0.0.1') {
       return 'http://localhost:4000';
     }
+    if (
+      typeof process !== 'undefined' &&
+      process.env &&
+      process.env.NEXT_PUBLIC_WS_URL &&
+      !process.env.NEXT_PUBLIC_WS_URL.includes('localhost') &&
+      !process.env.NEXT_PUBLIC_WS_URL.includes('127.0.0.1')
+    ) {
+      return process.env.NEXT_PUBLIC_WS_URL;
+    }
     return 'https://api.sivarudrafoundation.com';
+  }
+  if (
+    typeof process !== 'undefined' &&
+    process.env &&
+    process.env.NEXT_PUBLIC_WS_URL &&
+    !process.env.NEXT_PUBLIC_WS_URL.includes('localhost') &&
+    !process.env.NEXT_PUBLIC_WS_URL.includes('127.0.0.1')
+  ) {
+    return process.env.NEXT_PUBLIC_WS_URL;
   }
   return typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'production'
     ? 'https://api.sivarudrafoundation.com'
     : 'http://localhost:4000';
+}
+
+export function getContestantPortalUrl(): string {
+  if (typeof window !== 'undefined' && window.location) {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return 'http://localhost:3004';
+    }
+    return 'https://my.sivarudrafoundation.com';
+  }
+  return 'https://my.sivarudrafoundation.com';
 }
 
