@@ -206,6 +206,58 @@ export class PublicEventsController {
     };
   }
 
+  /**
+   * Public Live Stage Feed: Returns the most recent live score and recent evaluation strip (Zero PII)
+   */
+  @Get(':slug/live-stage')
+  async getLiveStage(@Param('slug') slug: string) {
+    const event = await this.findEventBySlugOrId(slug);
+    if (!event) throw new NotFoundException('Event not found.');
+
+    const recentScores = await this.db.score.findMany({
+      where: {
+        round: { category: { eventId: event.id } },
+      },
+      include: {
+        round: { include: { category: true } },
+      },
+      orderBy: { submittedAt: 'desc' },
+      take: 10,
+    });
+
+    const activeScore = recentScores[0]
+      ? {
+          eventId: event.id,
+          contestantId: recentScores[0].contestantId,
+          categoryName: recentScores[0].round.category.name,
+          categoryCode: recentScores[0].round.category.code,
+          roundName: recentScores[0].round.name,
+          roundMaxMarks: recentScores[0].round.maxMarks,
+          totalScore: recentScores[0].value,
+          status: recentScores[0].locked ? ('LOCKED' as const) : ('DRAFT' as const),
+          timestamp: recentScores[0].submittedAt ? recentScores[0].submittedAt.toISOString() : new Date().toISOString(),
+        }
+      : null;
+
+    const recent = recentScores.map((s) => ({
+      eventId: event.id,
+      contestantId: s.contestantId,
+      categoryName: s.round.category.name,
+      categoryCode: s.round.category.code,
+      roundName: s.round.name,
+      roundMaxMarks: s.round.maxMarks,
+      totalScore: s.value,
+      status: s.locked ? ('LOCKED' as const) : ('DRAFT' as const),
+      timestamp: s.submittedAt ? s.submittedAt.toISOString() : new Date().toISOString(),
+    }));
+
+    return {
+      event: { id: event.id, name: event.name, code: event.code, location: event.location },
+      activeScore,
+      recentScores: recent,
+    };
+  }
+
   private async findEventBySlugOrId(slugOrId: string) {
     if (!slugOrId) return null;
     return this.db.event.findFirst({
@@ -220,3 +272,4 @@ export class PublicEventsController {
     });
   }
 }
+

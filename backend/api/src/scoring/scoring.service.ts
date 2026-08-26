@@ -1,12 +1,11 @@
 import {
   Injectable,
+  Logger,
   ForbiddenException,
   NotFoundException,
   ConflictException,
   BadRequestException,
   UnauthorizedException,
-  Inject,
-  Optional,
 } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -22,10 +21,12 @@ export interface CriterionDefinition {
 
 @Injectable()
 export class ScoringService {
+  private readonly logger = new Logger(ScoringService.name);
+
   constructor(
     private readonly db: DatabaseService,
     private readonly audit: AuditService,
-    @Optional() @Inject(RealtimeService) private readonly realtime?: RealtimeService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   /**
@@ -396,29 +397,32 @@ export class ScoringService {
     });
 
     // 5. Publish Realtime Score Event AFTER Transaction Successfully Commits
-    if (this.realtime) {
-      try {
-        await this.realtime.publishScoreEvent({
-          competitionEventId: assignment.event.id,
-          categoryId: assignment.category.id,
-          categoryCode: assignment.category.code,
-          categoryName: assignment.category.name,
-          roundId: assignment.round.id,
-          roundName: assignment.round.name,
-          roundMaxMarks: assignment.round.maxMarks,
-          contestantId: contestant.id,
-          judgeId: assignment.judge.id,
-          judgeName: assignment.judge.name,
-          subScores: validatedScores,
-          totalScore: transactionResult.savedScore.value,
-          status: transactionResult.savedScore.locked ? 'LOCKED' : 'DRAFT',
-          type: transactionResult.isLocking
-            ? 'SCORE_LOCKED'
-            : transactionResult.existing
-              ? 'SCORE_UPDATED'
-              : 'SCORE_SUBMITTED',
-        });
-      } catch {}
+    try {
+      await this.realtime.publishScoreEvent({
+        competitionEventId: assignment.event.id,
+        categoryId: assignment.category.id,
+        categoryCode: assignment.category.code,
+        categoryName: assignment.category.name,
+        roundId: assignment.round.id,
+        roundName: assignment.round.name,
+        roundMaxMarks: assignment.round.maxMarks,
+        contestantId: contestant.id,
+        judgeId: assignment.judge.id,
+        judgeName: assignment.judge.name,
+        subScores: validatedScores,
+        totalScore: transactionResult.savedScore.value,
+        status: transactionResult.savedScore.locked ? 'LOCKED' : 'DRAFT',
+        type: transactionResult.isLocking
+          ? 'SCORE_LOCKED'
+          : transactionResult.existing
+            ? 'SCORE_UPDATED'
+            : 'SCORE_SUBMITTED',
+      });
+      this.logger.log(
+        `Realtime score broadcast dispatched for contestant ${contestant.id} in event ${assignment.event.id}`,
+      );
+    } catch (err: any) {
+      this.logger.error(`Failed to publish realtime score event: ${err.message}`, err.stack);
     }
 
     return transactionResult.savedScore;

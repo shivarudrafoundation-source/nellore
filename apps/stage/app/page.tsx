@@ -47,18 +47,8 @@ export default function StageLiveDisplay() {
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
   const [roundResults, setRoundResults] = useState<RoundStandingsData | null>(null);
 
-  // Live score state
-  const [activeScore, setActiveScore] = useState<LiveScoreData | null>({
-    contestantId: 'SRF-NLR26-MS-0001',
-    categoryName: 'Ms Category',
-    categoryCode: 'MS',
-    roundName: 'Traditional Round',
-    roundMaxMarks: 50,
-    totalScore: 46.5,
-    status: 'LOCKED',
-    timestamp: new Date().toISOString(),
-  });
-
+  // Live score state - Initialized to null and populated from DB on mount + live WebSockets
+  const [activeScore, setActiveScore] = useState<LiveScoreData | null>(null);
   const [recentScores, setRecentScores] = useState<LiveScoreData[]>([]);
   const [winners, setWinners] = useState<WinnerData[]>([]);
 
@@ -75,8 +65,7 @@ export default function StageLiveDisplay() {
       try {
         const res = await fetch(`${API}/public/events`);
         if (res.ok) {
-          const data = await res.json();
-          const list = data.events || data || [];
+          const list = await res.json();
           setEvents(list);
           if (list.length > 0 && !selectedEvent) {
             setSelectedEvent(list[0]);
@@ -87,9 +76,38 @@ export default function StageLiveDisplay() {
       }
     }
     loadEvents();
-  }, [selectedEvent]);
+  }, [API, selectedEvent]);
 
-  // 2. Fetch publication & results status
+  // 2. Fetch latest live stage data from DB whenever selectedEvent changes
+  useEffect(() => {
+    if (!selectedEvent) return;
+    async function loadLiveStageData() {
+      try {
+        const slug = selectedEvent.code || selectedEvent.id;
+        const res = await fetch(`${API}/public/events/${slug}/live-stage`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.activeScore) {
+            setActiveScore(data.activeScore);
+            const scoreTime = new Date(data.activeScore.timestamp).getTime();
+            if (scoreTime > lastEventTimestampRef.current) {
+              lastEventTimestampRef.current = scoreTime;
+            }
+          } else {
+            setActiveScore(null);
+          }
+          if (data.recentScores && data.recentScores.length > 0) {
+            setRecentScores(data.recentScores);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load live stage data:', err);
+      }
+    }
+    loadLiveStageData();
+  }, [API, selectedEvent]);
+
+  // 3. Fetch publication & results status
   const checkPublishedResults = useCallback(async () => {
     if (!selectedEvent) return;
     try {
@@ -102,13 +120,13 @@ export default function StageLiveDisplay() {
         }
       }
     } catch {}
-  }, [selectedEvent]);
+  }, [API, selectedEvent]);
 
   useEffect(() => {
     checkPublishedResults();
   }, [checkPublishedResults]);
 
-  // 3. Realtime Live Score Handler (Strict Zero-PII, Stale Data Protection)
+  // 4. Realtime Live Score Handler (Strict Zero-PII, Stale Data Protection)
   const handleRealtimeScore = useCallback((event: any) => {
     // Stale data protection: ensure event timestamp is newer or equal
     const eventTime = event.timestamp ? new Date(event.timestamp).getTime() : Date.now();
@@ -190,18 +208,18 @@ export default function StageLiveDisplay() {
 
     setRecentScores((prev) => {
       const filtered = prev.filter((s) => s.contestantId !== newScore.contestantId);
-      return [newScore, ...filtered.slice(0, 4)];
+      return [newScore, ...filtered.slice(0, 7)];
     });
-  }, []);
+  }, [checkPublishedResults]);
 
-  // 4. Socket.IO Real-time Connection
+  // 5. Socket.IO Real-time Connection
   const { connectionState } = useRealtimeScores({
     eventId: selectedEvent?.id,
     role: 'STAGE',
     onScoreEvent: handleRealtimeScore,
   });
 
-  // 5. Fullscreen Management & Keyboard Shortcut ('F')
+  // 6. Fullscreen Management & Keyboard Shortcut ('F')
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
@@ -224,7 +242,7 @@ export default function StageLiveDisplay() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [toggleFullscreen]);
 
-  // 6. Auto-hide Controls after 3 seconds of inactivity
+  // 7. Auto-hide Controls after 3 seconds of inactivity
   const handleUserActivity = useCallback(() => {
     setShowControls(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
@@ -281,7 +299,7 @@ export default function StageLiveDisplay() {
               {selectedEvent?.name || 'Nellore Nerajana 2026'}
             </span>
             <span className="font-sans text-[9px] text-luxury-white/40 uppercase tracking-luxury">
-              {selectedEvent?.location || 'Nellore Grand Auditorium'}
+              {selectedEvent?.location || 'Nellore Convention Center'}
             </span>
           </div>
 
@@ -316,7 +334,7 @@ export default function StageLiveDisplay() {
                 LIVE BROADCAST STANDBY
               </span>
               <h2 className="font-serif text-4xl md:text-6xl text-luxury-white font-light tracking-wide uppercase">
-                {selectedEvent?.name || 'Nellore Nirajan Pageant'}
+                {selectedEvent?.name || 'Nellore Nerajana Pageant'}
               </h2>
               <p className="font-sans text-xs md:text-sm text-luxury-white/50 max-w-lg mx-auto uppercase tracking-luxury">
                 Awaiting Next Competitive Round Broadcast
@@ -355,7 +373,7 @@ export default function StageLiveDisplay() {
             </div>
           </div>
         ) : stageMode === 'ROUND_RESULTS' && roundResults ? (
-          /* MODE D: ROUND RESULTS (Phase 6F) */
+          /* MODE D: ROUND RESULTS */
           <div className="w-full max-w-5xl text-center space-y-6 animate-fadeIn">
             <span className="px-6 py-2 bg-luxury-gold text-black font-sans text-xs md:text-sm tracking-[0.3em] uppercase font-bold inline-block shadow-lg">
               OFFICIAL ROUND RESULTS
@@ -406,7 +424,7 @@ export default function StageLiveDisplay() {
           </div>
         ) : (
           /* MODE C: LIVE SCORING SCREEN (DEFAULT & ACTIVE) */
-          activeScore && (
+          activeScore ? (
             <div
               className={`w-full max-w-5xl transition-opacity duration-300 ${
                 isTransitioning ? 'opacity-0' : 'opacity-100'
@@ -486,6 +504,24 @@ export default function StageLiveDisplay() {
                 </div>
               )}
             </div>
+          ) : (
+            /* AWAITING LIVE SCORE EVALUATION (Clean Standby) */
+            <div className="text-center space-y-6 animate-fadeIn border border-luxury-gold/30 bg-[#0A0A0A]/90 p-12 max-w-2xl mx-auto shadow-2xl">
+              <div className="w-16 h-16 rounded-full border border-luxury-gold/30 bg-luxury-gold/5 flex items-center justify-center mx-auto shadow-inner">
+                <span className="w-3 h-3 rounded-full bg-luxury-gold animate-ping" />
+              </div>
+              <div className="space-y-2">
+                <span className="font-sans text-xs tracking-[0.3em] text-luxury-gold uppercase font-bold block">
+                  AWAITING LIVE SCORE EVALUATION
+                </span>
+                <h3 className="font-serif text-2xl text-luxury-white font-light uppercase">
+                  {selectedEvent?.name || 'Nellore Nerajana 2026'}
+                </h3>
+                <p className="font-sans text-xs text-luxury-white/50 tracking-wider uppercase">
+                  Live scores submitted by judges will appear here automatically
+                </p>
+              </div>
+            </div>
           )
         )}
       </main>
@@ -506,6 +542,23 @@ export default function StageLiveDisplay() {
           showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >
+        {events.length > 1 && (
+          <select
+            value={selectedEvent?.id || ''}
+            onChange={(e) => {
+              const ev = events.find((x) => x.id === e.target.value);
+              if (ev) setSelectedEvent(ev);
+            }}
+            className="h-9 bg-black/90 border border-luxury-gold/40 text-luxury-gold font-sans text-[10px] px-3 uppercase tracking-luxury outline-none shadow-lg"
+          >
+            {events.map((ev) => (
+              <option key={ev.id} value={ev.id}>
+                {ev.name}
+              </option>
+            ))}
+          </select>
+        )}
+
         <select
           value={stageMode}
           onChange={(e) => setStageMode(e.target.value as StageMode)}
