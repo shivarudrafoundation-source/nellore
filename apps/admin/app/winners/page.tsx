@@ -4,9 +4,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { AuthGuard } from '../components/auth-guard';
 import { AdminShell } from '../components/admin-shell';
-import { Card, Button } from '@srf/ui';
+import { Card, Button, getApiBaseUrl } from '@srf/ui';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API = getApiBaseUrl();
 
 function WinnersContent() {
   const [events, setEvents] = useState<any[]>([]);

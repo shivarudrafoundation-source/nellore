@@ -6,9 +6,9 @@ import { useRouter } from 'next/navigation';
 import { AuthGuard } from '../components/auth-guard';
 import { AdminShell } from '../components/admin-shell';
 import { Pagination } from '../components/pagination';
-import { Card } from '@srf/ui';
+import { Card, getApiBaseUrl } from '@srf/ui';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API = getApiBaseUrl();
 
 function ContestantsContent() {
   const router = useRouter();

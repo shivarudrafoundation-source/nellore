@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from '@srf/ui';
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -6,7 +7,7 @@ import { AuthGuard } from '../../../components/auth-guard';
 import { AdminShell } from '../../../components/admin-shell';
 import { EventForm } from '../../../components/event-form';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API = getApiBaseUrl();
 
 function toLocalDatetime(dateStr: string | null): string {
   if (!dateStr) return '';

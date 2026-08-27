@@ -4,9 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthGuard } from '../../components/auth-guard';
 import { AdminShell } from '../../components/admin-shell';
-import { Button, Input, Card } from '@srf/ui';
+import { Button, Input, Card, getApiBaseUrl } from '@srf/ui';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API = getApiBaseUrl();
 
 function CreateJudgeContent() {
   const router = useRouter();

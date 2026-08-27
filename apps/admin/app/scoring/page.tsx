@@ -6,9 +6,9 @@ import { AuthGuard } from '../components/auth-guard';
 import { AdminShell } from '../components/admin-shell';
 import { Pagination } from '../components/pagination';
 import { useRealtimeScores } from '../../hooks/useRealtimeScores';
-import { Card, Button } from '@srf/ui';
+import { Card, Button, getApiBaseUrl } from '@srf/ui';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API = getApiBaseUrl();
 
 function ScoringContent() {
   const [activeTab, setActiveTab] = useState<'LEDGER' | 'FINAL_MATRIX' | 'ROUND_STANDINGS'>('FINAL_MATRIX');

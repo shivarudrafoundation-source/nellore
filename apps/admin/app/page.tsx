@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { AuthGuard } from './components/auth-guard';
 import { AdminShell } from './components/admin-shell';
-import { Card } from '@srf/ui';
+import { Card, getApiBaseUrl } from '@srf/ui';
 
 interface DashboardStats {
   counts: {

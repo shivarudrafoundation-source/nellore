@@ -669,7 +669,7 @@ export class RegistrationsService {
       throw new BadRequestException('Selected event is currently unavailable for registration.');
     }
 
-    if (event.registrationOpenDate && now < new Date(event.registrationOpenDate)) {
+    if (event.status !== 'ACTIVE' && event.registrationOpenDate && now < new Date(event.registrationOpenDate)) {
       throw new BadRequestException('Registration is not yet open for this event.');
     }
 

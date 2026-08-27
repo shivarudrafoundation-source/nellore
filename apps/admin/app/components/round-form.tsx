@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Input, Card } from '@srf/ui';
+import { Button, Input, Card, getApiBaseUrl } from '@srf/ui';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API = getApiBaseUrl();
 
 interface Criterion {
   name: string;

@@ -60,7 +60,7 @@ export class PublicRegistrationsController {
     }
 
     const now = new Date();
-    if (event.registrationOpenDate && now < new Date(event.registrationOpenDate)) {
+    if (event.status !== 'ACTIVE' && event.registrationOpenDate && now < new Date(event.registrationOpenDate)) {
       throw new BadRequestException('Registration is not yet open for this event.');
     }
     if (event.registrationCloseDate && now > new Date(event.registrationCloseDate)) {

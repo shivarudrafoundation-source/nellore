@@ -5,9 +5,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { AuthGuard } from '../../components/auth-guard';
 import { AdminShell } from '../../components/admin-shell';
 import { ConfirmModal } from '../../components/confirm-modal';
-import { Card, Button, Input } from '@srf/ui';
+import { Card, Button, Input, getApiBaseUrl } from '@srf/ui';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API = getApiBaseUrl();
 
 function JudgeDetailContent() {
   const params = useParams();
