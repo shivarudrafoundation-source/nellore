@@ -27,6 +27,8 @@ function RegistrationsContent() {
   const [verifyModalOpen, setVerifyModalOpen] = useState(false);
   const [selectedReg, setSelectedReg] = useState<any | null>(null);
   const [enteredContestantId, setEnteredContestantId] = useState('');
+  const [enteredPassword, setEnteredPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyError, setVerifyError] = useState('');
 
@@ -90,12 +92,23 @@ function RegistrationsContent() {
     fetchRegistrations(1);
   }, [fetchRegistrations]);
 
+  const generateRandomPassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let pass = 'SRF@';
+    for (let i = 0; i < 4; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return pass;
+  };
+
   const openVerifyModal = (reg: any) => {
     setSelectedReg(reg);
     const eventCode = reg.event?.code || 'NLR26';
     const catCode = reg.category?.code || 'GEN';
     const randomSeq = String(Math.floor(1000 + Math.random() * 9000));
     setEnteredContestantId(`SRF-${eventCode}-${catCode}-${randomSeq}`);
+    setEnteredPassword(generateRandomPassword());
+    setShowPassword(false);
     setVerifyError('');
     setVerifyModalOpen(true);
   };
@@ -110,6 +123,11 @@ function RegistrationsContent() {
       return;
     }
 
+    if (!enteredPassword.trim()) {
+      setVerifyError('Please provide a login password for the contestant.');
+      return;
+    }
+
     setVerifyLoading(true);
     setVerifyError('');
 
@@ -118,12 +136,15 @@ function RegistrationsContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ contestantId }),
+        body: JSON.stringify({
+          contestantId,
+          password: enteredPassword.trim(),
+        }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || 'Failed to verify payment and assign Contestant ID.');
+        throw new Error(data.message || 'Failed to verify payment and assign Contestant credentials.');
       }
 
       setVerifyModalOpen(false);
@@ -334,9 +355,23 @@ function RegistrationsContent() {
 
             <form onSubmit={handleConfirmVerify} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-mono uppercase tracking-[0.2em] text-white/60 mb-1.5">
-                  Assign Official Contestant ID *
-                </label>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-[10px] font-mono uppercase tracking-[0.2em] text-white/60">
+                    Assign Contestant ID *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const eventCode = selectedReg.event?.code || 'NLR26';
+                      const catCode = selectedReg.category?.code || 'GEN';
+                      const randomSeq = String(Math.floor(1000 + Math.random() * 9000));
+                      setEnteredContestantId(`SRF-${eventCode}-${catCode}-${randomSeq}`);
+                    }}
+                    className="text-[10px] text-luxury-gold hover:underline font-mono uppercase"
+                  >
+                    Generate New ID
+                  </button>
+                </div>
                 <input
                   type="text"
                   required
@@ -345,8 +380,48 @@ function RegistrationsContent() {
                   placeholder="e.g. SRF-NLR26-MISS-0012"
                   className="w-full bg-[#050505] border border-luxury-gold/50 focus:border-luxury-gold px-3.5 py-2.5 font-mono text-sm text-luxury-gold font-bold focus:outline-none rounded-sm"
                 />
-                <p className="text-[10px] text-white/40 mt-1">
-                  Unique ID for stage scoring, dossier tracking & contestant login.
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-[10px] font-mono uppercase tracking-[0.2em] text-white/60">
+                    Contestant Login Password *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setEnteredPassword(generateRandomPassword())}
+                    className="text-[10px] text-luxury-gold hover:underline font-mono uppercase"
+                  >
+                    Generate Password
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={enteredPassword}
+                    onChange={(e) => setEnteredPassword(e.target.value)}
+                    placeholder="Enter or generate password"
+                    className="w-full bg-[#050505] border border-luxury-gold/50 focus:border-luxury-gold px-3.5 py-2.5 font-mono text-sm text-white focus:outline-none rounded-sm pr-16"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-white/50 hover:text-white font-mono uppercase px-1.5 py-1 bg-white/5 rounded"
+                  >
+                    {showPassword ? 'HIDE' : 'SHOW'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3 bg-luxury-gold/10 border border-luxury-gold/30 rounded-sm space-y-1">
+                <div className="flex items-center gap-1.5 text-xs text-luxury-gold font-semibold">
+                  <span>✉</span>
+                  <span>Instant Credential Dispatch</span>
+                </div>
+                <p className="text-[11px] text-white/70 leading-relaxed">
+                  Upon confirmation, the <strong>Contestant ID</strong> and <strong>Password</strong> will be dispatched to{' '}
+                  <span className="text-white font-mono">{selectedReg.baseFields?.email || 'registrant email'}</span> with direct portal access instructions.
                 </p>
               </div>
 
@@ -356,7 +431,7 @@ function RegistrationsContent() {
                   disabled={verifyLoading}
                   className="flex-1 bg-luxury-gold hover:bg-luxury-gold/80 text-black font-bold uppercase tracking-wider text-xs"
                 >
-                  {verifyLoading ? 'VERIFYING...' : 'CONFIRM & ASSIGN ↗'}
+                  {verifyLoading ? 'DISPATCHING...' : 'VERIFY & DISPATCH CREDENTIALS VIA EMAIL ↗'}
                 </Button>
                 <Button
                   type="button"

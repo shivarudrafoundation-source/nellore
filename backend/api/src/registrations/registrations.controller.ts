@@ -37,12 +37,23 @@ export class RegistrationsController {
   @Post(':id/verify-payment')
   async verifyPayment(
     @Param('id') id: string,
-    @Body() body: { contestantId?: string },
+    @Body() body: { contestantId?: string; password?: string },
     @Req() req: any,
   ) {
     const user = req.user;
     const ip = req.ip || req.headers?.['x-forwarded-for']?.toString() || undefined;
     return this.registrationsService.verifyPaymentAndAssignContestant(id, body, user.sub, ip);
+  }
+
+  @Post(':id/resend-credentials')
+  async resendCredentials(
+    @Param('id') id: string,
+    @Body() body: { password?: string },
+    @Req() req: any,
+  ) {
+    const user = req.user;
+    const ip = req.ip || req.headers?.['x-forwarded-for']?.toString() || undefined;
+    return this.registrationsService.resendCredentials(id, body, user.sub, ip);
   }
 
   @Post(':id/create-contestant')

@@ -17,6 +17,21 @@ function ContestantDetailContent() {
   const [contestant, setContestant] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [resendModalOpen, setResendModalOpen] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState('');
+  const [modalError, setModalError] = useState('');
+
+  const generateRandomPassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let pass = 'SRF@';
+    for (let i = 0; i < 4; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return pass;
+  };
 
   useEffect(() => {
     async function fetchContestant() {
@@ -25,6 +40,7 @@ function ContestantDetailContent() {
         if (!res.ok) throw new Error('Unable to load contestant.');
         const d = await res.json();
         setContestant(d);
+        setPasswordInput(generateRandomPassword());
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -33,6 +49,45 @@ function ContestantDetailContent() {
     }
     fetchContestant();
   }, [id]);
+
+  const handleResendCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contestant.registration?.id) {
+      setModalError('No linked registration record found for this contestant.');
+      return;
+    }
+    if (!passwordInput.trim()) {
+      setModalError('Please enter a password.');
+      return;
+    }
+
+    setActionLoading(true);
+    setModalError('');
+    setActionMessage('');
+
+    try {
+      const res = await fetch(`${API}/admin/registrations/${contestant.registration.id}/resend-credentials`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          password: passwordInput.trim(),
+        }),
+      });
+
+      const d = await res.json();
+      if (!res.ok) {
+        throw new Error(d.message || 'Failed to dispatch credentials.');
+      }
+
+      setResendModalOpen(false);
+      setActionMessage(d.message || 'Credentials updated and dispatched to contestant email successfully!');
+    } catch (err: any) {
+      setModalError(err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -69,14 +124,36 @@ function ContestantDetailContent() {
           </p>
         </div>
 
-        {contestant.registration?.id && (
-          <Link href={`/registrations/${contestant.registration.id}`}>
-            <Button size="sm" variant="outline">
-              VIEW REGISTRATION RECORD ↗
-            </Button>
-          </Link>
-        )}
+        <div className="flex items-center gap-3">
+          {contestant.registration?.id && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setPasswordInput(generateRandomPassword());
+                  setModalError('');
+                  setResendModalOpen(true);
+                }}
+                className="border-luxury-gold/50 text-luxury-gold hover:bg-luxury-gold hover:text-black font-semibold text-xs uppercase"
+              >
+                ✉ RESET / RESEND CREDENTIALS
+              </Button>
+              <Link href={`/registrations/${contestant.registration.id}`}>
+                <Button size="sm" variant="outline">
+                  VIEW REGISTRATION ↗
+                </Button>
+              </Link>
+            </>
+          )}
+        </div>
       </div>
+
+      {actionMessage && (
+        <div className="bg-green-500/10 border border-green-500/20 px-4 py-3">
+          <p className="font-sans text-sm text-green-400">{actionMessage}</p>
+        </div>
+      )}
 
       {/* Grid: Competition info & Personal details */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -186,6 +263,102 @@ function ContestantDetailContent() {
           </div>
         )}
       </Card>
+
+      {/* RESEND / RESET CREDENTIALS MODAL */}
+      {resendModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#0A0A0A] border border-luxury-gold/40 w-full max-w-md p-6 space-y-5 shadow-2xl rounded-sm">
+            <div className="border-b border-luxury-gray-border/20 pb-3">
+              <span className="font-sans text-[9px] tracking-[0.24em] text-luxury-gold uppercase font-bold block">
+                CREDENTIAL MANAGEMENT
+              </span>
+              <h3 className="font-serif text-xl font-light text-white mt-1">
+                Reset Password & Dispatch Email
+              </h3>
+            </div>
+
+            {modalError && (
+              <div className="p-3 bg-red-950/40 border border-red-500/50 text-red-300 text-xs rounded-sm">
+                {modalError}
+              </div>
+            )}
+
+            <div className="bg-[#050505] border border-white/10 p-4 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-white/40">Contestant ID:</span>
+                <span className="text-luxury-gold font-mono font-bold">{contestant.id}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/40">Recipient Email:</span>
+                <span className="text-white font-mono">{base.email || 'N/A'}</span>
+              </div>
+            </div>
+
+            <form onSubmit={handleResendCredentials} className="space-y-4">
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-[10px] font-mono uppercase tracking-[0.2em] text-white/60">
+                    New Portal Password *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setPasswordInput(generateRandomPassword())}
+                    className="text-[10px] text-luxury-gold hover:underline font-mono uppercase"
+                  >
+                    Generate Password
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    placeholder="Enter or generate password"
+                    className="w-full bg-[#050505] border border-luxury-gold/50 focus:border-luxury-gold px-3.5 py-2.5 font-mono text-sm text-white focus:outline-none rounded-sm pr-16"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-white/50 hover:text-white font-mono uppercase px-1.5 py-1 bg-white/5 rounded"
+                  >
+                    {showPassword ? 'HIDE' : 'SHOW'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3 bg-luxury-gold/10 border border-luxury-gold/30 rounded-sm space-y-1">
+                <div className="flex items-center gap-1.5 text-xs text-luxury-gold font-semibold">
+                  <span>✉</span>
+                  <span>Instant Email Notification</span>
+                </div>
+                <p className="text-[11px] text-white/70 leading-relaxed">
+                  Upon submission, the updated password and login link will be sent to{' '}
+                  <span className="text-white font-mono">{base.email}</span>.
+                </p>
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <Button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="flex-1 bg-luxury-gold hover:bg-luxury-gold/80 text-black font-bold uppercase tracking-wider text-xs"
+                >
+                  {actionLoading ? 'DISPATCHING...' : 'UPDATE & SEND EMAIL ↗'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setResendModalOpen(false)}
+                  className="text-xs"
+                >
+                  CANCEL
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <div className="pt-4">
         <Button variant="text" onClick={() => router.push('/contestants')}>

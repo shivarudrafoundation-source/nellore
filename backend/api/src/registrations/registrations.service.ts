@@ -1,3 +1,4 @@
+import * as bcrypt from 'bcrypt';
 import { Injectable, BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -158,11 +159,11 @@ export class RegistrationsService {
   }
 
   /**
-   * Admin-only: Verify Payment and Assign Contestant ID in an atomic PostgreSQL transaction
+   * Admin-only: Verify Payment, Set Password, and Assign Contestant ID in an atomic PostgreSQL transaction
    */
   async verifyPaymentAndAssignContestant(
     id: string,
-    dto: { contestantId?: string },
+    dto: { contestantId?: string; password?: string },
     actorId: string,
     ipAddress?: string,
   ) {
@@ -174,6 +175,8 @@ export class RegistrationsService {
     if (rawContestantId.length < 3 || !/^[A-Z0-9_-]+$/i.test(rawContestantId)) {
       throw new BadRequestException('Invalid Contestant ID format. Must contain alphanumeric characters, hyphens or underscores.');
     }
+
+    const plainPassword = dto.password ? String(dto.password).trim() : '';
 
     return this.db.$transaction(async (tx) => {
       const registration = await tx.registration.findUnique({
@@ -198,19 +201,29 @@ export class RegistrationsService {
         throw new ConflictException(`Contestant ID "${rawContestantId}" is already assigned to another contestant.`);
       }
 
-      // 2. Check if registration is already verified with this contestant ID (idempotency)
-      if (registration.paymentStatus === 'PAID' && registration.contestantId === rawContestantId && existingWithId) {
-        return {
-          registration,
-          contestant: existingWithId,
-          message: 'Payment is already verified and Contestant ID assigned.',
-        };
-      }
-
       const base = (registration.baseFields as any) || {};
       const mobile = base.mobile || 'N/A';
       const email = base.email;
       const applicantName = base.name || 'Contestant';
+
+      // 2. Hash and store password if provided
+      if (plainPassword) {
+        const passwordHash = await bcrypt.hash(plainPassword, 10);
+        base.passwordHash = passwordHash;
+
+        // If user record exists, update password on user record too
+        if (base.userId) {
+          await tx.user.updateMany({
+            where: { id: base.userId },
+            data: { passwordHash },
+          });
+        } else if (email) {
+          await tx.user.updateMany({
+            where: { email: email.trim().toLowerCase() },
+            data: { passwordHash },
+          });
+        }
+      }
 
       // 3. Create or update Contestant record
       let contestant = existingWithId;
@@ -236,17 +249,18 @@ export class RegistrationsService {
         }
       }
 
-      // 4. Update Registration status & contestantId
+      // 4. Update Registration status, contestantId, and baseFields with passwordHash
       const updatedRegistration = await tx.registration.update({
         where: { id: registration.id },
         data: {
           paymentStatus: 'PAID',
           contestantId: contestant.id,
+          baseFields: base,
         },
         include: { event: true, category: true, contestant: true },
       });
 
-      // 5. Audit logs (PAYMENT_VERIFIED, CONTESTANT_ID_ASSIGNED, CONTESTANT_ACTIVATED)
+      // 5. Audit logs
       await this.audit.log({
         actorType: 'ADMIN',
         actorId,
@@ -278,12 +292,14 @@ export class RegistrationsService {
         ipAddress,
       });
 
-      // 6. Asynchronously trigger Contestant Activation Email
+      // 6. Asynchronously trigger Contestant Activation Email with ID & Password
       if (email && this.mailService) {
         this.mailService
           .sendContestantActivationEmail(email, {
             name: applicantName,
             contestantId: contestant.id,
+            email,
+            password: plainPassword || undefined,
             categoryName: registration.category.name,
             eventName: registration.event.name,
           })
@@ -293,9 +309,85 @@ export class RegistrationsService {
       return {
         registration: updatedRegistration,
         contestant,
-        message: 'Payment verified and Contestant ID assigned successfully.',
+        message: 'Payment verified, credentials provisioned, and notification dispatched to contestant email.',
       };
     }, { timeout: 15000, maxWait: 10000 });
+  }
+
+  /**
+   * Admin-only: Resend credentials or reset password for an active contestant
+   */
+  async resendCredentials(
+    id: string,
+    dto: { password?: string },
+    actorId: string,
+    ipAddress?: string,
+  ) {
+    const registration = await this.db.registration.findUnique({
+      where: { id },
+      include: {
+        event: true,
+        category: true,
+        contestant: true,
+      },
+    });
+
+    if (!registration || !registration.contestantId) {
+      throw new NotFoundException('Active contestant registration not found.');
+    }
+
+    const base = (registration.baseFields as any) || {};
+    const email = base.email;
+    const applicantName = base.name || 'Contestant';
+    const plainPassword = dto.password ? String(dto.password).trim() : '';
+
+    if (plainPassword) {
+      const passwordHash = await bcrypt.hash(plainPassword, 10);
+      base.passwordHash = passwordHash;
+
+      await this.db.registration.update({
+        where: { id: registration.id },
+        data: { baseFields: base },
+      });
+
+      if (base.userId) {
+        await this.db.user.updateMany({
+          where: { id: base.userId },
+          data: { passwordHash },
+        });
+      } else if (email) {
+        await this.db.user.updateMany({
+          where: { email: email.trim().toLowerCase() },
+          data: { passwordHash },
+        });
+      }
+    }
+
+    if (email && this.mailService) {
+      await this.mailService.sendContestantActivationEmail(email, {
+        name: applicantName,
+        contestantId: registration.contestantId,
+        email,
+        password: plainPassword || undefined,
+        categoryName: registration.category.name,
+        eventName: registration.event.name,
+      });
+    }
+
+    await this.audit.log({
+      actorType: 'ADMIN',
+      actorId,
+      action: 'CONTESTANT_CREDENTIALS_RESENT' as any,
+      entity: 'Registration',
+      entityId: id,
+      ipAddress,
+      after: { email, contestantId: registration.contestantId },
+    });
+
+    return {
+      success: true,
+      message: `Credentials for contestant ${registration.contestantId} dispatched to ${email}.`,
+    };
   }
 
   /**

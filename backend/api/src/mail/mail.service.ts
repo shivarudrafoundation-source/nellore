@@ -233,26 +233,56 @@ export class MailService {
   }
 
   /**
-   * Dispatches an official Contestant Activation email with Contestant ID & Portal link
+   * Dispatches an official Contestant Activation email with Contestant ID, Password & Portal link
    */
   async sendContestantActivationEmail(
     to: string,
-    data: { name: string; contestantId: string; categoryName: string; eventName: string; portalUrl?: string },
+    data: {
+      name: string;
+      contestantId: string;
+      email?: string;
+      password?: string;
+      categoryName: string;
+      eventName: string;
+      portalUrl?: string;
+    },
   ) {
-    const portalUrl = data.portalUrl || 'https://my.sivarudrafoundation.com';
+    const portalUrl = data.portalUrl || 'https://my.sivarudrafoundation.com/login';
+    const contestantEmail = data.email || to;
     const html = this.wrapLuxuryTemplate(
       'Contestant Account Activated',
       `
       <h2 style="color: #FFFFFF; font-size: 18px; font-weight: 400; margin-top: 0;">Congratulations, ${data.name}!</h2>
-      <p>Your payment has been verified and your official Contestant Dossier has been activated for <strong>${data.eventName}</strong>.</p>
+      <p>Your payment has been verified and your official Contestant Dossier has been activated for <strong>${data.eventName}</strong> (${data.categoryName}).</p>
       
-      <div class="otp-box">
-        <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.2em; color: rgba(255,255,255,0.5); margin-bottom: 6px;">Your Official Contestant ID</div>
-        <div style="font-family: monospace; font-size: 24px; font-weight: 700; color: #D4AF37; letter-spacing: 0.1em;">${data.contestantId}</div>
-        <div style="font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 6px;">Category: ${data.categoryName}</div>
+      <div style="background: #111111; border: 1px solid rgba(212,175,55,0.4); padding: 22px; margin: 24px 0; border-radius: 4px;">
+        <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.25em; color: #D4AF37; font-weight: 700; margin-bottom: 14px; border-bottom: 1px solid rgba(212,175,55,0.2); padding-bottom: 8px;">
+          Official Contestant Portal Credentials
+        </div>
+        
+        <div style="margin-bottom: 10px;">
+          <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.5);">Contestant ID:</span><br>
+          <span style="font-family: monospace; font-size: 18px; font-weight: 700; color: #D4AF37; letter-spacing: 0.08em;">${data.contestantId}</span>
+        </div>
+
+        <div style="margin-bottom: 10px;">
+          <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.5);">Registered Email:</span><br>
+          <span style="font-family: monospace; font-size: 14px; color: #FFFFFF;">${contestantEmail}</span>
+        </div>
+
+        ${data.password ? `
+        <div style="margin-bottom: 10px;">
+          <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.5);">Login Password:</span><br>
+          <span style="font-family: monospace; font-size: 16px; font-weight: 700; color: #D4AF37; background: #000000; padding: 4px 8px; border: 1px solid rgba(212,175,55,0.3); display: inline-block; margin-top: 4px;">${data.password}</span>
+        </div>
+        ` : ''}
+
+        <div style="margin-top: 14px; font-size: 11px; color: rgba(255,255,255,0.5);">
+          Category: <strong style="color: #FFFFFF;">${data.categoryName}</strong> • Event: <strong style="color: #FFFFFF;">${data.eventName}</strong>
+        </div>
       </div>
       
-      <p>You can now sign in to the official Contestant Portal to view your round schedules, document guides, and real-time score updates.</p>
+      <p style="font-size: 13px; line-height: 1.6;">You can now sign in to the Contestant Portal using your <strong>Email</strong>, <strong>Contestant ID</strong>, and <strong>Password</strong> to track your performance marks, live stage standings, and rulebook guidelines.</p>
       
       <div class="button-container">
         <a href="${portalUrl}" class="btn-gold" target="_blank">Access Contestant Portal ↗</a>
@@ -262,8 +292,9 @@ export class MailService {
 
     return this.sendEmail({
       to,
-      subject: `Official Contestant ID: ${data.contestantId} — ${data.eventName}`,
+      subject: `Official Contestant Credentials: ${data.contestantId} — ${data.eventName}`,
       html,
+      text: `Congratulations ${data.name}! Your Contestant ID is ${data.contestantId} and password is ${data.password || 'set during registration'}. Log in at ${portalUrl}`,
     });
   }
 
