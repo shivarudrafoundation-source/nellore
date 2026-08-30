@@ -150,8 +150,8 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
       }
       if (!formData.location.trim()) nextErrors.location = 'Location / City is required';
       if (!formData.gender) nextErrors.gender = 'Gender is required';
-      if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-        nextErrors.email = 'Enter a valid email address';
+      if (!formData.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+        nextErrors.email = 'Valid email address is required for verification';
       }
       if (!formData.age.trim() || isNaN(Number(formData.age)) || Number(formData.age) <= 0) {
         nextErrors.age = 'Enter a valid numerical age';
@@ -180,18 +180,18 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
     setStep((prev) => Math.max(1, prev - 1));
   };
 
-  // Request OTP from Backend API
+  // Request OTP from Backend API via Email
   const handleRequestOtp = async () => {
     setOtpLoading(true);
     setOtpError('');
     setOtpSuccessMsg('');
     try {
-      const cleanMobile = formData.mobile.replace(/\D/g, '');
+      const cleanEmail = formData.email.trim().toLowerCase();
       const res = await fetch(`${API}/public/registrations/request-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          mobile: cleanMobile,
+          email: cleanEmail,
           eventId: event.id,
           categoryId,
         }),
@@ -199,36 +199,36 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || 'Unable to request OTP.');
+        throw new Error(data.message || 'Unable to request verification code.');
       }
 
       setOtpSent(true);
-      setOtpTimer(30);
-      setOtpSuccessMsg('Verification OTP dispatched to your registered mobile number.');
+      setOtpTimer(60);
+      setOtpSuccessMsg(`Verification code sent to ${cleanEmail}`);
     } catch (err: any) {
-      setOtpError(err.message || 'Failed to dispatch OTP. Please check your mobile number.');
+      setOtpError(err.message || 'Failed to dispatch verification code. Please check your email.');
     } finally {
       setOtpLoading(false);
     }
   };
 
-  // Verify OTP via Backend API
+  // Verify OTP via Backend API via Email
   const handleVerifyOtp = async () => {
     setOtpLoading(true);
     setOtpError('');
     try {
-      const cleanMobile = formData.mobile.replace(/\D/g, '');
+      const cleanEmail = formData.email.trim().toLowerCase();
       const cleanOtp = otp.trim();
 
       if (!/^\d{6}$/.test(cleanOtp)) {
-        throw new Error('Please enter a 6-digit OTP code.');
+        throw new Error('Please enter the 6-digit verification code.');
       }
 
       const res = await fetch(`${API}/public/registrations/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          mobile: cleanMobile,
+          email: cleanEmail,
           eventId: event.id,
           otp: cleanOtp,
         }),
@@ -236,13 +236,13 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || 'Invalid or expired OTP code.');
+        throw new Error(data.message || 'Invalid or expired verification code.');
       }
 
       setOtpVerified(true);
-      setOtpSuccessMsg('Mobile number verified successfully.');
+      setOtpSuccessMsg('Email address verified successfully.');
     } catch (err: any) {
-      setOtpError(err.message || 'Invalid OTP. Please try again.');
+      setOtpError(err.message || 'Invalid verification code. Please try again.');
     } finally {
       setOtpLoading(false);
     }
@@ -481,7 +481,7 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
 
               <div className="space-y-1">
                 <label className="font-sans text-[10px] tracking-luxury text-luxury-white/60 uppercase">
-                  Email Address
+                  Email Address (For Verification) *
                 </label>
                 <input
                   type="email"
@@ -673,20 +673,20 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
                 onClick={handleNext}
                 className="min-h-[44px] h-11 px-8 border border-luxury-gold bg-luxury-gold text-luxury-black-pure font-sans text-xs font-semibold tracking-luxury uppercase hover:bg-transparent hover:text-luxury-gold transition-all duration-300"
               >
-                NEXT: MOBILE OTP VERIFY →
+                {otpVerified ? 'REVIEW & SUBMIT →' : 'NEXT: EMAIL OTP VERIFY →'}
               </button>
             </div>
           </div>
         )}
 
-        {/* STEP 4: MOBILE OTP VERIFICATION */}
+        {/* STEP 4: EMAIL OTP VERIFICATION */}
         {step === 4 && (
           <div className="space-y-6">
             <div>
-              <h3 className="font-serif text-lg font-light text-luxury-white">Mobile Number Verification</h3>
+              <h3 className="font-serif text-lg font-light text-luxury-white">Email Address Verification</h3>
               <p className="font-sans text-xs text-luxury-white/40">
-                To prevent fraudulent entries, verify ownership of mobile{' '}
-                <span className="text-luxury-gold font-mono font-bold">+91 {formData.mobile}</span>
+                To verify your registration, a 6-digit verification code will be sent to your email{' '}
+                <span className="text-luxury-gold font-mono font-bold">{formData.email}</span>
               </p>
             </div>
 
@@ -694,7 +694,7 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
               {!otpSent ? (
                 <div className="text-center space-y-4 py-4">
                   <span className="font-sans text-xs text-luxury-white/60 block">
-                    Click below to receive a 6-digit verification code on your registered mobile number.
+                    Click below to receive a 6-digit verification code in your email inbox.
                   </span>
                   <button
                     type="button"
@@ -702,7 +702,7 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
                     disabled={otpLoading}
                     className="min-h-[44px] h-11 px-8 border border-luxury-gold bg-luxury-gold text-luxury-black-pure font-sans text-xs font-semibold tracking-luxury uppercase hover:bg-transparent hover:text-luxury-gold transition-all duration-300 disabled:opacity-50"
                   >
-                    {otpLoading ? 'DISPATCHING OTP...' : 'REQUEST 6-DIGIT OTP ↗'}
+                    {otpLoading ? 'DISPATCHING CODE...' : 'SEND EMAIL VERIFICATION CODE ↗'}
                   </button>
                 </div>
               ) : (
@@ -715,7 +715,7 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
 
                   <div className="space-y-2">
                     <label className="font-sans text-[10px] tracking-luxury text-luxury-white/60 uppercase block">
-                      Enter 6-Digit OTP Code
+                      Enter 6-Digit Email Code
                     </label>
                     <div className="flex flex-wrap gap-3 items-center">
                       <input
@@ -742,7 +742,7 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
                   </div>
 
                   <div className="flex justify-between items-center text-[10px] font-sans text-luxury-white/40 pt-1">
-                    <span>Did not receive code?</span>
+                    <span>Did not receive code? Check spam folder or</span>
                     {otpTimer > 0 ? (
                       <span className="text-luxury-gold/60 uppercase tracking-wider font-mono">
                         RESEND IN {otpTimer}S
@@ -754,7 +754,7 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
                         disabled={otpLoading}
                         className="text-luxury-gold hover:underline uppercase tracking-wider min-h-[44px] inline-flex items-center"
                       >
-                        RESEND OTP
+                        RESEND EMAIL OTP
                       </button>
                     )}
                   </div>
