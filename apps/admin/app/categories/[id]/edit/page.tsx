@@ -1,4 +1,3 @@
-import { getApiBaseUrl } from '@srf/ui';
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -6,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { AuthGuard } from '../../../components/auth-guard';
 import { AdminShell } from '../../../components/admin-shell';
 import { CategoryForm } from '../../../components/category-form';
+import { getApiBaseUrl } from '@srf/ui';
 
 const API = getApiBaseUrl();
 

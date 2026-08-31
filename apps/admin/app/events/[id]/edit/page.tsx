@@ -1,4 +1,3 @@
-import { getApiBaseUrl } from '@srf/ui';
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -6,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { AuthGuard } from '../../../components/auth-guard';
 import { AdminShell } from '../../../components/admin-shell';
 import { EventForm } from '../../../components/event-form';
+import { getApiBaseUrl } from '@srf/ui';
 
 const API = getApiBaseUrl();
 
@@ -43,7 +43,9 @@ function EditEventContent() {
   if (loading) {
     return (
       <div className="space-y-4 animate-pulse max-w-2xl">
-        {[...Array(6)].map((_, i) => <div key={i} className="h-11 bg-luxury-gray-border/10 rounded" />)}
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="h-11 bg-luxury-gray-border/10 rounded" />
+        ))}
       </div>
     );
   }
@@ -56,7 +58,9 @@ function EditEventContent() {
     <div className="space-y-6 max-w-3xl">
       <div>
         <h2 className="font-serif text-2xl font-light text-luxury-white tracking-wide">Edit Event</h2>
-        <p className="font-sans text-xs text-luxury-white/30 tracking-luxury uppercase mt-1">{event.name}</p>
+        <p className="font-sans text-xs text-luxury-white/30 tracking-luxury uppercase mt-1">
+          {event.name} ({event.code})
+        </p>
       </div>
       <EventForm
         mode="edit"
@@ -68,9 +72,9 @@ function EditEventContent() {
           location: event.location,
           startDate: toLocalDatetime(event.startDate),
           endDate: toLocalDatetime(event.endDate),
-          logoUrl: event.logoUrl || '',
           registrationOpenDate: toLocalDatetime(event.registrationOpenDate),
           registrationCloseDate: toLocalDatetime(event.registrationCloseDate),
+          logoUrl: event.logoUrl || '',
           status: event.status,
         }}
       />

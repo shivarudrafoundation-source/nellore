@@ -1,4 +1,3 @@
-import { getApiBaseUrl } from '@srf/ui';
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -6,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { AuthGuard } from '../../../components/auth-guard';
 import { AdminShell } from '../../../components/admin-shell';
 import { RoundForm } from '../../../components/round-form';
+import { getApiBaseUrl } from '@srf/ui';
 
 const API = getApiBaseUrl();
 
@@ -35,7 +35,7 @@ function EditRoundContent() {
   if (loading) {
     return (
       <div className="space-y-4 animate-pulse max-w-2xl">
-        {[...Array(6)].map((_, i) => (
+        {[...Array(4)].map((_, i) => (
           <div key={i} className="h-11 bg-luxury-gray-border/10 rounded" />
         ))}
       </div>
@@ -51,7 +51,7 @@ function EditRoundContent() {
       <div>
         <h2 className="font-serif text-2xl font-light text-luxury-white tracking-wide">Edit Round</h2>
         <p className="font-sans text-xs text-luxury-white/30 tracking-luxury uppercase mt-1">
-          {round.name} ({round.category?.name} — {round.category?.event?.name})
+          {round.name} ({round.category?.name})
         </p>
       </div>
       <RoundForm
@@ -60,13 +60,11 @@ function EditRoundContent() {
         initialData={{
           categoryId: round.categoryId,
           name: round.name,
-          maxMarks: round.maxMarks,
-          scoredBy: round.scoredBy,
           day: round.day,
-          sortOrder: round.sortOrder,
-          judgesRequired: round.judgesRequired,
+          maxMarks: round.maxMarks,
           status: round.status,
-          subCriteria: round.subCriteria,
+          sortOrder: round.sortOrder,
+          subCriteria: round.criteria || [],
         }}
       />
     </div>
