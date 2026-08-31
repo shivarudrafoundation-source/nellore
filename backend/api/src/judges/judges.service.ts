@@ -155,10 +155,20 @@ export class JudgesService {
     return { event, category, round };
   }
 
+  /**
+   * Clean temporary password generator
+   */
+  private generateCleanPassword(): string {
+    const randomDigits = String(Math.floor(1000 + Math.random() * 9000));
+    return `SRF@${randomDigits}`;
+  }
+
   async create(
     data: {
+      id?: string;
       name: string;
       email: string;
+      password?: string;
       eventId: string;
       categoryId: string;
       roundId: string;
@@ -177,26 +187,48 @@ export class JudgesService {
     const email = data.email.trim().toLowerCase();
 
     // Check unique email
-    const existing = await this.db.judgeAccount.findUnique({ where: { email } });
-    if (existing) {
+    const existingEmail = await this.db.judgeAccount.findUnique({ where: { email } });
+    if (existingEmail) {
       throw new ConflictException('A judge with this email address already exists.');
+    }
+
+    let judgeId = data.id ? String(data.id).trim().toUpperCase() : '';
+    if (judgeId) {
+      if (judgeId.length < 1 || !/^[A-Z0-9_-]+$/i.test(judgeId)) {
+        throw new BadRequestException('Invalid Judge ID format. Must contain alphanumeric characters, hyphens or underscores.');
+      }
+      const existingId = await this.db.judgeAccount.findUnique({ where: { id: judgeId } });
+      if (existingId) {
+        throw new ConflictException(`Judge ID "${judgeId}" already exists.`);
+      }
+    } else {
+      // Auto-generate sequential Judge ID e.g. JUDGE-01
+      const count = await this.db.judgeAccount.count();
+      let nextNum = count + 1;
+      let candidateId = `JUDGE-${String(nextNum).padStart(2, '0')}`;
+      while (await this.db.judgeAccount.findUnique({ where: { id: candidateId } })) {
+        nextNum += 1;
+        candidateId = `JUDGE-${String(nextNum).padStart(2, '0')}`;
+      }
+      judgeId = candidateId;
     }
 
     // Validate relationship
     await this.validateAssignmentHierarchy(data.eventId, data.categoryId, data.roundId);
 
-    const tempPassword = this.generateTemporaryPassword();
-    const passwordHash = await bcrypt.hash(tempPassword, 10);
+    const plainPassword = data.password && String(data.password).trim() ? String(data.password).trim() : this.generateCleanPassword();
+    const passwordHash = await bcrypt.hash(plainPassword, 10);
 
     const judge = await this.db.judgeAccount.create({
       data: {
+        id: judgeId,
         name: data.name.trim(),
         email,
         passwordHash,
         assignedEventId: data.eventId,
         assignedCategoryId: data.categoryId,
         assignedRoundId: data.roundId,
-        mustResetPassword: true,
+        mustResetPassword: false,
         isActive: true,
       },
       select: {
@@ -209,8 +241,8 @@ export class JudgesService {
         assignedCategoryId: true,
         assignedRoundId: true,
         createdAt: true,
-        event: { select: { id: true, name: true } },
-        category: { select: { id: true, name: true } },
+        event: { select: { id: true, name: true, code: true } },
+        category: { select: { id: true, name: true, code: true } },
         round: { select: { id: true, name: true } },
       },
     });
@@ -222,6 +254,7 @@ export class JudgesService {
       entity: 'JudgeAccount',
       entityId: judge.id,
       after: {
+        id: judge.id,
         email: judge.email,
         name: judge.name,
         assignedEventId: judge.assignedEventId,
@@ -233,7 +266,8 @@ export class JudgesService {
 
     return {
       judge,
-      temporaryPassword: tempPassword, // Returned ONLY once upon creation
+      password: plainPassword,
+      temporaryPassword: plainPassword,
     };
   }
 
@@ -351,18 +385,23 @@ export class JudgesService {
     return updated;
   }
 
-  async resetPassword(id: string, actorId: string, ipAddress?: string) {
+  async resetPassword(
+    id: string,
+    dto: { password?: string } | undefined,
+    actorId: string,
+    ipAddress?: string,
+  ) {
     const judge = await this.db.judgeAccount.findUnique({ where: { id } });
     if (!judge) throw new NotFoundException('Judge account not found.');
 
-    const tempPassword = this.generateTemporaryPassword();
-    const passwordHash = await bcrypt.hash(tempPassword, 10);
+    const plainPassword = dto?.password && String(dto.password).trim() ? String(dto.password).trim() : this.generateCleanPassword();
+    const passwordHash = await bcrypt.hash(plainPassword, 10);
 
     await this.db.judgeAccount.update({
       where: { id },
       data: {
         passwordHash,
-        mustResetPassword: true,
+        mustResetPassword: false,
       },
     });
 
@@ -372,13 +411,14 @@ export class JudgesService {
       action: 'JUDGE_PASSWORD_RESET',
       entity: 'JudgeAccount',
       entityId: id,
-      after: { mustResetPassword: true },
+      after: { mustResetPassword: false },
       ipAddress,
     });
 
     return {
-      message: 'Judge password has been reset successfully.',
-      temporaryPassword: tempPassword, // Returned ONLY once in immediate response
+      message: 'Judge password has been updated successfully.',
+      password: plainPassword,
+      temporaryPassword: plainPassword,
     };
   }
 

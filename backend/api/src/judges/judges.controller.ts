@@ -75,10 +75,10 @@ export class JudgesController {
   }
 
   @Post(':id/reset-password')
-  async resetPassword(@Param('id') id: string, @Req() req: any) {
+  async resetPassword(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     const user = req.user;
     const ip = req.ip || req.headers?.['x-forwarded-for']?.toString() || undefined;
-    return this.judgesService.resetPassword(id, user.sub, ip);
+    return this.judgesService.resetPassword(id, body, user.sub, ip);
   }
 
   @Post(':id/disable')

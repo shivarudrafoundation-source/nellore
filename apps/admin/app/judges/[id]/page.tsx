@@ -35,7 +35,13 @@ function JudgeDetailContent() {
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState('');
 
-  const [confirmAction, setConfirmAction] = useState<'disable' | 'enable' | 'reset' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'disable' | 'enable' | null>(null);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState('');
   const [tempPasswordModal, setTempPasswordModal] = useState<{ open: boolean; password: string }>({
@@ -182,6 +188,59 @@ function JudgeDetailContent() {
     }
   };
 
+  const generateCleanPassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let pass = 'SRF@';
+    for (let i = 0; i < 4; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return pass;
+  };
+
+  const openPasswordModal = () => {
+    setNewPasswordInput(generateCleanPassword());
+    setShowNewPassword(false);
+    setPasswordError('');
+    setPasswordModalOpen(true);
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPasswordInput.trim()) {
+      setPasswordError('Please enter or generate a password.');
+      return;
+    }
+
+    setPasswordLoading(true);
+    setPasswordError('');
+
+    try {
+      const res = await fetch(`${API}/admin/judges/${id}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ password: newPasswordInput.trim() }),
+      });
+
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.message || 'Unable to update password.');
+      }
+
+      const result = await res.json();
+      setPasswordModalOpen(false);
+      setTempPasswordModal({
+        open: true,
+        password: result.password || result.temporaryPassword || newPasswordInput.trim(),
+      });
+      fetchJudge();
+    } catch (err: any) {
+      setPasswordError(err.message);
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
   const handleActionConfirm = async () => {
     if (!confirmAction) return;
     setActionLoading(true);
@@ -190,18 +249,11 @@ function JudgeDetailContent() {
       let endpoint = '';
       if (confirmAction === 'disable') endpoint = `${API}/admin/judges/${id}/disable`;
       if (confirmAction === 'enable') endpoint = `${API}/admin/judges/${id}/enable`;
-      if (confirmAction === 'reset') endpoint = `${API}/admin/judges/${id}/reset-password`;
 
       const res = await fetch(endpoint, { method: 'POST', credentials: 'include' });
       if (!res.ok) {
         const d = await res.json();
         throw new Error(d.message || 'Action failed.');
-      }
-
-      const result = await res.json();
-
-      if (confirmAction === 'reset' && result.temporaryPassword) {
-        setTempPasswordModal({ open: true, password: result.temporaryPassword });
       }
 
       setConfirmAction(null);
@@ -256,7 +308,7 @@ function JudgeDetailContent() {
           <Button size="sm" variant="outline" onClick={() => setAssignModalOpen(true)}>
             REASSIGN
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setConfirmAction('reset')}>
+          <Button size="sm" variant="outline" onClick={openPasswordModal}>
             RESET PASSWORD
           </Button>
           {judge.isActive ? (
@@ -507,25 +559,93 @@ function JudgeDetailContent() {
         </div>
       )}
 
+      {/* Password Management Modal */}
+      {passwordModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#0A0A0A] border border-luxury-gold/50 w-full max-w-md p-6 space-y-5 shadow-2xl rounded-sm">
+            <div className="border-b border-luxury-gold/30 pb-3">
+              <span className="font-sans text-[9px] tracking-[0.24em] text-luxury-gold uppercase font-bold block">
+                JUDGE CREDENTIAL CONTROL
+              </span>
+              <h3 className="font-serif text-xl font-light text-luxury-white tracking-wide mt-1">
+                Update Judge Password
+              </h3>
+            </div>
+
+            <p className="font-sans text-xs text-luxury-white/60 leading-relaxed">
+              Configure a new login password for judge <span className="text-white font-bold">{judge.name}</span> ({judge.id}).
+            </p>
+
+            {passwordError && (
+              <div className="p-3 bg-red-950/40 border border-red-500/50 text-red-300 text-xs rounded-sm">
+                {passwordError}
+              </div>
+            )}
+
+            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-[10px] font-mono uppercase tracking-[0.2em] text-white/60">
+                    New Password *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setNewPasswordInput(generateCleanPassword())}
+                    className="text-[10px] text-luxury-gold hover:underline font-mono uppercase"
+                  >
+                    ⚡ Auto Password
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    required
+                    value={newPasswordInput}
+                    onChange={(e) => setNewPasswordInput(e.target.value)}
+                    placeholder="Enter custom password or click Auto"
+                    className="w-full bg-[#050505] border border-luxury-gold/50 focus:border-luxury-gold px-3.5 py-2.5 font-mono text-sm text-white focus:outline-none rounded-sm pr-16"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-white/50 hover:text-white font-mono uppercase px-1.5 py-1 bg-white/5 rounded"
+                  >
+                    {showNewPassword ? 'HIDE' : 'SHOW'}
+                  </button>
+                </div>
+                <span className="block text-[10px] text-white/40 mt-1 font-sans">
+                  💡 Type any custom password or click Auto Password above.
+                </span>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <Button type="button" variant="text" onClick={() => setPasswordModalOpen(false)}>
+                  CANCEL
+                </Button>
+                <Button type="submit" disabled={passwordLoading}>
+                  {passwordLoading ? 'UPDATING...' : 'SAVE NEW PASSWORD'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Action Confirmation Modal */}
       <ConfirmModal
         open={!!confirmAction}
         title={
-          confirmAction === 'reset'
-            ? 'RESET JUDGE PASSWORD?'
-            : confirmAction === 'disable'
+          confirmAction === 'disable'
             ? 'DISABLE JUDGE ACCOUNT?'
             : 'ENABLE JUDGE ACCOUNT?'
         }
         message={
           actionError ||
-          (confirmAction === 'reset'
-            ? `A new temporary password will be generated and shown ONCE. The judge will be forced to change it on their next login.`
-            : confirmAction === 'disable'
+          (confirmAction === 'disable'
             ? `The judge will immediately lose access to the scoring portal.`
             : `The judge will be granted access to the scoring portal.`)
         }
-        confirmLabel={confirmAction === 'reset' ? 'RESET PASSWORD' : confirmAction === 'disable' ? 'DISABLE' : 'ENABLE'}
+        confirmLabel={confirmAction === 'disable' ? 'DISABLE' : 'ENABLE'}
         onConfirm={handleActionConfirm}
         onCancel={() => {
           setConfirmAction(null);
@@ -534,24 +654,47 @@ function JudgeDetailContent() {
         loading={actionLoading}
       />
 
-      {/* One-Time Temporary Password Display Modal */}
+      {/* Password Updated & Copy Modal */}
       {tempPasswordModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#0A0A0A] border border-luxury-gold/50 w-full max-w-md p-8 space-y-6 shadow-2xl">
-            <h3 className="font-serif text-xl font-light text-luxury-white tracking-wide">
-              New Temporary Password
-            </h3>
-            <p className="font-sans text-xs text-luxury-white/60 leading-relaxed">
-              Provide this credential to the judge. The judge will be forced to configure a permanent password on login.
-            </p>
-            <div className="p-4 bg-black border border-luxury-gold/30 text-center">
-              <span className="font-mono text-lg font-bold text-luxury-gold tracking-wider select-all">
-                {tempPasswordModal.password}
+          <div className="bg-[#0A0A0A] border border-luxury-gold/50 w-full max-w-md p-8 space-y-6 shadow-2xl rounded-sm">
+            <div className="border-b border-luxury-gold/30 pb-3">
+              <span className="font-sans text-[9px] tracking-[0.24em] text-luxury-gold uppercase font-bold block">
+                PASSWORD UPDATED
               </span>
+              <h3 className="font-serif text-xl font-light text-luxury-white tracking-wide mt-1">
+                Judge Credentials Ready
+              </h3>
             </div>
-            <p className="font-sans text-[11px] text-yellow-500/80 text-center">
-              ⚠️ Warning: This password will NOT be displayed again.
-            </p>
+
+            <div className="bg-black/90 border border-luxury-gold/30 p-4 space-y-3 rounded-sm text-xs">
+              <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                <span className="text-white/40 uppercase text-[10px]">Judge ID:</span>
+                <span className="font-mono font-bold text-luxury-gold">{judge.id}</span>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                <span className="text-white/40 uppercase text-[10px]">Email:</span>
+                <span className="font-mono text-white">{judge.email}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-white/40 uppercase text-[10px]">Password:</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-bold text-luxury-gold">{tempPasswordModal.password}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(tempPasswordModal.password);
+                      setCopiedField('modal_pass');
+                      setTimeout(() => setCopiedField(null), 2000);
+                    }}
+                    className="text-[10px] text-white/50 hover:text-white uppercase font-mono px-1 py-0.5 bg-white/5 rounded"
+                  >
+                    {copiedField === 'modal_pass' ? 'COPIED!' : 'COPY'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div className="flex justify-end pt-2">
               <Button size="sm" onClick={() => setTempPasswordModal({ open: false, password: '' })}>
                 DONE

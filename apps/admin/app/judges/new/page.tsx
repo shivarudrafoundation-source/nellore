@@ -13,6 +13,10 @@ function CreateJudgeContent() {
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [judgeId, setJudgeId] = useState('JUDGE-01');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const [events, setEvents] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -28,8 +32,33 @@ function CreateJudgeContent() {
 
   const [createdResult, setCreatedResult] = useState<{
     judge: any;
+    password: string;
     temporaryPassword: string;
   } | null>(null);
+
+  const generateCleanPassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let pass = 'SRF@';
+    for (let i = 0; i < 4; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return pass;
+  };
+
+  const generateAutoJudgeId = (style: 'standard' | 'srf' | 'short' = 'standard') => {
+    const randomNum = String(Math.floor(10 + Math.random() * 90));
+    if (style === 'srf') {
+      return `SRF-JUDGE-${randomNum}`;
+    }
+    if (style === 'short') {
+      return `JDG-${randomNum}`;
+    }
+    return `JUDGE-${randomNum}`;
+  };
+
+  useEffect(() => {
+    setPassword(generateCleanPassword());
+  }, []);
 
   // Load events
   useEffect(() => {
@@ -104,6 +133,8 @@ function CreateJudgeContent() {
     const errs: Record<string, string> = {};
     if (!name.trim()) errs.name = 'Judge name is required.';
     if (!email.trim() || !email.includes('@')) errs.email = 'Valid email address is required.';
+    if (!judgeId.trim()) errs.judgeId = 'Judge ID is required.';
+    if (!password.trim()) errs.password = 'Judge Password is required.';
     if (!selectedEventId) errs.eventId = 'Event assignment is required.';
     if (!selectedCategoryId) errs.categoryId = 'Category assignment is required.';
     if (!selectedRoundId) errs.roundId = 'Round assignment is required.';
@@ -124,8 +155,10 @@ function CreateJudgeContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          id: judgeId.trim().toUpperCase(),
           name: name.trim(),
           email: email.trim().toLowerCase(),
+          password: password.trim(),
           eventId: selectedEventId,
           categoryId: selectedCategoryId,
           roundId: selectedRoundId,
@@ -145,6 +178,12 @@ function CreateJudgeContent() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
   };
 
   return (
@@ -180,6 +219,100 @@ function CreateJudgeContent() {
             placeholder="judge@sivarudrafoundation.com"
           />
         </div>
+
+        {/* Custom / Auto Judge ID and Password Section */}
+        <Card hoverEffect={false} className="bg-[#0A0A0A] border-luxury-gold/30 p-6 space-y-6">
+          <h4 className="font-sans text-[10px] tracking-luxury text-luxury-gold uppercase font-bold">
+            Judge ID & Login Password Setup (Auto or Manual)
+          </h4>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {/* Judge ID */}
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="block text-[10px] font-mono uppercase tracking-[0.2em] text-white/60">
+                  Judge ID *
+                </label>
+                <div className="flex items-center gap-1.5 text-[10px]">
+                  <span className="text-white/40 uppercase">Auto:</span>
+                  <button
+                    type="button"
+                    onClick={() => setJudgeId(generateAutoJudgeId('standard'))}
+                    className="text-luxury-gold hover:underline font-mono uppercase"
+                    title="JUDGE-XX"
+                  >
+                    Standard
+                  </button>
+                  <span className="text-white/20">|</span>
+                  <button
+                    type="button"
+                    onClick={() => setJudgeId(generateAutoJudgeId('srf'))}
+                    className="text-luxury-gold hover:underline font-mono uppercase"
+                    title="SRF-JUDGE-XX"
+                  >
+                    SRF
+                  </button>
+                  <span className="text-white/20">|</span>
+                  <button
+                    type="button"
+                    onClick={() => setJudgeId(generateAutoJudgeId('short'))}
+                    className="text-luxury-gold hover:underline font-mono uppercase"
+                    title="JDG-XX"
+                  >
+                    Short
+                  </button>
+                </div>
+              </div>
+              <input
+                type="text"
+                required
+                value={judgeId}
+                onChange={(e) => setJudgeId(e.target.value.toUpperCase())}
+                placeholder="e.g. JUDGE-01, JDG-101"
+                className="w-full bg-[#050505] border border-luxury-gold/50 focus:border-luxury-gold px-3.5 py-2.5 font-mono text-sm text-luxury-gold font-bold focus:outline-none rounded-sm"
+              />
+              <span className="block text-[10px] text-white/40 mt-1 font-sans">
+                💡 Click auto options or type any custom manual ID.
+              </span>
+            </div>
+
+            {/* Password */}
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="block text-[10px] font-mono uppercase tracking-[0.2em] text-white/60">
+                  Judge Password *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setPassword(generateCleanPassword())}
+                  className="text-[10px] text-luxury-gold hover:underline font-mono uppercase"
+                >
+                  ⚡ Auto Password
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter or generate password"
+                  className="w-full bg-[#050505] border border-luxury-gold/50 focus:border-luxury-gold px-3.5 py-2.5 font-mono text-sm text-white focus:outline-none rounded-sm pr-16"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-white/50 hover:text-white font-mono uppercase px-1.5 py-1 bg-white/5 rounded"
+                >
+                  {showPassword ? 'HIDE' : 'SHOW'}
+                </button>
+              </div>
+              <span className="block text-[10px] text-white/40 mt-1 font-sans">
+                💡 Click generate or type any custom password.
+              </span>
+            </div>
+          </div>
+        </Card>
 
         {/* Dependent Assignment Hierarchy Dropdowns */}
         <Card hoverEffect={false} className="bg-[#0A0A0A] border-luxury-gray-border/30 p-6 space-y-6">
@@ -263,29 +396,78 @@ function CreateJudgeContent() {
         </div>
       </form>
 
-      {/* One-Time Temporary Password Display Modal */}
+      {/* Clean Judge Credentials Display Modal */}
       {createdResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#0A0A0A] border border-luxury-gold/50 w-full max-w-md p-8 space-y-6 shadow-2xl">
-            <h3 className="font-serif text-xl font-light text-luxury-white tracking-wide">
-              Judge Account Created!
-            </h3>
-            <p className="font-sans text-xs text-luxury-white/60 leading-relaxed">
-              Account generated for <span className="text-luxury-white font-bold">{createdResult.judge.name}</span> ({createdResult.judge.email}).
-            </p>
-            <div className="space-y-2">
-              <span className="font-sans text-[10px] tracking-luxury text-luxury-gold uppercase font-bold block">
-                Generated Temporary Password
+          <div className="bg-[#0A0A0A] border border-luxury-gold/50 w-full max-w-md p-8 space-y-6 shadow-2xl rounded-sm">
+            <div className="border-b border-luxury-gold/30 pb-3">
+              <span className="font-sans text-[9px] tracking-[0.24em] text-luxury-gold uppercase font-bold block">
+                JUDGE ACCOUNT READY
               </span>
-              <div className="p-4 bg-black border border-luxury-gold/30 text-center">
-                <span className="font-mono text-lg font-bold text-luxury-gold tracking-wider select-all">
-                  {createdResult.temporaryPassword}
+              <h3 className="font-serif text-xl font-light text-luxury-white tracking-wide mt-1">
+                Judge Account Created!
+              </h3>
+            </div>
+
+            <p className="font-sans text-xs text-luxury-white/60 leading-relaxed">
+              Account created for <span className="text-luxury-white font-bold">{createdResult.judge.name}</span>.
+            </p>
+
+            <div className="bg-black/90 border border-luxury-gold/30 p-4 space-y-3 rounded-sm text-xs">
+              <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                <span className="text-white/40 uppercase text-[10px]">Judge ID:</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-bold text-luxury-gold">{createdResult.judge.id}</span>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(createdResult.judge.id, 'id')}
+                    className="text-[10px] text-white/50 hover:text-white uppercase font-mono px-1 py-0.5 bg-white/5 rounded"
+                  >
+                    {copiedField === 'id' ? 'COPIED!' : 'COPY'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                <span className="text-white/40 uppercase text-[10px]">Email:</span>
+                <span className="font-mono text-white">{createdResult.judge.email}</span>
+              </div>
+
+              <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                <span className="text-white/40 uppercase text-[10px]">Password:</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-bold text-luxury-gold">
+                    {createdResult.password || createdResult.temporaryPassword}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      copyToClipboard(createdResult.password || createdResult.temporaryPassword, 'pass')
+                    }
+                    className="text-[10px] text-white/50 hover:text-white uppercase font-mono px-1 py-0.5 bg-white/5 rounded"
+                  >
+                    {copiedField === 'pass' ? 'COPIED!' : 'COPY'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center text-[11px]">
+                <span className="text-white/40 uppercase text-[10px]">Assignment:</span>
+                <span className="text-white">
+                  {createdResult.judge.category?.name} &rsaquo; {createdResult.judge.round?.name}
                 </span>
               </div>
             </div>
-            <p className="font-sans text-[11px] text-yellow-500/80 text-center">
-              ⚠️ Warning: This password will NOT be displayed again. Please copy and provide it to the judge.
-            </p>
+
+            <div className="p-3 bg-luxury-gold/10 border border-luxury-gold/30 rounded-sm">
+              <span className="text-[10px] text-luxury-gold font-mono uppercase block font-bold mb-1">
+                Judge Portal Login URL:
+              </span>
+              <span className="text-xs font-mono text-white select-all">
+                https://judge.sivarudrafoundation.com/login
+              </span>
+            </div>
+
             <div className="flex justify-end pt-2">
               <Button size="sm" onClick={() => router.push('/judges')}>
                 PROCEED TO JUDGES LIST

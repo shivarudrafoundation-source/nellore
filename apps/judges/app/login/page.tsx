@@ -111,9 +111,9 @@ export default function JudgeLogin() {
             {!mustReset ? (
               <>
                 <Input
-                  label="Judge Email Address"
-                  type="email"
-                  placeholder="judge@sivarudrafoundation.com"
+                  label="Judge Email Address or Judge ID"
+                  type="text"
+                  placeholder="judge@sivarudrafoundation.com or JUDGE-01"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required

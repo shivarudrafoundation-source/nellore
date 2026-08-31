@@ -190,17 +190,28 @@ export class AuthService {
     dto: any,
     ipAddress?: string,
   ): Promise<{ user: any; tokens: { accessToken: string; refreshToken: string } }> {
-    const judge = await this.db.judgeAccount.findUnique({
-      where: { email: dto.email },
+    const rawIdentifier = String(dto.email || dto.judgeId || dto.identifier || '').trim();
+    if (!rawIdentifier) {
+      throw new UnauthorizedException('Email or Judge ID is required.');
+    }
+
+    const judge = await this.db.judgeAccount.findFirst({
+      where: {
+        OR: [
+          { email: { equals: rawIdentifier, mode: 'insensitive' } },
+          { id: rawIdentifier },
+          { id: rawIdentifier.toUpperCase() },
+        ],
+      },
     });
 
     if (!judge) {
-      throw new UnauthorizedException('Invalid email or password.');
+      throw new UnauthorizedException('Invalid credentials.');
     }
 
-    const isPasswordValid = await bcrypt.compare(dto.password, judge.passwordHash);
+    const isPasswordValid = await bcrypt.compare(dto.password || '', judge.passwordHash);
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid email or password.');
+      throw new UnauthorizedException('Invalid credentials.');
     }
 
     if (!judge.isActive) {
