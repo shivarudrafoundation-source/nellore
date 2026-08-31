@@ -46,6 +46,74 @@ function ScoringContent() {
   const [showPubModal, setShowPubModal] = useState(false);
   const [pubLoading, setPubLoading] = useState(false);
 
+  // Admin Score Entry Modal State
+  const [adminScoreModalOpen, setAdminScoreModalOpen] = useState(false);
+  const [adminScoreContestant, setAdminScoreContestant] = useState<any | null>(null);
+  const [disciplineScore, setDisciplineScore] = useState<string>('');
+  const [talentScore, setTalentScore] = useState<string>('');
+  const [adminScoreSaving, setAdminScoreSaving] = useState(false);
+  const [adminScoreError, setAdminScoreError] = useState('');
+  const [adminScoreSuccessMsg, setAdminScoreSuccessMsg] = useState('');
+
+  const openAdminScoreModal = (row: any) => {
+    setAdminScoreContestant(row);
+    setDisciplineScore(row.adminScore?.discipline !== undefined ? String(row.adminScore.discipline) : '');
+    setTalentScore(row.adminScore?.talent !== undefined ? String(row.adminScore.talent) : '');
+    setAdminScoreError('');
+    setAdminScoreSuccessMsg('');
+    setAdminScoreModalOpen(true);
+  };
+
+  const handleSaveAdminScore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminScoreContestant) return;
+
+    const disc = Number(disciplineScore);
+    const tal = Number(talentScore);
+
+    if (isNaN(disc) || disc < 0 || disc > 10) {
+      setAdminScoreError('Discipline score must be a number between 0 and 10.');
+      return;
+    }
+    if (isNaN(tal) || tal < 0 || tal > 20) {
+      setAdminScoreError('Talent score must be a number between 0 and 20.');
+      return;
+    }
+
+    setAdminScoreSaving(true);
+    setAdminScoreError('');
+    setAdminScoreSuccessMsg('');
+
+    try {
+      const res = await fetch(`${API}/admin/scoring/pre-score/${adminScoreContestant.contestantId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          discipline: disc,
+          talent: tal,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to save Admin evaluation score.');
+      }
+
+      setAdminScoreSuccessMsg(`Admin score (${(disc + tal).toFixed(1)} / 30.0) saved and updated successfully!`);
+      fetchFinalScores();
+      fetchScores(pagination.page);
+
+      setTimeout(() => {
+        setAdminScoreModalOpen(false);
+      }, 1000);
+    } catch (err: any) {
+      setAdminScoreError(err.message || 'Failed to save score.');
+    } finally {
+      setAdminScoreSaving(false);
+    }
+  };
+
   // 1. Fetch Events for filter dropdown
   useEffect(() => {
     async function loadEvents() {
@@ -528,11 +596,22 @@ function ScoringContent() {
                           <span className="block text-[10px] text-luxury-white/40">{row.categoryCode}</span>
                         </td>
                         <td className="py-3 px-4 font-mono">
-                          <span className="text-luxury-white font-bold">{row.adminScore?.total?.toFixed(1)}</span>
-                          <span className="text-luxury-white/40"> / 30.0</span>
-                          <span className="block text-[10px] text-luxury-white/30">
-                            (Disc: {row.adminScore?.discipline}, Tal: {row.adminScore?.talent})
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <div>
+                              <span className="text-luxury-white font-bold">{row.adminScore?.total?.toFixed(1)}</span>
+                              <span className="text-luxury-white/40"> / 30.0</span>
+                              <span className="block text-[10px] text-luxury-white/30">
+                                (Disc: {row.adminScore?.discipline}, Tal: {row.adminScore?.talent})
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => openAdminScoreModal(row)}
+                              className="font-sans text-[9px] tracking-wider text-luxury-gold hover:text-white border border-luxury-gold/30 hover:border-luxury-gold px-1.5 py-0.5 uppercase font-semibold transition-colors"
+                              title="Enter or edit Admin Score"
+                            >
+                              ✏️ EDIT
+                            </button>
+                          </div>
                         </td>
                         <td className="py-3 px-4 font-mono">
                           <span className="text-luxury-white font-bold">{row.judgeTotal?.toFixed(1)}</span>
@@ -559,11 +638,20 @@ function ScoringContent() {
                           </span>
                         </td>
                         <td className="py-3 px-4 pr-6">
-                          <Link href={`/contestants/${row.contestantId}`}>
-                            <span className="font-sans text-[10px] tracking-luxury text-luxury-gold hover:underline uppercase font-bold">
-                              Profile & Score ↗
-                            </span>
-                          </Link>
+                          <div className="flex items-center gap-2.5">
+                            <button
+                              onClick={() => openAdminScoreModal(row)}
+                              className="min-h-[30px] px-2.5 py-1 bg-luxury-gold hover:bg-[#E5C158] text-black font-sans text-[10px] uppercase font-bold tracking-wider rounded-sm transition-colors inline-flex items-center gap-1 shadow-sm"
+                            >
+                              <span>✏️</span>
+                              <span>GIVE SCORE</span>
+                            </button>
+                            <Link href={`/contestants/${row.contestantId}`}>
+                              <span className="font-sans text-[10px] tracking-luxury text-luxury-white/60 hover:text-luxury-gold uppercase font-bold">
+                                Profile ↗
+                              </span>
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1006,6 +1094,164 @@ function ScoringContent() {
                 CLOSE
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Score Entry Modal */}
+      {adminScoreModalOpen && adminScoreContestant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+          <div className="bg-[#0A0A0A] border-2 border-luxury-gold/60 w-full max-w-lg p-6 sm:p-8 space-y-6 shadow-[0_0_50px_rgba(212,175,55,0.15)] relative">
+            <div className="flex justify-between items-start border-b border-luxury-gray-border/20 pb-4">
+              <div>
+                <span className="font-sans text-[9px] tracking-[0.2em] text-luxury-gold uppercase font-bold block">
+                  ADMIN EVALUATION SCORE
+                </span>
+                <h3 className="font-mono text-xl font-bold text-white mt-1">
+                  {adminScoreContestant.contestantId}
+                </h3>
+                <span className="font-sans text-xs text-white/50 block">
+                  Category: <strong className="text-luxury-gold">{adminScoreContestant.category}</strong>
+                </span>
+              </div>
+              <button
+                onClick={() => setAdminScoreModalOpen(false)}
+                className="text-white/40 hover:text-white text-xl font-sans"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAdminScore} className="space-y-5">
+              {/* Discipline Score Field (0 - 10) */}
+              <div className="space-y-2 p-3.5 bg-[#050505] border border-luxury-gray-border/30">
+                <div className="flex justify-between items-center">
+                  <label className="font-sans text-xs font-semibold text-white uppercase tracking-wider">
+                    1. Discipline & Grooming
+                  </label>
+                  <span className="font-mono text-xs text-luxury-gold font-bold">MAX: 10.0 PTS</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="10"
+                    required
+                    placeholder="e.g. 8.5"
+                    value={disciplineScore}
+                    onChange={(e) => setDisciplineScore(e.target.value)}
+                    className="flex-1 h-11 bg-black border border-luxury-gray-border/40 px-3 font-mono text-base font-bold text-luxury-gold outline-none focus:border-luxury-gold"
+                  />
+                  <div className="flex gap-1">
+                    {['6', '7', '8', '9', '10'].map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setDisciplineScore(p)}
+                        className={`h-11 px-2.5 font-mono text-xs border transition-colors ${
+                          disciplineScore === p
+                            ? 'border-luxury-gold bg-luxury-gold text-black font-bold'
+                            : 'border-white/10 text-white/60 hover:border-luxury-gold/50'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Talent Score Field (0 - 20) */}
+              <div className="space-y-2 p-3.5 bg-[#050505] border border-luxury-gray-border/30">
+                <div className="flex justify-between items-center">
+                  <label className="font-sans text-xs font-semibold text-white uppercase tracking-wider">
+                    2. Talent & Cultural Demonstration
+                  </label>
+                  <span className="font-mono text-xs text-luxury-gold font-bold">MAX: 20.0 PTS</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="20"
+                    required
+                    placeholder="e.g. 17.0"
+                    value={talentScore}
+                    onChange={(e) => setTalentScore(e.target.value)}
+                    className="flex-1 h-11 bg-black border border-luxury-gray-border/40 px-3 font-mono text-base font-bold text-luxury-gold outline-none focus:border-luxury-gold"
+                  />
+                  <div className="flex gap-1">
+                    {['12', '15', '17', '18', '20'].map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setTalentScore(p)}
+                        className={`h-11 px-2.5 font-mono text-xs border transition-colors ${
+                          talentScore === p
+                            ? 'border-luxury-gold bg-luxury-gold text-black font-bold'
+                            : 'border-white/10 text-white/60 hover:border-luxury-gold/50'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Total Aggregate Score Preview */}
+              <div className="p-4 bg-black border border-luxury-gold/40 flex justify-between items-center">
+                <div>
+                  <span className="font-sans text-[10px] text-white/50 uppercase tracking-widest block">
+                    TOTAL ADMIN EVALUATION
+                  </span>
+                  <span className="font-sans text-xs text-white/80">
+                    Discipline ({Number(disciplineScore || 0).toFixed(1)}) + Talent ({Number(talentScore || 0).toFixed(1)})
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="font-mono text-2xl font-bold text-luxury-gold">
+                    {(Number(disciplineScore || 0) + Number(talentScore || 0)).toFixed(1)}
+                  </span>
+                  <span className="font-mono text-xs text-white/40"> / 30.0 PTS</span>
+                </div>
+              </div>
+
+              {adminScoreError && (
+                <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 font-sans text-xs">
+                  {adminScoreError}
+                </div>
+              )}
+
+              {adminScoreSuccessMsg && (
+                <div className="p-3 bg-green-500/10 border border-green-500/30 text-green-400 font-sans text-xs font-semibold">
+                  ✓ {adminScoreSuccessMsg}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={adminScoreSaving}
+                  onClick={() => setAdminScoreModalOpen(false)}
+                >
+                  CANCEL
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  variant="solid"
+                  disabled={adminScoreSaving}
+                  className="bg-luxury-gold hover:bg-[#E5C158] text-black font-bold uppercase tracking-wider"
+                >
+                  {adminScoreSaving ? 'SAVING SCORE...' : 'SAVE & LOCK ADMIN SCORE 💾'}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -24,6 +24,13 @@ function ContestantDetailContent() {
   const [actionMessage, setActionMessage] = useState('');
   const [modalError, setModalError] = useState('');
 
+  // Admin Score Modal State
+  const [adminScoreModalOpen, setAdminScoreModalOpen] = useState(false);
+  const [disciplineScore, setDisciplineScore] = useState<string>('');
+  const [talentScore, setTalentScore] = useState<string>('');
+  const [adminScoreSaving, setAdminScoreSaving] = useState(false);
+  const [adminScoreError, setAdminScoreError] = useState('');
+
   const generateRandomPassword = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
     let pass = 'SRF@';
@@ -33,22 +40,74 @@ function ContestantDetailContent() {
     return pass;
   };
 
-  useEffect(() => {
-    async function fetchContestant() {
-      try {
-        const res = await fetch(`${API}/admin/contestants/${id}`, { credentials: 'include' });
-        if (!res.ok) throw new Error('Unable to load contestant.');
-        const d = await res.json();
-        setContestant(d);
-        setPasswordInput(generateRandomPassword());
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
+  const fetchContestant = async () => {
+    try {
+      const res = await fetch(`${API}/admin/contestants/${id}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Unable to load contestant.');
+      const d = await res.json();
+      setContestant(d);
+      setPasswordInput(generateRandomPassword());
+
+      // Extract existing discipline and talent scores
+      if (d.scores && Array.isArray(d.scores)) {
+        const discScore = d.scores.find((s: any) => s.round?.name?.toLowerCase() === 'discipline');
+        const talScore = d.scores.find((s: any) => s.round?.name?.toLowerCase() === 'talent');
+        if (discScore) setDisciplineScore(String(discScore.value));
+        if (talScore) setTalentScore(String(talScore.value));
       }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     fetchContestant();
   }, [id]);
+
+  const handleSaveAdminScore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const disc = Number(disciplineScore);
+    const tal = Number(talentScore);
+
+    if (isNaN(disc) || disc < 0 || disc > 10) {
+      setAdminScoreError('Discipline score must be between 0 and 10.');
+      return;
+    }
+    if (isNaN(tal) || tal < 0 || tal > 20) {
+      setAdminScoreError('Talent score must be between 0 and 20.');
+      return;
+    }
+
+    setAdminScoreSaving(true);
+    setAdminScoreError('');
+
+    try {
+      const res = await fetch(`${API}/admin/scoring/pre-score/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          discipline: disc,
+          talent: tal,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to save Admin evaluation score.');
+      }
+
+      setActionMessage(`Admin Evaluation Score (${(disc + tal).toFixed(1)} / 30.0) saved successfully!`);
+      await fetchContestant();
+      setAdminScoreModalOpen(false);
+    } catch (err: any) {
+      setAdminScoreError(err.message || 'Failed to save score.');
+    } finally {
+      setAdminScoreSaving(false);
+    }
+  };
 
   const handleResendCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,7 +183,19 @@ function ContestantDetailContent() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            size="sm"
+            variant="solid"
+            onClick={() => {
+              setAdminScoreError('');
+              setAdminScoreModalOpen(true);
+            }}
+            className="bg-luxury-gold hover:bg-[#E5C158] text-black font-bold text-xs uppercase tracking-wider shadow-sm"
+          >
+            ✏️ ADMIN SCORE (/30)
+          </Button>
+
           {contestant.registration?.id && (
             <>
               <Button
@@ -350,6 +421,147 @@ function ContestantDetailContent() {
                   type="button"
                   variant="outline"
                   onClick={() => setResendModalOpen(false)}
+                  className="text-xs"
+                >
+                  CANCEL
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ADMIN SCORE ENTRY MODAL */}
+      {adminScoreModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+          <div className="bg-[#0A0A0A] border-2 border-luxury-gold/60 w-full max-w-md p-6 space-y-5 shadow-[0_0_50px_rgba(212,175,55,0.15)] rounded-sm relative">
+            <div className="flex justify-between items-start border-b border-luxury-gray-border/20 pb-3">
+              <div>
+                <span className="font-sans text-[9px] tracking-[0.24em] text-luxury-gold uppercase font-bold block">
+                  ADMIN EVALUATION SCORE
+                </span>
+                <h3 className="font-mono text-xl font-bold text-white mt-1">
+                  {contestant.id}
+                </h3>
+                <span className="font-sans text-xs text-white/50 block">
+                  {base.name} • <strong className="text-luxury-gold">{contestant.registration?.category?.name}</strong>
+                </span>
+              </div>
+              <button
+                onClick={() => setAdminScoreModalOpen(false)}
+                className="text-white/40 hover:text-white text-xl font-sans"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAdminScore} className="space-y-4">
+              {/* Discipline Field (0 - 10) */}
+              <div className="space-y-2 p-3 bg-[#050505] border border-luxury-gray-border/30">
+                <div className="flex justify-between items-center">
+                  <label className="font-sans text-xs font-semibold text-white uppercase tracking-wider">
+                    1. Discipline & Grooming
+                  </label>
+                  <span className="font-mono text-xs text-luxury-gold font-bold">MAX: 10.0 PTS</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="10"
+                    required
+                    placeholder="e.g. 8.5"
+                    value={disciplineScore}
+                    onChange={(e) => setDisciplineScore(e.target.value)}
+                    className="flex-1 h-10 bg-black border border-luxury-gray-border/40 px-3 font-mono text-sm font-bold text-luxury-gold outline-none focus:border-luxury-gold"
+                  />
+                  <div className="flex gap-1">
+                    {['6', '8', '9', '10'].map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setDisciplineScore(p)}
+                        className={`h-10 px-2 font-mono text-xs border transition-colors ${
+                          disciplineScore === p
+                            ? 'border-luxury-gold bg-luxury-gold text-black font-bold'
+                            : 'border-white/10 text-white/60 hover:border-luxury-gold/50'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Talent Field (0 - 20) */}
+              <div className="space-y-2 p-3 bg-[#050505] border border-luxury-gray-border/30">
+                <div className="flex justify-between items-center">
+                  <label className="font-sans text-xs font-semibold text-white uppercase tracking-wider">
+                    2. Talent Demonstration
+                  </label>
+                  <span className="font-mono text-xs text-luxury-gold font-bold">MAX: 20.0 PTS</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="20"
+                    required
+                    placeholder="e.g. 17.0"
+                    value={talentScore}
+                    onChange={(e) => setTalentScore(e.target.value)}
+                    className="flex-1 h-10 bg-black border border-luxury-gray-border/40 px-3 font-mono text-sm font-bold text-luxury-gold outline-none focus:border-luxury-gold"
+                  />
+                  <div className="flex gap-1">
+                    {['12', '15', '18', '20'].map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setTalentScore(p)}
+                        className={`h-10 px-2 font-mono text-xs border transition-colors ${
+                          talentScore === p
+                            ? 'border-luxury-gold bg-luxury-gold text-black font-bold'
+                            : 'border-white/10 text-white/60 hover:border-luxury-gold/50'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Total Aggregate Score Preview */}
+              <div className="p-3 bg-black border border-luxury-gold/40 flex justify-between items-center">
+                <span className="font-sans text-xs text-white/70 uppercase">
+                  TOTAL ADMIN SCORE:
+                </span>
+                <span className="font-mono text-lg font-bold text-luxury-gold">
+                  {(Number(disciplineScore || 0) + Number(talentScore || 0)).toFixed(1)} / 30.0 PTS
+                </span>
+              </div>
+
+              {adminScoreError && (
+                <div className="p-2.5 bg-red-500/10 border border-red-500/30 text-red-400 font-sans text-xs">
+                  {adminScoreError}
+                </div>
+              )}
+
+              <div className="flex gap-2.5 pt-2">
+                <Button
+                  type="submit"
+                  disabled={adminScoreSaving}
+                  className="flex-1 bg-luxury-gold hover:bg-[#E5C158] text-black font-bold uppercase tracking-wider text-xs"
+                >
+                  {adminScoreSaving ? 'SAVING...' : 'SAVE ADMIN SCORE 💾'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setAdminScoreModalOpen(false)}
                   className="text-xs"
                 >
                   CANCEL
