@@ -7,14 +7,17 @@ import { getApiBaseUrl } from '@srf/ui';
 
 interface PageProps {
   params: {
-    'event-slug': string;
+    slug: string;
+  };
+  searchParams?: {
+    register?: string;
   };
 }
 
-async function getEvent(slug: string) {
+async function getEvent(slugOrId: string) {
   const API = getApiBaseUrl();
   try {
-    const res = await fetch(`${API}/public/events/${slug}`, {
+    const res = await fetch(`${API}/public/events/${slugOrId}`, {
       cache: 'no-store',
     });
     if (!res.ok) return null;
@@ -25,9 +28,10 @@ async function getEvent(slug: string) {
   }
 }
 
-export default async function EventDetailPage({ params }: PageProps) {
-  const slug = params ? params['event-slug'] : undefined;
+export default async function EventDetailPage({ params, searchParams }: PageProps) {
+  const slug = params ? params.slug : undefined;
   const event = slug ? await getEvent(slug) : null;
+  const autoOpenRegister = searchParams?.register === 'true' || Boolean(searchParams);
 
   if (!event) {
     return (
@@ -44,7 +48,7 @@ export default async function EventDetailPage({ params }: PageProps) {
             href="/"
             className="inline-flex h-10 px-6 border border-luxury-gold text-luxury-gold hover:bg-luxury-gold hover:text-luxury-black-pure font-sans text-xs font-semibold tracking-luxury uppercase transition-all duration-300 items-center"
           >
-            ← BACK TO HOME
+            BACK TO HOME
           </Link>
         </main>
         <Footer />
@@ -64,11 +68,11 @@ export default async function EventDetailPage({ params }: PageProps) {
               href="/"
               className="font-sans text-[10px] tracking-widest text-[#B8B8B8] hover:text-luxury-gold transition-colors duration-300 uppercase block mb-8"
             >
-              ← BACK TO HOME
+              BACK TO HOME
             </Link>
           </div>
 
-          <EventDetailClient event={event} />
+          <EventDetailClient event={event} autoOpenRegister={autoOpenRegister} />
         </div>
       </main>
 

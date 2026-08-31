@@ -7,10 +7,11 @@ import { PublicEvent } from './UpcomingEventsSection';
 
 interface EventDetailClientProps {
   event: PublicEvent;
+  autoOpenRegister?: boolean;
 }
 
-export default function EventDetailClient({ event }: EventDetailClientProps) {
-  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+export default function EventDetailClient({ event, autoOpenRegister = false }: EventDetailClientProps) {
+  const [isRegisterOpen, setIsRegisterOpen] = useState(autoOpenRegister);
   const isCompleted = event.status === 'COMPLETED';
 
   const startDateFormatted = new Date(event.startDate).toLocaleDateString('en-IN', {
