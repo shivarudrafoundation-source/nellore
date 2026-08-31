@@ -37,15 +37,6 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
     emergencyContact: '',
   });
 
-  // OTP State
-  const [otp, setOtp] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpVerified, setOtpVerified] = useState(false);
-  const [otpLoading, setOtpLoading] = useState(false);
-  const [otpError, setOtpError] = useState('');
-  const [otpSuccessMsg, setOtpSuccessMsg] = useState('');
-  const [otpTimer, setOtpTimer] = useState(0);
-
   // Submission State
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,7 +59,6 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
               mobile: prev.mobile || data.user.mobile || '',
               location: prev.location || data.user.location || '',
             }));
-            setOtpVerified(true);
           } else {
             setCurrentUser(null);
           }
@@ -80,19 +70,6 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
         });
     }
   }, [isOpen]);
-
-  // OTP Countdown timer
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (otpTimer > 0) {
-      timer = setInterval(() => {
-        setOtpTimer((prev) => prev - 1);
-      }, 1000);
-    }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [otpTimer]);
 
   // Lock body scroll and handle Escape key when modal is open
   useEffect(() => {
@@ -121,11 +98,6 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
       }
       // Reset flow
       setStep(1);
-      setOtp('');
-      setOtpSent(false);
-      setOtpVerified(false);
-      setOtpError('');
-      setOtpTimer(0);
       setSubmissionResult(null);
       setErrors({});
     }
@@ -151,7 +123,7 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
       if (!formData.location.trim()) nextErrors.location = 'Location / City is required';
       if (!formData.gender) nextErrors.gender = 'Gender is required';
       if (!formData.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-        nextErrors.email = 'Valid email address is required for verification';
+        nextErrors.email = 'Valid email address is required';
       }
       if (!formData.age.trim() || isNaN(Number(formData.age)) || Number(formData.age) <= 0) {
         nextErrors.age = 'Enter a valid numerical age';
@@ -180,86 +152,16 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
     setStep((prev) => Math.max(1, prev - 1));
   };
 
-  // Request OTP from Backend API via Email
-  const handleRequestOtp = async () => {
-    setOtpLoading(true);
-    setOtpError('');
-    setOtpSuccessMsg('');
-    try {
-      const cleanEmail = formData.email.trim().toLowerCase();
-      const res = await fetch(`${API}/public/registrations/request-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: cleanEmail,
-          eventId: event.id,
-          categoryId,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Unable to request verification code.');
-      }
-
-      setOtpSent(true);
-      setOtpTimer(60);
-      setOtpSuccessMsg(`Verification code sent to ${cleanEmail}`);
-    } catch (err: any) {
-      setOtpError(err.message || 'Failed to dispatch verification code. Please check your email.');
-    } finally {
-      setOtpLoading(false);
-    }
-  };
-
-  // Verify OTP via Backend API via Email
-  const handleVerifyOtp = async () => {
-    setOtpLoading(true);
-    setOtpError('');
-    try {
-      const cleanEmail = formData.email.trim().toLowerCase();
-      const cleanOtp = otp.trim();
-
-      if (!/^\d{6}$/.test(cleanOtp)) {
-        throw new Error('Please enter the 6-digit verification code.');
-      }
-
-      const res = await fetch(`${API}/public/registrations/verify-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: cleanEmail,
-          eventId: event.id,
-          otp: cleanOtp,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Invalid or expired verification code.');
-      }
-
-      setOtpVerified(true);
-      setOtpSuccessMsg('Email address verified successfully.');
-    } catch (err: any) {
-      setOtpError(err.message || 'Invalid verification code. Please try again.');
-    } finally {
-      setOtpLoading(false);
-    }
-  };
-
-  // Final Registration Submission
+  // Final Registration Submission (Direct without OTP)
   const handleSubmitRegistration = async () => {
     setIsSubmitting(true);
     setErrors({});
     try {
       const cleanMobile = formData.mobile.replace(/\D/g, '');
-      const cleanOtp = otp.trim();
 
       const payload = {
         eventId: event.id,
         categoryId,
-        otp: cleanOtp,
         baseFields: {
           name: formData.name.trim(),
           mobile: cleanMobile,
@@ -275,6 +177,7 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
       const res = await fetch(`${API}/public/registrations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(payload),
       });
 
@@ -284,7 +187,7 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
       }
 
       setSubmissionResult(data);
-      setStep(5); // Confirmation Screen
+      setStep(4); // Confirmation Screen
     } catch (err: any) {
       setErrors({ form: err.message || 'Unable to submit registration. Please try again.' });
     } finally {
@@ -359,13 +262,12 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
 
         {/* Step Progress Indicators */}
         {currentUser && (
-        <div className="grid grid-cols-5 gap-1.5 sm:gap-2 border-b border-luxury-gray-border/10 pb-4">
+        <div className="grid grid-cols-4 gap-1.5 sm:gap-2 border-b border-luxury-gray-border/10 pb-4">
           {[
             { n: 1, label: 'CATEGORY' },
             { n: 2, label: 'DETAILS' },
             { n: 3, label: 'PROFILE' },
-            { n: 4, label: 'VERIFY' },
-            { n: 5, label: 'CONFIRM' },
+            { n: 4, label: 'CONFIRM' },
           ].map((s) => (
             <div key={s.n} className="text-center space-y-1">
               <div
@@ -449,12 +351,12 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="font-sans text-[10px] tracking-luxury text-luxury-white/60 uppercase">
-                  Full Legal Name *
+                  Full Name (As per Govt ID) *
                 </label>
                 <input
                   type="text"
-                  placeholder="Enter full name"
                   autoComplete="name"
+                  placeholder="Enter full legal name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full min-h-[44px] h-11 bg-[#050505] border border-luxury-gray-border/30 px-3 font-sans text-xs text-luxury-white outline-none focus:border-luxury-gold"
@@ -481,7 +383,7 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
 
               <div className="space-y-1">
                 <label className="font-sans text-[10px] tracking-luxury text-luxury-white/60 uppercase">
-                  Email Address (For Verification) *
+                  Email Address *
                 </label>
                 <input
                   type="email"
@@ -582,7 +484,7 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
           </div>
         )}
 
-        {/* STEP 3: CUSTOM PROFILE FIELDS */}
+        {/* STEP 3: CUSTOM PROFILE FIELDS & DIRECT SUBMISSION */}
         {step === 3 && (
           <div className="space-y-6">
             <div>
@@ -662,117 +564,11 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
               </div>
             </div>
 
-            <div className="flex justify-between pt-4 border-t border-luxury-gray-border/10">
-              <button
-                onClick={handleBack}
-                className="min-h-[44px] h-11 px-6 border border-luxury-gray-border/40 text-luxury-white/70 font-sans text-xs uppercase tracking-luxury hover:border-luxury-gold"
-              >
-                ← BACK
-              </button>
-              <button
-                onClick={handleNext}
-                className="min-h-[44px] h-11 px-8 border border-luxury-gold bg-luxury-gold text-luxury-black-pure font-sans text-xs font-semibold tracking-luxury uppercase hover:bg-transparent hover:text-luxury-gold transition-all duration-300"
-              >
-                {otpVerified ? 'REVIEW & SUBMIT →' : 'NEXT: EMAIL OTP VERIFY →'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 4: EMAIL OTP VERIFICATION */}
-        {step === 4 && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="font-serif text-lg font-light text-luxury-white">Email Address Verification</h3>
-              <p className="font-sans text-xs text-luxury-white/40">
-                To verify your registration, a 6-digit verification code will be sent to your email{' '}
-                <span className="text-luxury-gold font-mono font-bold">{formData.email}</span>
-              </p>
-            </div>
-
-            <div className="p-4 sm:p-6 bg-[#050505] border border-luxury-gray-border/30 space-y-4">
-              {!otpSent ? (
-                <div className="text-center space-y-4 py-4">
-                  <span className="font-sans text-xs text-luxury-white/60 block">
-                    Click below to receive a 6-digit verification code in your email inbox.
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleRequestOtp}
-                    disabled={otpLoading}
-                    className="min-h-[44px] h-11 px-8 border border-luxury-gold bg-luxury-gold text-luxury-black-pure font-sans text-xs font-semibold tracking-luxury uppercase hover:bg-transparent hover:text-luxury-gold transition-all duration-300 disabled:opacity-50"
-                  >
-                    {otpLoading ? 'DISPATCHING CODE...' : 'SEND EMAIL VERIFICATION CODE ↗'}
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {otpSuccessMsg && (
-                    <div className="p-3 bg-green-500/10 border border-green-500/30 text-green-400 font-sans text-xs">
-                      {otpSuccessMsg}
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    <label className="font-sans text-[10px] tracking-luxury text-luxury-white/60 uppercase block">
-                      Enter 6-Digit Email Code
-                    </label>
-                    <div className="flex flex-wrap gap-3 items-center">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        maxLength={6}
-                        placeholder="123456"
-                        value={otp}
-                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                        className="h-11 w-44 sm:w-48 bg-black border border-luxury-gray-border/40 px-3 font-mono text-lg tracking-widest text-center text-luxury-gold outline-none focus:border-luxury-gold"
-                      />
-                      {!otpVerified && (
-                        <button
-                          type="button"
-                          onClick={handleVerifyOtp}
-                          disabled={otpLoading || otp.length !== 6}
-                          className="min-h-[44px] h-11 px-6 border border-luxury-gold bg-luxury-gold text-luxury-black-pure font-sans text-xs font-semibold uppercase tracking-luxury hover:bg-transparent hover:text-luxury-gold transition-all duration-300 disabled:opacity-40"
-                        >
-                          {otpLoading ? 'VERIFYING...' : 'VERIFY CODE'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between items-center text-[10px] font-sans text-luxury-white/40 pt-1">
-                    <span>Did not receive code? Check spam folder or</span>
-                    {otpTimer > 0 ? (
-                      <span className="text-luxury-gold/60 uppercase tracking-wider font-mono">
-                        RESEND IN {otpTimer}S
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleRequestOtp}
-                        disabled={otpLoading}
-                        className="text-luxury-gold hover:underline uppercase tracking-wider min-h-[44px] inline-flex items-center"
-                      >
-                        RESEND EMAIL OTP
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {otpError && (
-                <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 font-sans text-xs">
-                  {otpError}
-                </div>
-              )}
-
-              {errors.form && (
-                <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 font-sans text-xs">
-                  {errors.form}
-                </div>
-              )}
-            </div>
+            {errors.form && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 font-sans text-xs">
+                {errors.form}
+              </div>
+            )}
 
             <div className="flex justify-between pt-4 border-t border-luxury-gray-border/10">
               <button
@@ -783,7 +579,7 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
               </button>
               <button
                 onClick={handleSubmitRegistration}
-                disabled={isSubmitting || !otpVerified}
+                disabled={isSubmitting}
                 className="min-h-[44px] h-11 px-8 border border-luxury-gold bg-luxury-gold text-luxury-black-pure font-sans text-xs font-semibold tracking-luxury uppercase hover:bg-transparent hover:text-luxury-gold transition-all duration-300 disabled:opacity-40"
               >
                 {isSubmitting ? 'SUBMITTING...' : 'COMPLETE REGISTRATION ↗'}
@@ -792,8 +588,8 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
           </div>
         )}
 
-        {/* STEP 5: REGISTRATION CONFIRMATION */}
-        {step === 5 && submissionResult && (
+        {/* STEP 4: REGISTRATION CONFIRMATION */}
+        {step === 4 && submissionResult && (
           <div className="space-y-6 text-center py-4">
             <div className="w-16 h-16 rounded-full border-2 border-luxury-gold bg-luxury-gold/10 mx-auto flex items-center justify-center text-luxury-gold text-2xl font-serif">
               ✓
