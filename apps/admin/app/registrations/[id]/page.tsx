@@ -37,6 +37,21 @@ function RegistrationDetailContent() {
     return pass;
   };
 
+  const generateAutoContestantId = (reg: any, style: 'standard' | 'short' | 'number' = 'standard') => {
+    if (!reg) return '';
+    const cleanEvent = (reg.event?.code || 'NLR').replace(/^SRF-?/i, '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    const cleanCat = (reg.category?.code || 'GEN').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    const randomSeq = String(Math.floor(100 + Math.random() * 900));
+
+    if (style === 'short') {
+      return `SRF-${cleanCat}-${randomSeq}`;
+    }
+    if (style === 'number') {
+      return `${cleanCat}-${randomSeq}`;
+    }
+    return cleanEvent ? `SRF-${cleanEvent}-${cleanCat}-${randomSeq}` : `SRF-${cleanCat}-${randomSeq}`;
+  };
+
   const fetchRegistration = async () => {
     try {
       const res = await fetch(`${API}/admin/registrations/${id}`, { credentials: 'include' });
@@ -44,10 +59,7 @@ function RegistrationDetailContent() {
       const d = await res.json();
       setRegistration(d);
       if (!contestantIdInput) {
-        const eventCode = d.event?.code || 'NLR26';
-        const catCode = d.category?.code || 'GEN';
-        const randomSeq = String(Math.floor(1000 + Math.random() * 9000));
-        setContestantIdInput(`SRF-${eventCode}-${catCode}-${randomSeq}`);
+        setContestantIdInput(generateAutoContestantId(d, 'standard'));
       }
       if (!passwordInput) {
         setPasswordInput(generateRandomPassword());
@@ -306,29 +318,49 @@ function RegistrationDetailContent() {
               <div>
                 <div className="flex justify-between items-center mb-1.5">
                   <label className="block text-[10px] font-mono uppercase tracking-[0.2em] text-white/60">
-                    Official Contestant ID *
+                    Contestant ID (Auto or Manual) *
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const eventCode = registration.event?.code || 'NLR26';
-                      const catCode = registration.category?.code || 'GEN';
-                      const randomSeq = String(Math.floor(1000 + Math.random() * 9000));
-                      setContestantIdInput(`SRF-${eventCode}-${catCode}-${randomSeq}`);
-                    }}
-                    className="text-[10px] text-luxury-gold hover:underline font-mono uppercase"
-                  >
-                    Generate New ID
-                  </button>
+                  <div className="flex items-center gap-1.5 text-[10px]">
+                    <span className="text-white/40 uppercase">Auto:</span>
+                    <button
+                      type="button"
+                      onClick={() => setContestantIdInput(generateAutoContestantId(registration, 'standard'))}
+                      className="text-luxury-gold hover:underline font-mono uppercase"
+                      title="Standard: SRF-NLR-K-101"
+                    >
+                      Full
+                    </button>
+                    <span className="text-white/20">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setContestantIdInput(generateAutoContestantId(registration, 'short'))}
+                      className="text-luxury-gold hover:underline font-mono uppercase"
+                      title="Short: SRF-K-101"
+                    >
+                      Short
+                    </button>
+                    <span className="text-white/20">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setContestantIdInput(generateAutoContestantId(registration, 'number'))}
+                      className="text-luxury-gold hover:underline font-mono uppercase"
+                      title="Simple: K-101"
+                    >
+                      Simple
+                    </button>
+                  </div>
                 </div>
                 <input
                   type="text"
                   required
                   value={contestantIdInput}
                   onChange={(e) => setContestantIdInput(e.target.value.toUpperCase())}
-                  placeholder="e.g. SRF-NLR26-MISS-0012"
+                  placeholder="Type any manual ID (e.g. 101, NLR-01, SRF-K-05)"
                   className="w-full bg-[#050505] border border-luxury-gold/50 focus:border-luxury-gold px-3.5 py-2.5 font-mono text-sm text-luxury-gold font-bold focus:outline-none rounded-sm"
                 />
+                <span className="block text-[10px] text-white/40 mt-1 font-sans">
+                  💡 Click auto presets above or directly type any custom manual ID.
+                </span>
               </div>
 
               <div>

@@ -101,12 +101,24 @@ function RegistrationsContent() {
     return pass;
   };
 
+  const generateAutoContestantId = (reg: any, style: 'standard' | 'short' | 'number' = 'standard') => {
+    if (!reg) return '';
+    const cleanEvent = (reg.event?.code || 'NLR').replace(/^SRF-?/i, '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    const cleanCat = (reg.category?.code || 'GEN').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    const randomSeq = String(Math.floor(100 + Math.random() * 900));
+
+    if (style === 'short') {
+      return `SRF-${cleanCat}-${randomSeq}`;
+    }
+    if (style === 'number') {
+      return `${cleanCat}-${randomSeq}`;
+    }
+    return cleanEvent ? `SRF-${cleanEvent}-${cleanCat}-${randomSeq}` : `SRF-${cleanCat}-${randomSeq}`;
+  };
+
   const openVerifyModal = (reg: any) => {
     setSelectedReg(reg);
-    const eventCode = reg.event?.code || 'NLR26';
-    const catCode = reg.category?.code || 'GEN';
-    const randomSeq = String(Math.floor(1000 + Math.random() * 9000));
-    setEnteredContestantId(`SRF-${eventCode}-${catCode}-${randomSeq}`);
+    setEnteredContestantId(generateAutoContestantId(reg, 'standard'));
     setEnteredPassword(generateRandomPassword());
     setShowPassword(false);
     setVerifyError('');
@@ -357,29 +369,49 @@ function RegistrationsContent() {
               <div>
                 <div className="flex justify-between items-center mb-1.5">
                   <label className="block text-[10px] font-mono uppercase tracking-[0.2em] text-white/60">
-                    Assign Contestant ID *
+                    Contestant ID (Auto or Manual) *
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const eventCode = selectedReg.event?.code || 'NLR26';
-                      const catCode = selectedReg.category?.code || 'GEN';
-                      const randomSeq = String(Math.floor(1000 + Math.random() * 9000));
-                      setEnteredContestantId(`SRF-${eventCode}-${catCode}-${randomSeq}`);
-                    }}
-                    className="text-[10px] text-luxury-gold hover:underline font-mono uppercase"
-                  >
-                    Generate New ID
-                  </button>
+                  <div className="flex items-center gap-1.5 text-[10px]">
+                    <span className="text-white/40 uppercase">Auto:</span>
+                    <button
+                      type="button"
+                      onClick={() => setEnteredContestantId(generateAutoContestantId(selectedReg, 'standard'))}
+                      className="text-luxury-gold hover:underline font-mono uppercase"
+                      title="Standard: SRF-NLR-K-101"
+                    >
+                      Full
+                    </button>
+                    <span className="text-white/20">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setEnteredContestantId(generateAutoContestantId(selectedReg, 'short'))}
+                      className="text-luxury-gold hover:underline font-mono uppercase"
+                      title="Short: SRF-K-101"
+                    >
+                      Short
+                    </button>
+                    <span className="text-white/20">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setEnteredContestantId(generateAutoContestantId(selectedReg, 'number'))}
+                      className="text-luxury-gold hover:underline font-mono uppercase"
+                      title="Simple: K-101"
+                    >
+                      Simple
+                    </button>
+                  </div>
                 </div>
                 <input
                   type="text"
                   required
                   value={enteredContestantId}
                   onChange={(e) => setEnteredContestantId(e.target.value.toUpperCase())}
-                  placeholder="e.g. SRF-NLR26-MISS-0012"
+                  placeholder="Type any manual ID (e.g. 101, NLR-01, SRF-K-05)"
                   className="w-full bg-[#050505] border border-luxury-gold/50 focus:border-luxury-gold px-3.5 py-2.5 font-mono text-sm text-luxury-gold font-bold focus:outline-none rounded-sm"
                 />
+                <span className="block text-[10px] text-white/40 mt-1 font-sans">
+                  💡 Click auto presets above or directly type any custom manual ID.
+                </span>
               </div>
 
               <div>

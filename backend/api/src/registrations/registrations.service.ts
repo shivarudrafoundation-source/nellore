@@ -127,9 +127,9 @@ export class RegistrationsService {
    * Safe sequential Contestant ID generator: SRF-{EVENT_CODE}-{CAT_CODE}-{SEQUENCE}
    */
   async generateContestantId(tx: Prisma.TransactionClient, eventCode: string, categoryCode: string): Promise<string> {
-    const cleanEvent = eventCode.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    const cleanEvent = eventCode.replace(/^SRF-?/i, '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
     const cleanCat = categoryCode.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-    const prefix = `SRF-${cleanEvent}-${cleanCat}`;
+    const prefix = cleanEvent ? `SRF-${cleanEvent}-${cleanCat}` : `SRF-${cleanCat}`;
 
     // Query highest existing sequence
     const latest = await tx.contestant.findFirst({
@@ -172,7 +172,7 @@ export class RegistrationsService {
       throw new BadRequestException('Contestant ID must be provided by the admin.');
     }
 
-    if (rawContestantId.length < 3 || !/^[A-Z0-9_-]+$/i.test(rawContestantId)) {
+    if (rawContestantId.length < 1 || !/^[A-Z0-9_-]+$/i.test(rawContestantId)) {
       throw new BadRequestException('Invalid Contestant ID format. Must contain alphanumeric characters, hyphens or underscores.');
     }
 
