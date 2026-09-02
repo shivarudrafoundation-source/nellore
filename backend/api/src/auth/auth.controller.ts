@@ -28,10 +28,10 @@ export class AuthController {
   private setCookies(res: express.Response, tokens: { accessToken: string; refreshToken: string }, req?: express.Request) {
     const cookieOptions = this.getCookieOptions(req);
 
-    // Access Token cookie expires in 15 minutes
+    // Access Token cookie expires in 24 hours
     res.cookie('access_token', tokens.accessToken, {
       ...cookieOptions,
-      maxAge: 15 * 60 * 1000,
+      maxAge: 24 * 60 * 60 * 1000,
     });
 
     // Refresh Token cookie expires in 7 days

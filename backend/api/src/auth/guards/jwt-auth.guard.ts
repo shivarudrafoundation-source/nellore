@@ -8,30 +8,40 @@ export class JwtAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
+    const secret = process.env.JWT_SECRET || 'fallback-secret-key-siva-rudra-foundation-2026';
+
     const token = this.extractToken(request);
 
-    if (!token) {
-      throw new UnauthorizedException('Authentication token missing.');
+    if (token) {
+      try {
+        const payload = await this.jwtService.verifyAsync(token, { secret });
+        (request as any).user = payload;
+        return true;
+      } catch (error) {
+        // Access token might be expired, fallback to refresh token below
+      }
     }
 
-    try {
-      const secret = process.env.JWT_SECRET || 'fallback-secret-key-siva-rudra-foundation-2026';
-      const payload = await this.jwtService.verifyAsync(token, { secret });
-      
-      // Inject user payload into the request object
-      (request as any).user = payload;
-      return true;
-    } catch (error) {
-      throw new UnauthorizedException('Invalid or expired authentication token.');
+    // Seamless Fallback: Check if valid refresh_token exists
+    if (request.cookies && request.cookies.refresh_token) {
+      try {
+        const refreshPayload = await this.jwtService.verifyAsync(request.cookies.refresh_token, { secret });
+        (request as any).user = refreshPayload;
+        return true;
+      } catch (err) {
+        // Both tokens expired
+      }
     }
+
+    throw new UnauthorizedException('Authentication token missing.');
   }
 
   private extractToken(request: Request): string | null {
-    // Check cookies
+    // 1. Check access_token cookie
     if (request.cookies && request.cookies.access_token) {
       return request.cookies.access_token;
     }
-    // Fallback to Authorization header
+    // 2. Fallback to Authorization header
     const authHeader = request.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       return authHeader.substring(7);

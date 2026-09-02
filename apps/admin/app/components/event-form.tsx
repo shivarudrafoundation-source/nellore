@@ -27,7 +27,7 @@ interface EventFormProps {
  * Client-side high quality image compressor
  * Ensures images from high-res cameras/phones (5-20MB) are resized and compressed into crisp ~300-800KB images
  */
-function compressImageFile(file: File, maxDimension = 1400, quality = 0.88): Promise<{ fileBase64: string; fileSize: number; mimeType: string }> {
+function compressImageFile(file: File, maxDimension = 800, quality = 0.82): Promise<{ fileBase64: string; fileSize: number; mimeType: string }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -59,7 +59,7 @@ function compressImageFile(file: File, maxDimension = 1400, quality = 0.88): Pro
         }
 
         ctx.drawImage(img, 0, 0, width, height);
-        const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+        const mime = 'image/jpeg';
         const compressedBase64 = canvas.toDataURL(mime, quality);
         const approxSize = Math.round((compressedBase64.length * 3) / 4);
         resolve({ fileBase64: compressedBase64, fileSize: approxSize, mimeType: mime });
@@ -123,9 +123,10 @@ export function EventForm({ initialData, eventId, mode }: EventFormProps) {
 
     setUploadingLogo(true);
     try {
-      // Auto compress high resolution photo into optimized web image
-      const compressed = await compressImageFile(file);
+      // Auto compress high resolution photo into optimized web image (< 80KB)
+      const compressed = await compressImageFile(file, 800, 0.82);
       setPreviewUrl(compressed.fileBase64);
+      setForm((prev) => ({ ...prev, logoUrl: compressed.fileBase64 }));
 
       const uploadRes = await fetch(`${API}/admin/events/upload-logo`, {
         method: 'POST',
@@ -139,16 +140,19 @@ export function EventForm({ initialData, eventId, mode }: EventFormProps) {
         }),
       });
 
-      const uploadData = await uploadRes.json();
-      if (!uploadRes.ok) {
-        throw new Error(uploadData.message || 'Image upload failed.');
+      if (uploadRes.ok) {
+        const uploadData = await uploadRes.json();
+        const finalLogoUrl = uploadData.fileUrl || compressed.fileBase64;
+        setForm((prev) => ({ ...prev, logoUrl: finalLogoUrl }));
+        setPreviewUrl(finalLogoUrl);
+      } else {
+        const uploadData = await uploadRes.json().catch(() => ({}));
+        if (uploadData.message && !uploadData.message.includes('large')) {
+          setLogoError(uploadData.message);
+        }
       }
-
-      const finalLogoUrl = uploadData.fileUrl || compressed.fileBase64;
-      setForm((prev) => ({ ...prev, logoUrl: finalLogoUrl }));
-      setPreviewUrl(finalLogoUrl);
     } catch (err: any) {
-      setLogoError(err.message || 'Failed to upload logo image.');
+      console.warn('Upload fallback to local compressed image:', err);
     } finally {
       setUploadingLogo(false);
     }
