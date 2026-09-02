@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AuthGuard } from '../../components/auth-guard';
 import { AdminShell } from '../../components/admin-shell';
-import { Card, Button, getApiBaseUrl } from '@srf/ui';
+import { Card, Button, ContestantIdCard, getApiBaseUrl } from '@srf/ui';
 
 const API = getApiBaseUrl();
 
@@ -23,6 +23,7 @@ function RegistrationDetailContent() {
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [resendModalOpen, setResendModalOpen] = useState(false);
+  const [idCardModalOpen, setIdCardModalOpen] = useState(false);
   const [contestantIdInput, setContestantIdInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -203,7 +204,18 @@ function RegistrationDetailContent() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {registration.contestantId && registration.paymentStatus === 'PAID' && (
+            <Button
+              size="sm"
+              onClick={() => setIdCardModalOpen(true)}
+              className="bg-luxury-gold hover:bg-[#E5C158] text-black font-bold tracking-wider flex items-center gap-1.5 shadow-md"
+            >
+              <span>🎫</span>
+              <span>VIEW & PRINT ID CARD</span>
+            </Button>
+          )}
+
           {registration.paymentStatus === 'UNPAID' && (
             <Button
               size="sm"
@@ -224,18 +236,34 @@ function RegistrationDetailContent() {
 
       {/* Contestant Banner if Assigned */}
       {registration.contestantId && (
-        <Card hoverEffect={false} className="bg-luxury-gold/5 border-luxury-gold/30 p-6 flex items-center justify-between">
-          <div>
+        <Card hoverEffect={false} className="bg-luxury-gold/5 border-luxury-gold/30 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-1">
             <span className="font-sans text-[10px] tracking-luxury text-luxury-gold uppercase font-bold block">
               Official Contestant Assigned
             </span>
-            <span className="font-mono text-xl font-bold text-luxury-white">{registration.contestantId}</span>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-2xl font-bold text-luxury-white">{registration.contestantId}</span>
+              {registration.paymentStatus === 'PAID' && (
+                <span className="px-2 py-0.5 bg-green-500/10 border border-green-500/30 text-green-400 font-sans text-[10px] uppercase font-bold">
+                  ✓ PAID & ACCREDITED
+                </span>
+              )}
+            </div>
           </div>
-          <Link href={`/contestants/${registration.contestantId}`}>
-            <Button size="sm" variant="outline">
-              VIEW CONTESTANT PROFILE ↗
+          <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              onClick={() => setIdCardModalOpen(true)}
+              className="bg-luxury-gold text-black font-bold"
+            >
+              🎫 GENERATE ID CARD
             </Button>
-          </Link>
+            <Link href={`/contestants/${registration.contestantId}`}>
+              <Button size="sm" variant="outline">
+                VIEW PROFILE ↗
+              </Button>
+            </Link>
+          </div>
         </Card>
       )}
 
@@ -509,6 +537,57 @@ function RegistrationDetailContent() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* OFFICIAL CONTESTANT ID CARD MODAL */}
+      {idCardModalOpen && registration.contestantId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
+          <div className="bg-[#0A0A0A] border-2 border-luxury-gold/60 w-full max-w-lg p-6 sm:p-8 space-y-6 shadow-2xl rounded-sm my-8">
+            <div className="flex items-center justify-between border-b border-luxury-gold/30 pb-3">
+              <div>
+                <span className="font-sans text-[9px] tracking-[0.24em] text-luxury-gold uppercase font-bold block">
+                  OFFICIAL ACCREDITATION
+                </span>
+                <h3 className="font-serif text-xl font-light text-white mt-1">
+                  Contestant Entry Pass & ID Card
+                </h3>
+              </div>
+              <button
+                onClick={() => setIdCardModalOpen(false)}
+                className="text-white/60 hover:text-white font-mono text-sm px-2 py-1 bg-white/5 rounded"
+              >
+                ✕ CLOSE
+              </button>
+            </div>
+
+            {/* Live Rendered Card Component */}
+            <div className="flex justify-center py-2">
+              <ContestantIdCard
+                contestantId={registration.contestantId}
+                name={base.name || 'Contestant'}
+                categoryName={registration.category?.name}
+                categoryCode={registration.category?.code}
+                eventName={registration.event?.name}
+                eventCode={registration.event?.code}
+                eventLogoUrl={registration.event?.logoUrl}
+                location={registration.event?.location || base.location}
+                startDate={registration.event?.startDate}
+                endDate={registration.event?.endDate}
+                photoUrl={base.photoUrl}
+                gender={base.gender}
+                age={base.age}
+                paymentStatus={registration.paymentStatus}
+                showPrintButton={true}
+              />
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-white/10">
+              <Button size="sm" variant="outline" onClick={() => setIdCardModalOpen(false)}>
+                DISMISS
+              </Button>
+            </div>
           </div>
         </div>
       )}

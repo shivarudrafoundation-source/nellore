@@ -14,6 +14,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'DASHBOARD', path: '/' },
+  { label: 'ID CARD & PASS', path: '/id-card' },
   { label: 'MY PROFILE', path: '/profile' },
   { label: 'MY SCORES', path: '/scores' },
   { label: 'RESULT', path: '/result' },

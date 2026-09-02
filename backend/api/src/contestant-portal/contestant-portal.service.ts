@@ -16,7 +16,7 @@ export class ContestantPortalService {
     const contestant = await this.db.contestant.findUnique({
       where: { id: contestantId },
       include: {
-        event: { select: { id: true, name: true, code: true, location: true, status: true } },
+        event: { select: { id: true, name: true, code: true, location: true, startDate: true, endDate: true, logoUrl: true, status: true } },
         registration: {
           include: {
             category: { select: { id: true, name: true, code: true } },
@@ -29,12 +29,18 @@ export class ContestantPortalService {
       throw new NotFoundException('Contestant account not found.');
     }
 
+    const base = (contestant.registration?.baseFields as any) || {};
+
     return {
       id: contestant.id,
-      mobile: contestant.mobile,
+      name: base.name || null,
+      email: base.email || null,
+      mobile: contestant.mobile || base.mobile,
+      photoUrl: base.photoUrl || null,
       event: contestant.event,
       category: contestant.registration?.category,
       status: contestant.event?.status === 'COMPLETED' ? 'COMPLETED' : 'ACTIVE',
+      paymentStatus: contestant.registration?.paymentStatus || 'PAID',
     };
   }
 
@@ -45,7 +51,7 @@ export class ContestantPortalService {
     const contestant = await this.db.contestant.findUnique({
       where: { id: contestantId },
       include: {
-        event: { select: { id: true, name: true, code: true, location: true } },
+        event: { select: { id: true, name: true, code: true, location: true, startDate: true, endDate: true, logoUrl: true } },
         registration: {
           include: {
             category: { select: { id: true, name: true, code: true } },
@@ -70,10 +76,12 @@ export class ContestantPortalService {
       dob: base.dob,
       age: base.age,
       location: base.location,
+      photoUrl: base.photoUrl || null,
       category: contestant.registration.category?.name,
       categoryCode: contestant.registration.category?.code,
       event: contestant.event?.name,
       eventCode: contestant.event?.code,
+      eventDetails: contestant.event,
       customFields: custom,
       registeredAt: contestant.createdAt,
     };

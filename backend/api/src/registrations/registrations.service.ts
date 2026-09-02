@@ -97,7 +97,7 @@ export class RegistrationsService {
     const reg = await this.db.registration.findUnique({
       where: { id },
       include: {
-        event: { select: { id: true, name: true, code: true, location: true, startDate: true, endDate: true } },
+        event: { select: { id: true, name: true, code: true, location: true, startDate: true, endDate: true, logoUrl: true } },
         category: { select: { id: true, name: true, code: true } },
         contestant: {
           select: {

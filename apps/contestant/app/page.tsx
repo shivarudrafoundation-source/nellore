@@ -93,13 +93,22 @@ function DashboardContent() {
             </div>
           </div>
 
-          <div className="flex flex-col items-start md:items-end">
-            <span className="font-sans text-[9px] text-luxury-white/40 uppercase tracking-luxury">
-              PARTICIPATION STATUS
-            </span>
-            <span className="font-sans text-xs font-bold text-green-400 border border-green-500/30 px-3 py-1 bg-green-500/5 mt-1 uppercase">
-              {overview?.status || 'ACTIVE'}
-            </span>
+          <div className="flex flex-col items-start md:items-end gap-3">
+            <div className="text-left md:text-right">
+              <span className="font-sans text-[9px] text-luxury-white/40 uppercase tracking-luxury block">
+                PARTICIPATION STATUS
+              </span>
+              <span className="font-sans text-xs font-bold text-green-400 border border-green-500/30 px-3 py-1 bg-green-500/5 mt-1 uppercase inline-block">
+                {overview?.status || 'ACTIVE'}
+              </span>
+            </div>
+
+            <Link href="/id-card">
+              <Button size="sm" className="bg-luxury-gold hover:bg-[#E5C158] text-black font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md">
+                <span>🎫</span>
+                <span>VIEW OFFICIAL ID CARD ↗</span>
+              </Button>
+            </Link>
           </div>
         </div>
       </Card>

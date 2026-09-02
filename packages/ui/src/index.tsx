@@ -192,3 +192,5 @@ export function getContestantPortalUrl(): string {
   return 'https://my.sivarudrafoundation.com';
 }
 
+export * from './contestant-id-card';
+

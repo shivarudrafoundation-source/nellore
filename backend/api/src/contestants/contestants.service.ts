@@ -83,7 +83,7 @@ export class ContestantsService {
     const contestant = await this.db.contestant.findUnique({
       where: { id },
       include: {
-        event: { select: { id: true, name: true, code: true, location: true } },
+        event: { select: { id: true, name: true, code: true, location: true, startDate: true, endDate: true, logoUrl: true } },
         registration: {
           include: {
             category: { select: { id: true, name: true, code: true } },

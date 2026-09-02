@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AuthGuard } from '../../components/auth-guard';
 import { AdminShell } from '../../components/admin-shell';
-import { Card, Button, getApiBaseUrl } from '@srf/ui';
+import { Card, Button, ContestantIdCard, getApiBaseUrl } from '@srf/ui';
 
 const API = getApiBaseUrl();
 
@@ -17,6 +17,7 @@ function ContestantDetailContent() {
   const [contestant, setContestant] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [idCardModalOpen, setIdCardModalOpen] = useState(false);
   const [resendModalOpen, setResendModalOpen] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -186,12 +187,21 @@ function ContestantDetailContent() {
         <div className="flex flex-wrap items-center gap-3">
           <Button
             size="sm"
-            variant="solid"
+            onClick={() => setIdCardModalOpen(true)}
+            className="bg-luxury-gold hover:bg-[#E5C158] text-black font-bold text-xs uppercase tracking-wider shadow-sm flex items-center gap-1.5"
+          >
+            <span>🎫</span>
+            <span>PRINT ID CARD</span>
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
             onClick={() => {
               setAdminScoreError('');
               setAdminScoreModalOpen(true);
             }}
-            className="bg-luxury-gold hover:bg-[#E5C158] text-black font-bold text-xs uppercase tracking-wider shadow-sm"
+            className="border-luxury-gold/60 text-luxury-gold hover:bg-luxury-gold/10 font-bold text-xs uppercase tracking-wider"
           >
             ✏️ ADMIN SCORE (/30)
           </Button>
@@ -568,6 +578,57 @@ function ContestantDetailContent() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* OFFICIAL CONTESTANT ID CARD MODAL */}
+      {idCardModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
+          <div className="bg-[#0A0A0A] border-2 border-luxury-gold/60 w-full max-w-lg p-6 sm:p-8 space-y-6 shadow-2xl rounded-sm my-8">
+            <div className="flex items-center justify-between border-b border-luxury-gold/30 pb-3">
+              <div>
+                <span className="font-sans text-[9px] tracking-[0.24em] text-luxury-gold uppercase font-bold block">
+                  OFFICIAL ACCREDITATION
+                </span>
+                <h3 className="font-serif text-xl font-light text-white mt-1">
+                  Contestant Entry Pass & ID Card
+                </h3>
+              </div>
+              <button
+                onClick={() => setIdCardModalOpen(false)}
+                className="text-white/60 hover:text-white font-mono text-sm px-2 py-1 bg-white/5 rounded"
+              >
+                ✕ CLOSE
+              </button>
+            </div>
+
+            {/* Live Rendered Card Component */}
+            <div className="flex justify-center py-2">
+              <ContestantIdCard
+                contestantId={contestant.id}
+                name={base.name || 'Contestant'}
+                categoryName={contestant.registration?.category?.name}
+                categoryCode={contestant.registration?.category?.code}
+                eventName={contestant.event?.name}
+                eventCode={contestant.event?.code}
+                eventLogoUrl={contestant.event?.logoUrl}
+                location={contestant.event?.location || base.location}
+                startDate={contestant.event?.startDate}
+                endDate={contestant.event?.endDate}
+                photoUrl={base.photoUrl}
+                gender={base.gender}
+                age={base.age}
+                paymentStatus={contestant.registration?.paymentStatus || 'PAID'}
+                showPrintButton={true}
+              />
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-white/10">
+              <Button size="sm" variant="outline" onClick={() => setIdCardModalOpen(false)}>
+                DISMISS
+              </Button>
+            </div>
           </div>
         </div>
       )}
