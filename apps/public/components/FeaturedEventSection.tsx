@@ -70,6 +70,7 @@ export default function FeaturedEventSection({ onRegisterClick }: FeaturedEventS
                 alt={featuredEvent.name}
                 fill
                 className="object-cover transition-transform duration-700 group-hover:scale-105"
+                unoptimized={posterSrc.startsWith('data:') || posterSrc.startsWith('http')}
                 priority
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-40 pointer-events-none" />

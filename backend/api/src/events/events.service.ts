@@ -834,9 +834,9 @@ export class EventsService {
       throw new BadRequestException('Invalid image format. Only PNG, JPG, JPEG, and WEBP images are accepted.');
     }
 
-    const maxSizeBytes = 5 * 1024 * 1024; // 5MB limit
+    const maxSizeBytes = 25 * 1024 * 1024; // 25MB limit
     if (fileSize > maxSizeBytes) {
-      throw new BadRequestException('Image file size exceeds the 5MB maximum limit.');
+      throw new BadRequestException('Image file size exceeds the 25MB maximum limit.');
     }
 
     // Magic bytes verification
@@ -860,9 +860,7 @@ export class EventsService {
       }
     }
 
-    const ext = rawMime.includes('png') ? 'png' : rawMime.includes('webp') ? 'webp' : 'jpg';
-    const safeStorageName = `srf_event_logo_${Date.now()}_${randomUUID().slice(0, 8)}.${ext}`;
-    const fileUrl = (dto as any).fileUrl || `/storage/events/logos/${safeStorageName}`;
+    const fileUrl = (dto as any).fileUrl || (dto.fileBase64 && dto.fileBase64.startsWith('data:') ? dto.fileBase64 : dto.fileBase64 ? `data:${rawMime};base64,${dto.fileBase64}` : '');
 
     await this.audit.log({
       actorType: 'ADMIN',
@@ -875,7 +873,6 @@ export class EventsService {
         filename,
         fileSize,
         mimeType: rawMime,
-        fileUrl,
       },
     });
 

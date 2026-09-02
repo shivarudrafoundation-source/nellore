@@ -130,6 +130,7 @@ export default function UpcomingEventsSection({ onRegisterClick }: UpcomingEvent
                           alt={event.name} 
                           fill
                           className="object-cover p-0.5"
+                          unoptimized={Boolean(event.logoUrl && (event.logoUrl.startsWith('data:') || event.logoUrl.startsWith('http')))}
                         />
                       </div>
                       <div>

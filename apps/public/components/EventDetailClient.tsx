@@ -56,13 +56,14 @@ export default function EventDetailClient({ event, autoOpenRegister = false }: E
           </div>
         </div>
 
-        <div className="relative w-24 h-24 p-2 border border-luxury-gold/20 bg-[#050505] flex-shrink-0">
+        <div className="relative w-28 h-28 p-2 border border-luxury-gold/30 bg-[#050505] flex-shrink-0 shadow-md">
           <div className="relative w-full h-full">
             <Image 
               src={event.logoUrl || '/brand/logo-circle.jpg'} 
               alt={event.name}
               fill
-              className="object-cover"
+              className="object-contain"
+              unoptimized={Boolean(event.logoUrl && (event.logoUrl.startsWith('data:') || event.logoUrl.startsWith('http')))}
             />
           </div>
         </div>
