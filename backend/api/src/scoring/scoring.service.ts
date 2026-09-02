@@ -117,9 +117,9 @@ export class ScoringService {
   }
 
   /**
-   * Fetch active Judge's DB-verified competition assignment
+   * Fetch active Judge's DB-verified competition assignment with multi-category support
    */
-  async getJudgeAssignment(judgeId: string) {
+  async getJudgeAssignment(judgeId: string, requestedCategoryId?: string, requestedRoundId?: string) {
     const judge = await this.db.judgeAccount.findUnique({
       where: { id: judgeId },
       include: {
@@ -137,11 +137,45 @@ export class ScoringService {
       throw new ForbiddenException('Judge account is disabled. Please contact administrator.');
     }
 
-    if (!judge.event || !judge.category || !judge.round) {
-      throw new ForbiddenException('Judge has no active competition assignment.');
+    if (!judge.event) {
+      throw new ForbiddenException('Judge has no active competition event assignment.');
     }
 
-    const criteria = this.normalizeRoundCriteria(judge.round);
+    const assignedCatIds: string[] = Array.isArray(judge.assignedCategoryIds) && (judge.assignedCategoryIds as string[]).length > 0
+      ? (judge.assignedCategoryIds as string[])
+      : [judge.assignedCategoryId];
+
+    // Fetch all assigned categories along with their judge rounds
+    const assignedCategories: any[] = await this.db.category.findMany({
+      where: { id: { in: assignedCatIds } },
+      include: {
+        rounds: {
+          where: { scoredBy: 'judge' },
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (assignedCategories.length === 0) {
+      throw new ForbiddenException('Judge has no assigned categories.');
+    }
+
+    // Determine target Category
+    let targetCategory: any = assignedCategories[0];
+    if (requestedCategoryId) {
+      const match = assignedCategories.find((c: any) => c.id === requestedCategoryId);
+      if (match) targetCategory = match;
+    }
+
+    // Determine target Round in that category
+    let targetRound: any = targetCategory.rounds && targetCategory.rounds.length > 0 ? targetCategory.rounds[0] : judge.round;
+    if (requestedRoundId) {
+      const rMatch = targetCategory.rounds?.find((r: any) => r.id === requestedRoundId);
+      if (rMatch) targetRound = rMatch;
+    }
+
+    const criteria = this.normalizeRoundCriteria(targetRound);
 
     return {
       judge: {
@@ -151,13 +185,26 @@ export class ScoringService {
         mustResetPassword: judge.mustResetPassword,
       },
       event: judge.event,
-      category: judge.category,
+      assignedCategories: assignedCategories.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        code: c.code,
+        rounds: (c.rounds || []).map((r: any) => ({
+          id: r.id,
+          name: r.name,
+          day: r.day,
+          maxMarks: r.maxMarks,
+          status: r.status,
+          criteria: this.normalizeRoundCriteria(r),
+        })),
+      })),
+      category: { id: targetCategory.id, name: targetCategory.name, code: targetCategory.code },
       round: {
-        id: judge.round.id,
-        name: judge.round.name,
-        day: judge.round.day,
-        maxMarks: judge.round.maxMarks,
-        status: judge.round.status,
+        id: targetRound.id,
+        name: targetRound.name,
+        day: targetRound.day,
+        maxMarks: targetRound.maxMarks,
+        status: targetRound.status,
         criteria,
       },
     };
@@ -166,8 +213,8 @@ export class ScoringService {
   /**
    * Fetch blind contestant list for Judge (Zero PII exposed)
    */
-  async getJudgeContestants(judgeId: string) {
-    const assignment = await this.getJudgeAssignment(judgeId);
+  async getJudgeContestants(judgeId: string, categoryId?: string, roundId?: string) {
+    const assignment = await this.getJudgeAssignment(judgeId, categoryId, roundId);
 
     const contestants = await this.db.contestant.findMany({
       where: {
@@ -216,11 +263,13 @@ export class ScoringService {
       assignment: {
         judge: assignment.judge,
         event: assignment.event,
+        assignedCategories: assignment.assignedCategories,
         category: assignment.category,
         round: assignment.round,
       },
       judge: assignment.judge,
       event: { id: assignment.event.id, name: assignment.event.name, code: assignment.event.code, location: (assignment.event as any).location },
+      assignedCategories: assignment.assignedCategories,
       category: { id: assignment.category.id, name: assignment.category.name, code: assignment.category.code },
       round: {
         id: assignment.round.id,
@@ -237,8 +286,8 @@ export class ScoringService {
   /**
    * Fetch contestant scoring state for Judge
    */
-  async getJudgeContestantScore(judgeId: string, contestantId: string) {
-    const assignment = await this.getJudgeAssignment(judgeId);
+  async getJudgeContestantScore(judgeId: string, contestantId: string, categoryId?: string, roundId?: string) {
+    const assignment = await this.getJudgeAssignment(judgeId, categoryId, roundId);
 
     const contestant = await this.db.contestant.findFirst({
       where: {
@@ -301,10 +350,10 @@ export class ScoringService {
   async saveScore(
     judgeId: string,
     contestantId: string,
-    dto: { subScores: Record<string, any>; lock?: boolean },
+    dto: { categoryId?: string; roundId?: string; subScores: Record<string, any>; lock?: boolean },
     ipAddress?: string,
   ) {
-    const assignment = await this.getJudgeAssignment(judgeId);
+    const assignment = await this.getJudgeAssignment(judgeId, dto.categoryId, dto.roundId);
 
     // 1. Contestant Verification
     const contestant = await this.db.contestant.findFirst({
@@ -732,35 +781,69 @@ export class ScoringService {
       const categoryCode = (category?.code || '').toUpperCase();
       const isKids = categoryCode === 'K' || categoryCode === 'KIDS' || (category?.name || '').toUpperCase().includes('KID');
 
-      // Admin Scores
-      const discScore = c.scores.find((s) => s.round.name.toLowerCase() === 'discipline');
-      const talentScore = c.scores.find((s) => s.round.name.toLowerCase() === 'talent');
+      // Admin Scores (Day 1: Discipline /10 + Talent /20 = /30)
+      const discScore = c.scores.find((s) => s.round.name.toLowerCase().includes('discipline'));
+      const talentScore = c.scores.find((s) => s.round.name.toLowerCase().includes('talent'));
 
       const disciplineVal = discScore ? discScore.value : 0;
       const talentVal = talentScore ? talentScore.value : 0;
       const adminTotal = Math.round((disciplineVal + talentVal) * 100) / 100;
+      const hasAdmin = !!(discScore || talentScore);
 
       // Judge Scores (Exclude Admin-scored rounds)
       const judgeScores = c.scores.filter(
-        (s) => s.round.name.toLowerCase() !== 'discipline' && s.round.name.toLowerCase() !== 'talent' && s.judgeId !== 'admin',
+        (s) =>
+          !s.round.name.toLowerCase().includes('discipline') &&
+          !s.round.name.toLowerCase().includes('talent') &&
+          s.judgeId !== null &&
+          s.judgeId !== 'admin',
       );
 
-      let judgeTotal = 0;
-      judgeScores.forEach((s) => {
-        judgeTotal += s.value;
-      });
-      judgeTotal = Math.round(judgeTotal * 100) / 100;
+      // Day 2 Round 1: Traditional (4 Judges × 50 = max 200)
+      const traditionalScores = judgeScores.filter((s) => s.round.name.toLowerCase().includes('traditional'));
+      const traditionalTotal = Math.round(traditionalScores.reduce((sum, s) => sum + s.value, 0) * 100) / 100;
+      const hasTraditional = traditionalScores.length > 0;
 
-      const maxMarks = isKids ? 230 : 430;
-      const adminMax = 30;
-      const judgeMax = isKids ? 200 : 400;
+      // Day 2 Round 2: Western (4 Judges × 50 = max 200)
+      const westernScores = judgeScores.filter((s) => s.round.name.toLowerCase().includes('western'));
+      const westernTotal = Math.round(westernScores.reduce((sum, s) => sum + s.value, 0) * 100) / 100;
+      const hasWestern = westernScores.length > 0;
 
-      const finalScore = Math.round((adminTotal + judgeTotal) * 100) / 100;
+      // Other Judge rounds if any
+      const otherJudgeScores = judgeScores.filter(
+        (s) =>
+          !s.round.name.toLowerCase().includes('traditional') &&
+          !s.round.name.toLowerCase().includes('western'),
+      );
+      const otherJudgeTotal = Math.round(otherJudgeScores.reduce((sum, s) => sum + s.value, 0) * 100) / 100;
+      const hasOther = otherJudgeScores.length > 0;
+
+      const judgeTotal = Math.round((traditionalTotal + westernTotal + otherJudgeTotal) * 100) / 100;
+
+      // Dynamic Current Available Maximum Marks:
+      // If only Day 1 -> 30
+      // If Day 1 + Day 2 Round 1 (Traditional) -> 30 + 200 = 230
+      // If Day 1 + Day 2 Round 1 + Day 2 Round 2 (Western) -> 30 + 200 + 200 = 430
+      let currentAvailableMaxMarks = 30; // Base Day 1 Available
+      if (hasTraditional) {
+        currentAvailableMaxMarks += 200;
+      }
+      if (hasWestern && !isKids) {
+        currentAvailableMaxMarks += 200;
+      }
+      if (hasOther) {
+        currentAvailableMaxMarks += 200;
+      }
+
+      const cumulativeScore = Math.round((adminTotal + judgeTotal) * 100) / 100;
+      const percentage = currentAvailableMaxMarks > 0 ? Math.round((cumulativeScore / currentAvailableMaxMarks) * 10000) / 100 : 0;
+      const totalPotentialMax = isKids ? 230 : 430;
+      const scoreDisplay = `${cumulativeScore} / ${currentAvailableMaxMarks}`;
 
       const allLocked = c.scores.length > 0 && c.scores.every((s) => s.locked);
       const isComplete = isKids
-        ? judgeScores.length >= 4 && discScore && talentScore
-        : judgeScores.length >= 8 && discScore && talentScore;
+        ? (traditionalScores.length >= 4 || otherJudgeScores.length >= 4) && hasAdmin
+        : traditionalScores.length >= 4 && westernScores.length >= 4 && hasAdmin;
 
       return {
         contestantId: c.id,
@@ -773,7 +856,36 @@ export class ScoringService {
           talent: talentVal,
           talentMax: 20,
           total: adminTotal,
-          maxMarks: adminMax,
+          maxMarks: 30,
+          hasScore: hasAdmin,
+        },
+        traditional: {
+          total: traditionalTotal,
+          maxMarks: 200,
+          scores: traditionalScores.map((s) => ({
+            id: s.id,
+            judgeId: s.judgeId,
+            judgeName: s.judge?.name || 'Judge',
+            value: s.value,
+            locked: s.locked,
+            subScores: s.subScores,
+          })),
+          judgeCount: traditionalScores.length,
+          hasScore: hasTraditional,
+        },
+        western: {
+          total: westernTotal,
+          maxMarks: 200,
+          scores: westernScores.map((s) => ({
+            id: s.id,
+            judgeId: s.judgeId,
+            judgeName: s.judge?.name || 'Judge',
+            value: s.value,
+            locked: s.locked,
+            subScores: s.subScores,
+          })),
+          judgeCount: westernScores.length,
+          hasScore: hasWestern,
         },
         judgeScores: judgeScores.map((s) => ({
           scoreId: s.id,
@@ -786,15 +898,20 @@ export class ScoringService {
           subScores: s.subScores,
         })),
         judgeTotal,
-        judgeMax,
-        finalScore,
-        maxMarks,
+        judgeMax: isKids ? 200 : 400,
+        cumulativeScore,
+        currentAvailableMaxMarks,
+        scoreDisplay,
+        percentage,
+        finalScore: cumulativeScore,
+        maxMarks: currentAvailableMaxMarks,
+        totalPotentialMax,
         completionStatus: isComplete ? ('COMPLETE' as const) : ('IN_PROGRESS' as const),
         isLocked: allLocked,
       };
     });
 
-    results.sort((a, b) => b.finalScore - a.finalScore);
+    results.sort((a, b) => b.cumulativeScore - a.cumulativeScore);
 
     return results.map((r, index) => ({
       rank: index + 1,

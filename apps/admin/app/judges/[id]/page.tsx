@@ -30,7 +30,7 @@ function JudgeDetailContent() {
   const [categories, setCategories] = useState<any[]>([]);
   const [rounds, setRounds] = useState<any[]>([]);
   const [selectedEventId, setSelectedEventId] = useState('');
-  const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [selectedRoundId, setSelectedRoundId] = useState('');
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState('');
@@ -57,6 +57,11 @@ function JudgeDetailContent() {
       setJudge(d);
       setEditName(d.name);
       setEditEmail(d.email);
+
+      const assignedCatIds: string[] = Array.isArray(d.assignedCategoryIds) && d.assignedCategoryIds.length > 0
+        ? d.assignedCategoryIds
+        : (d.assignedCategoryId ? [d.assignedCategoryId] : []);
+      setSelectedCategoryIds(assignedCatIds);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -98,13 +103,14 @@ function JudgeDetailContent() {
         });
         if (res.ok) {
           const d = await res.json();
-          setCategories(d.data);
-          if (judge?.assignedCategoryId && d.data.some((c: any) => c.id === judge.assignedCategoryId)) {
-            setSelectedCategoryId(judge.assignedCategoryId);
-          } else if (d.data.length > 0) {
-            setSelectedCategoryId(d.data[0].id);
+          const cats = d.data || [];
+          setCategories(cats);
+          if (judge?.assignedCategoryIds && Array.isArray(judge.assignedCategoryIds) && judge.assignedCategoryIds.length > 0) {
+            setSelectedCategoryIds(judge.assignedCategoryIds);
+          } else if (judge?.assignedCategoryId) {
+            setSelectedCategoryIds([judge.assignedCategoryId]);
           } else {
-            setSelectedCategoryId('');
+            setSelectedCategoryIds(cats.map((c: any) => c.id));
           }
         }
       } catch {}
@@ -114,10 +120,11 @@ function JudgeDetailContent() {
 
   // Load rounds for assign modal
   useEffect(() => {
-    if (!assignModalOpen || !selectedCategoryId) return;
+    const primaryCatId = selectedCategoryIds[0];
+    if (!assignModalOpen || !primaryCatId) return;
     async function loadRounds() {
       try {
-        const res = await fetch(`${API}/admin/rounds?categoryId=${selectedCategoryId}&limit=100`, {
+        const res = await fetch(`${API}/admin/rounds?categoryId=${primaryCatId}&limit=100`, {
           credentials: 'include',
         });
         if (res.ok) {
@@ -134,7 +141,20 @@ function JudgeDetailContent() {
       } catch {}
     }
     loadRounds();
-  }, [assignModalOpen, selectedCategoryId, judge]);
+  }, [assignModalOpen, selectedCategoryIds, judge]);
+
+  const toggleCategory = (catId: string) => {
+    if (selectedCategoryIds.includes(catId)) {
+      if (selectedCategoryIds.length === 1) return;
+      setSelectedCategoryIds((prev) => prev.filter((id) => id !== catId));
+    } else {
+      setSelectedCategoryIds((prev) => [...prev, catId]);
+    }
+  };
+
+  const selectAllCategories = () => {
+    setSelectedCategoryIds(categories.map((c) => c.id));
+  };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,6 +182,10 @@ function JudgeDetailContent() {
 
   const handleAssignSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (selectedCategoryIds.length === 0) {
+      setAssignError('Please select at least one category.');
+      return;
+    }
     setAssignLoading(true);
     setAssignError('');
     try {
@@ -170,8 +194,9 @@ function JudgeDetailContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           eventId: selectedEventId,
-          categoryId: selectedCategoryId,
-          roundId: selectedRoundId,
+          categoryId: selectedCategoryIds[0],
+          categoryIds: selectedCategoryIds,
+          roundId: selectedRoundId || undefined,
         }),
         credentials: 'include',
       });
@@ -265,6 +290,12 @@ function JudgeDetailContent() {
     }
   };
 
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
   if (loading) {
     return (
       <div className="space-y-4 animate-pulse max-w-4xl">
@@ -280,6 +311,10 @@ function JudgeDetailContent() {
   if (error || !judge) {
     return <p className="font-sans text-sm text-red-400">{error || 'Judge not found.'}</p>;
   }
+
+  const assignedCategoriesList = judge.assignedCategories && judge.assignedCategories.length > 0
+    ? judge.assignedCategories
+    : (judge.category ? [judge.category] : []);
 
   return (
     <div className="space-y-8 max-w-4xl">
@@ -306,7 +341,7 @@ function JudgeDetailContent() {
             EDIT PROFILE
           </Button>
           <Button size="sm" variant="outline" onClick={() => setAssignModalOpen(true)}>
-            REASSIGN
+            REASSIGN CATEGORIES
           </Button>
           <Button size="sm" variant="outline" onClick={openPasswordModal}>
             RESET PASSWORD
@@ -336,7 +371,7 @@ function JudgeDetailContent() {
         <Card hoverEffect={false} className="bg-[#0A0A0A] border-luxury-gray-border/20 p-6 space-y-4">
           <div className="flex justify-between items-center">
             <h4 className="font-sans text-[10px] tracking-luxury text-luxury-gold uppercase font-bold">
-              Active Assignment
+              Active Assignment ({assignedCategoriesList.length} Categories)
             </h4>
             <button
               onClick={() => setAssignModalOpen(true)}
@@ -346,20 +381,35 @@ function JudgeDetailContent() {
             </button>
           </div>
           <div className="space-y-3">
-            {[
-              { label: 'Event', value: judge.event?.name },
-              { label: 'Category', value: judge.category?.name },
-              { label: 'Round', value: judge.round?.name },
-              { label: 'Round Max Marks', value: judge.round ? `${judge.round.maxMarks} pts` : '—' },
-              { label: 'Round Day', value: judge.round ? `Day ${judge.round.day}` : '—' },
-            ].map((item) => (
-              <div key={item.label} className="flex justify-between">
-                <span className="font-sans text-[11px] text-luxury-white/30 uppercase tracking-luxury">
-                  {item.label}
-                </span>
-                <span className="font-sans text-xs text-luxury-white/80 font-medium">{item.value || '—'}</span>
+            <div className="flex justify-between">
+              <span className="font-sans text-[11px] text-luxury-white/30 uppercase tracking-luxury">Event</span>
+              <span className="font-sans text-xs text-luxury-white/80 font-medium">{judge.event?.name || '—'}</span>
+            </div>
+
+            <div>
+              <span className="font-sans text-[11px] text-luxury-white/30 uppercase tracking-luxury block mb-1.5">
+                Assigned Categories
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {assignedCategoriesList.map((c: any) => (
+                  <span
+                    key={c.id}
+                    className="px-2 py-0.5 bg-luxury-gold/10 border border-luxury-gold/30 text-luxury-gold font-mono text-[11px] font-bold"
+                  >
+                    {c.name} ({c.code})
+                  </span>
+                ))}
               </div>
-            ))}
+            </div>
+
+            <div className="flex justify-between">
+              <span className="font-sans text-[11px] text-luxury-white/30 uppercase tracking-luxury">Primary Round</span>
+              <span className="font-sans text-xs text-luxury-white/80 font-medium">{judge.round?.name || '—'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-sans text-[11px] text-luxury-white/30 uppercase tracking-luxury">Round Max Marks</span>
+              <span className="font-mono text-xs text-luxury-gold font-bold">{judge.round ? `${judge.round.maxMarks} pts` : '—'}</span>
+            </div>
           </div>
         </Card>
 
@@ -453,10 +503,10 @@ function JudgeDetailContent() {
       {/* Edit Profile Modal */}
       {editModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#0A0A0A] border border-luxury-gray-border/30 w-full max-w-md p-8 space-y-6 shadow-2xl">
+          <div className="bg-[#0A0A0A] border border-luxury-gray-border/40 w-full max-w-md p-6 space-y-6 shadow-2xl">
             <h3 className="font-serif text-xl font-light text-luxury-white tracking-wide">Edit Judge Profile</h3>
             {editError && <p className="font-sans text-xs text-red-400">{editError}</p>}
-            <form onSubmit={handleEditSubmit} className="space-y-6">
+            <form onSubmit={handleEditSubmit} className="space-y-4">
               <Input
                 label="Full Name *"
                 value={editName}
@@ -483,13 +533,13 @@ function JudgeDetailContent() {
         </div>
       )}
 
-      {/* Reassign Modal */}
+      {/* Reassign Modal with Multi-Category Support */}
       {assignModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#0A0A0A] border border-luxury-gray-border/30 w-full max-w-md p-8 space-y-6 shadow-2xl">
-            <h3 className="font-serif text-xl font-light text-luxury-white tracking-wide">Reassign Judge</h3>
+          <div className="bg-[#0A0A0A] border border-luxury-gray-border/40 w-full max-w-lg p-6 space-y-6 shadow-2xl">
+            <h3 className="font-serif text-xl font-light text-luxury-white tracking-wide">Reassign Judge Categories</h3>
             {assignError && <p className="font-sans text-xs text-red-400">{assignError}</p>}
-            <form onSubmit={handleAssignSubmit} className="space-y-6">
+            <form onSubmit={handleAssignSubmit} className="space-y-5">
               <div>
                 <label className="font-sans text-xs uppercase tracking-luxury text-luxury-gold-rich font-medium block mb-1.5">
                   1. Event *
@@ -509,27 +559,48 @@ function JudgeDetailContent() {
               </div>
 
               <div>
-                <label className="font-sans text-xs uppercase tracking-luxury text-luxury-gold-rich font-medium block mb-1.5">
-                  2. Category *
-                </label>
-                <select
-                  value={selectedCategoryId}
-                  onChange={(e) => setSelectedCategoryId(e.target.value)}
-                  disabled={categories.length === 0}
-                  className="w-full h-11 bg-luxury-black-obsidian border-b border-luxury-gray-border focus:border-luxury-gold text-luxury-white font-sans text-sm px-3 transition-colors outline-none disabled:opacity-30"
-                >
-                  <option value="">Select Category</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="font-sans text-xs uppercase tracking-luxury text-luxury-gold-rich font-medium block">
+                    2. Assigned Categories (Multi-Select) *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={selectAllCategories}
+                    className="text-[10px] text-luxury-gold hover:underline uppercase font-mono"
+                  >
+                    ✓ Select All
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-[#050505] border border-luxury-gray-border/30 rounded-sm max-h-48 overflow-y-auto">
+                  {categories.map((c) => {
+                    const isChecked = selectedCategoryIds.includes(c.id);
+                    return (
+                      <label
+                        key={c.id}
+                        onClick={() => toggleCategory(c.id)}
+                        className={`flex items-center gap-2.5 p-2 border cursor-pointer transition-colors ${
+                          isChecked
+                            ? 'bg-luxury-gold/10 border-luxury-gold/60 text-white'
+                            : 'bg-[#111111] border-luxury-gray-border/20 text-white/60 hover:border-luxury-gold/30'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {}}
+                          className="accent-luxury-gold h-4 w-4"
+                        />
+                        <span className="text-xs font-medium uppercase font-sans">{c.name} ({c.code})</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
 
               <div>
                 <label className="font-sans text-xs uppercase tracking-luxury text-luxury-gold-rich font-medium block mb-1.5">
-                  3. Round *
+                  3. Primary Round
                 </label>
                 <select
                   value={selectedRoundId}
@@ -537,7 +608,7 @@ function JudgeDetailContent() {
                   disabled={rounds.length === 0}
                   className="w-full h-11 bg-luxury-black-obsidian border-b border-luxury-gray-border focus:border-luxury-gold text-luxury-white font-sans text-sm px-3 transition-colors outline-none disabled:opacity-30"
                 >
-                  <option value="">Select Round</option>
+                  <option value="">Auto-assign all judge rounds</option>
                   {rounds.map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.name} (Day {r.day})
@@ -602,7 +673,7 @@ function JudgeDetailContent() {
                     required
                     value={newPasswordInput}
                     onChange={(e) => setNewPasswordInput(e.target.value)}
-                    placeholder="Enter custom password or click Auto"
+                    placeholder="Enter new password"
                     className="w-full bg-[#050505] border border-luxury-gold/50 focus:border-luxury-gold px-3.5 py-2.5 font-mono text-sm text-white focus:outline-none rounded-sm pr-16"
                   />
                   <button
@@ -613,9 +684,6 @@ function JudgeDetailContent() {
                     {showNewPassword ? 'HIDE' : 'SHOW'}
                   </button>
                 </div>
-                <span className="block text-[10px] text-white/40 mt-1 font-sans">
-                  💡 Type any custom password or click Auto Password above.
-                </span>
               </div>
 
               <div className="flex justify-end gap-3 pt-2">
@@ -623,7 +691,7 @@ function JudgeDetailContent() {
                   CANCEL
                 </Button>
                 <Button type="submit" disabled={passwordLoading}>
-                  {passwordLoading ? 'UPDATING...' : 'SAVE NEW PASSWORD'}
+                  {passwordLoading ? 'UPDATING...' : 'CONFIRM PASSWORD'}
                 </Button>
               </div>
             </form>
@@ -631,30 +699,7 @@ function JudgeDetailContent() {
         </div>
       )}
 
-      {/* Action Confirmation Modal */}
-      <ConfirmModal
-        open={!!confirmAction}
-        title={
-          confirmAction === 'disable'
-            ? 'DISABLE JUDGE ACCOUNT?'
-            : 'ENABLE JUDGE ACCOUNT?'
-        }
-        message={
-          actionError ||
-          (confirmAction === 'disable'
-            ? `The judge will immediately lose access to the scoring portal.`
-            : `The judge will be granted access to the scoring portal.`)
-        }
-        confirmLabel={confirmAction === 'disable' ? 'DISABLE' : 'ENABLE'}
-        onConfirm={handleActionConfirm}
-        onCancel={() => {
-          setConfirmAction(null);
-          setActionError('');
-        }}
-        loading={actionLoading}
-      />
-
-      {/* Password Updated & Copy Modal */}
+      {/* Temporary Password Display Modal */}
       {tempPasswordModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-[#0A0A0A] border border-luxury-gold/50 w-full max-w-md p-8 space-y-6 shadow-2xl rounded-sm">
@@ -663,46 +708,57 @@ function JudgeDetailContent() {
                 PASSWORD UPDATED
               </span>
               <h3 className="font-serif text-xl font-light text-luxury-white tracking-wide mt-1">
-                Judge Credentials Ready
+                New Password Active
               </h3>
             </div>
+
+            <p className="font-sans text-xs text-luxury-white/60 leading-relaxed">
+              New credentials for <span className="text-white font-bold">{judge.name}</span>:
+            </p>
 
             <div className="bg-black/90 border border-luxury-gold/30 p-4 space-y-3 rounded-sm text-xs">
               <div className="flex justify-between items-center pb-2 border-b border-white/10">
                 <span className="text-white/40 uppercase text-[10px]">Judge ID:</span>
                 <span className="font-mono font-bold text-luxury-gold">{judge.id}</span>
               </div>
-              <div className="flex justify-between items-center pb-2 border-b border-white/10">
-                <span className="text-white/40 uppercase text-[10px]">Email:</span>
-                <span className="font-mono text-white">{judge.email}</span>
-              </div>
               <div className="flex justify-between items-center">
                 <span className="text-white/40 uppercase text-[10px]">Password:</span>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono font-bold text-luxury-gold">{tempPasswordModal.password}</span>
+                  <span className="font-mono font-bold text-luxury-gold tracking-wider">{tempPasswordModal.password}</span>
                   <button
                     type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(tempPasswordModal.password);
-                      setCopiedField('modal_pass');
-                      setTimeout(() => setCopiedField(null), 2000);
-                    }}
-                    className="text-[10px] text-white/50 hover:text-white uppercase font-mono px-1 py-0.5 bg-white/5 rounded"
+                    onClick={() => copyToClipboard(tempPasswordModal.password, 'modalPass')}
+                    className="text-[10px] text-white/50 hover:text-white font-mono uppercase px-1.5 py-0.5 bg-white/5 rounded"
                   >
-                    {copiedField === 'modal_pass' ? 'COPIED!' : 'COPY'}
+                    {copiedField === 'modalPass' ? 'COPIED!' : 'COPY'}
                   </button>
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end pt-2">
+            <div className="pt-2 flex justify-end">
               <Button size="sm" onClick={() => setTempPasswordModal({ open: false, password: '' })}>
-                DONE
+                DISMISS
               </Button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Disable/Enable Confirmation */}
+      <ConfirmModal
+        open={confirmAction !== null}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={handleActionConfirm}
+        title={confirmAction === 'disable' ? 'Disable Judge Account' : 'Enable Judge Account'}
+        message={`Are you sure you want to ${confirmAction} "${judge.name}"? ${
+          confirmAction === 'disable'
+            ? 'They will be immediately logged out and unable to submit scores.'
+            : 'They will be able to log in and score assigned contestants.'
+        }`}
+        confirmLabel={confirmAction === 'disable' ? 'DISABLE ACCOUNT' : 'ENABLE ACCOUNT'}
+        loading={actionLoading}
+      />
     </div>
   );
 }

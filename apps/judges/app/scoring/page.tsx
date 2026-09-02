@@ -11,11 +11,28 @@ interface Criterion {
   maxMarks: number;
 }
 
+interface AssignedRound {
+  id: string;
+  name: string;
+  day: number;
+  maxMarks: number;
+  status: string;
+  criteria: Criterion[];
+}
+
+interface AssignedCategory {
+  id: string;
+  name: string;
+  code: string;
+  rounds: AssignedRound[];
+}
+
 interface Assignment {
   judge: { id: string; name: string; email: string };
   event: { id: string; name: string; code: string; location?: string };
+  assignedCategories: AssignedCategory[];
   category: { id: string; name: string; code: string };
-  round: { id: string; name: string; day: number; maxMarks: number; status: string; criteria: Criterion[] };
+  round: AssignedRound;
 }
 
 interface ContestantItem {
@@ -34,6 +51,8 @@ export default function JudgeScoringConsole() {
   const router = useRouter();
 
   const [assignment, setAssignment] = useState<Assignment | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
+  const [selectedRoundId, setSelectedRoundId] = useState<string>('');
   const [contestants, setContestants] = useState<ContestantItem[]>([]);
   const [selectedContestantId, setSelectedContestantId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -44,53 +63,11 @@ export default function JudgeScoringConsole() {
 
   // Status & loading states
   const [loading, setLoading] = useState(true);
+  const [categoryLoading, setCategoryLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [confirmLockModal, setConfirmLockModal] = useState(false);
-
-  // 1. Load active judge assignment and contestant list
-  const loadConsoleData = useCallback(async () => {
-    setLoading(true);
-    setErrorMsg('');
-    try {
-      const res = await fetch(`${API}/judge/contestants`, {
-        credentials: 'include',
-      });
-
-      if (res.status === 401) {
-        router.replace('/login');
-        return;
-      }
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || 'Unable to load scoring console.');
-      }
-
-      const data = await res.json();
-      const assignmentData = data.assignment || {
-        judge: data.judge,
-        event: data.event,
-        category: data.category,
-        round: data.round,
-      };
-      setAssignment(assignmentData);
-      setContestants(data.contestants || []);
-
-      if (data.contestants && data.contestants.length > 0 && !selectedContestantId) {
-        selectContestant(data.contestants[0]);
-      }
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Unable to save score. Try Again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [router, selectedContestantId]);
-
-  useEffect(() => {
-    loadConsoleData();
-  }, []);
 
   // Select a contestant and populate existing scores if any
   const selectContestant = (c: ContestantItem) => {
@@ -111,12 +88,86 @@ export default function JudgeScoringConsole() {
     }
   };
 
+  // 1. Load active judge assignment and contestant list
+  const loadConsoleData = useCallback(async (catId?: string, rndId?: string) => {
+    if (!catId) setLoading(true);
+    else setCategoryLoading(true);
+    setErrorMsg('');
+
+    try {
+      const queryParams = new URLSearchParams();
+      if (catId) queryParams.set('categoryId', catId);
+      if (rndId) queryParams.set('roundId', rndId);
+      const queryStr = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
+      const res = await fetch(`${API}/judge/contestants${queryStr}`, {
+        credentials: 'include',
+      });
+
+      if (res.status === 401) {
+        router.replace('/login');
+        return;
+      }
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Unable to load scoring console.');
+      }
+
+      const data = await res.json();
+      const assignmentData: Assignment = data.assignment || {
+        judge: data.judge,
+        event: data.event,
+        assignedCategories: data.assignedCategories || [],
+        category: data.category,
+        round: data.round,
+      };
+
+      setAssignment(assignmentData);
+      setSelectedCategoryId(assignmentData.category.id);
+      setSelectedRoundId(assignmentData.round.id);
+
+      const contestantsList: ContestantItem[] = data.contestants || [];
+      setContestants(contestantsList);
+
+      if (contestantsList.length > 0) {
+        selectContestant(contestantsList[0]);
+      } else {
+        setSelectedContestantId('');
+        setScores({});
+        setIsLocked(false);
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Unable to connect to judging server.');
+    } finally {
+      setLoading(false);
+      setCategoryLoading(false);
+    }
+  }, [API, router]);
+
+  useEffect(() => {
+    loadConsoleData();
+  }, [loadConsoleData]);
+
+  // Handle Category Switching
+  const handleCategorySwitch = async (newCategoryId: string) => {
+    if (newCategoryId === selectedCategoryId || categoryLoading) return;
+    const cat = assignment?.assignedCategories.find((c) => c.id === newCategoryId);
+    const firstRoundId = cat?.rounds && cat.rounds.length > 0 ? cat.rounds[0].id : undefined;
+    await loadConsoleData(newCategoryId, firstRoundId);
+  };
+
+  // Handle Round Switching
+  const handleRoundSwitch = async (newRoundId: string) => {
+    if (newRoundId === selectedRoundId || categoryLoading) return;
+    await loadConsoleData(selectedCategoryId, newRoundId);
+  };
+
   const handleScoreChange = (criterionName: string, value: string, maxMarks: number) => {
     if (isLocked) return;
     setSuccessMsg('');
     setErrorMsg('');
 
-    // Allow empty string for clearing input
     if (value === '') {
       setScores((prev) => ({ ...prev, [criterionName]: '' }));
       return;
@@ -169,7 +220,12 @@ export default function JudgeScoringConsole() {
       const res = await fetch(`${API}/judge/scoring/${selectedContestantId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subScores: payloadScores, lock }),
+        body: JSON.stringify({
+          categoryId: selectedCategoryId,
+          roundId: selectedRoundId,
+          subScores: payloadScores,
+          lock,
+        }),
         credentials: 'include',
       });
 
@@ -181,7 +237,11 @@ export default function JudgeScoringConsole() {
       const result = await res.json();
       setIsLocked(result.locked);
       setConfirmLockModal(false);
-      setSuccessMsg(lock ? 'Saved. This score is locked and cannot be edited unless an Admin unlocks it.' : 'Saved. Score draft saved successfully.');
+      setSuccessMsg(
+        lock
+          ? 'Score locked successfully and submitted!'
+          : 'Score draft saved successfully.',
+      );
 
       // Update in contestant list
       setContestants((prev) =>
@@ -202,7 +262,7 @@ export default function JudgeScoringConsole() {
         }),
       );
     } catch (err: any) {
-      setErrorMsg(err.message ? `Unable to save score. Try Again. (${err.message})` : 'Unable to save score. Try Again.');
+      setErrorMsg(err.message ? `Unable to save score. (${err.message})` : 'Unable to save score. Try Again.');
     } finally {
       setSaveLoading(false);
     }
@@ -221,10 +281,18 @@ export default function JudgeScoringConsole() {
 
   const selectedContestant = contestants.find((c) => c.id === selectedContestantId);
 
+  // Calculate statistics for active category/round
+  const scoredCount = contestants.filter((c) => c.score !== null).length;
+  const lockedCount = contestants.filter((c) => c.score?.locked).length;
+
+  const currentCategoryRounds =
+    assignment?.assignedCategories.find((c) => c.id === selectedCategoryId)?.rounds ||
+    (assignment?.round ? [assignment.round] : []);
+
   return (
     <div className="min-h-screen bg-[#050505] text-luxury-white flex flex-col selection:bg-luxury-gold selection:text-luxury-black-pure">
       {/* 1. Header Bar */}
-      <header className="h-16 bg-[#0A0A0A] border-b border-luxury-gray-border/20 px-6 lg:px-12 flex items-center justify-between">
+      <header className="h-16 bg-[#0A0A0A] border-b border-luxury-gray-border/20 px-6 lg:px-12 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-3">
           <div className="relative h-8 w-8 rounded-full overflow-hidden border border-luxury-gold/30">
             <Image src="/brand/logo-circle.jpg" alt="Siva Rudra" fill className="object-cover" />
@@ -253,42 +321,87 @@ export default function JudgeScoringConsole() {
         </div>
       </header>
 
-      {/* 2. Assignment Banner */}
+      {/* 2. Interactive Multi-Category & Round Switcher Header */}
       {assignment && (
-        <div className="bg-gradient-to-r from-[#0E0E0E] via-[#121212] to-[#0E0E0E] border-b border-luxury-gold/20 py-4 px-6 lg:px-12">
-          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-6">
-              <div>
-                <span className="font-sans text-[9px] tracking-luxury text-luxury-gold uppercase font-bold block">
+        <div className="bg-gradient-to-r from-[#0C0C0C] via-[#111111] to-[#0C0C0C] border-b border-luxury-gold/20 py-4 px-6 lg:px-12 shadow-lg">
+          <div className="max-w-7xl mx-auto space-y-4">
+            {/* Top row: Event Name & Progress */}
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="px-2 py-0.5 bg-luxury-gold/10 border border-luxury-gold/30 text-luxury-gold font-mono text-[10px] font-bold uppercase tracking-widest">
                   EVENT
                 </span>
                 <span className="font-serif text-base text-luxury-white font-light">
                   {assignment.event.name} ({assignment.event.code})
                 </span>
               </div>
-              <div className="h-6 w-[1px] bg-luxury-gray-border/30 hidden sm:block" />
-              <div>
-                <span className="font-sans text-[9px] tracking-luxury text-luxury-gold uppercase font-bold block">
-                  CATEGORY
+
+              <div className="flex items-center gap-4 text-xs">
+                <span className="font-sans text-[10px] tracking-luxury text-luxury-white/40 uppercase">
+                  PROGRESS:
                 </span>
-                <span className="font-sans text-sm text-luxury-white font-medium uppercase tracking-wider">
-                  {assignment.category.name} ({assignment.category.code})
+                <span className="px-2.5 py-1 bg-[#161616] border border-luxury-gray-border/40 font-mono text-luxury-gold font-bold text-xs">
+                  {scoredCount}/{contestants.length} SCORED ({lockedCount} LOCKED)
                 </span>
-              </div>
-              <div className="h-6 w-[1px] bg-luxury-gray-border/30 hidden sm:block" />
-              <div>
-                <span className="font-sans text-[9px] tracking-luxury text-luxury-gold uppercase font-bold block">
-                  ROUND
-                </span>
-                <span className="font-sans text-sm text-luxury-white font-medium">
-                  {assignment.round.name} (Day {assignment.round.day})
+                <span className="px-2.5 py-1 bg-luxury-gold/15 border border-luxury-gold/40 font-mono text-luxury-gold font-bold text-xs">
+                  ROUND MAX: {assignment.round.maxMarks} PTS
                 </span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="font-sans text-[9px] tracking-luxury text-luxury-white/40 uppercase">ROUND MAX:</span>
-              <span className="font-mono text-sm font-bold text-luxury-gold">{assignment.round.maxMarks} PTS</span>
+            {/* Category Selector Tabs */}
+            <div className="pt-2 border-t border-luxury-gray-border/15 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                <span className="font-sans text-[9px] tracking-luxury text-luxury-gold uppercase font-bold mr-2 whitespace-nowrap">
+                  CATEGORY:
+                </span>
+                {assignment.assignedCategories.map((cat) => {
+                  const isCatSelected = cat.id === selectedCategoryId;
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => handleCategorySwitch(cat.id)}
+                      disabled={categoryLoading}
+                      className={`px-3.5 py-1.5 text-xs font-medium font-sans tracking-wide transition-all uppercase whitespace-nowrap flex items-center gap-2 ${
+                        isCatSelected
+                          ? 'bg-luxury-gold text-luxury-black-pure font-bold shadow-[0_0_12px_rgba(212,175,55,0.3)]'
+                          : 'bg-[#181818] text-luxury-white/70 border border-luxury-gray-border/30 hover:border-luxury-gold/50 hover:text-white'
+                      }`}
+                    >
+                      <span>{cat.name}</span>
+                      <span className={`font-mono text-[10px] px-1 py-0.2 rounded ${isCatSelected ? 'bg-black/20 text-black' : 'bg-black/40 text-luxury-white/50'}`}>
+                        {cat.code}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Round Selector Tabs (e.g. Traditional vs Western) */}
+              {currentCategoryRounds.length > 1 && (
+                <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                  <span className="font-sans text-[9px] tracking-luxury text-luxury-white/40 uppercase font-bold mr-2 whitespace-nowrap">
+                    ROUND:
+                  </span>
+                  {currentCategoryRounds.map((rnd) => {
+                    const isRndSelected = rnd.id === selectedRoundId;
+                    return (
+                      <button
+                        key={rnd.id}
+                        onClick={() => handleRoundSwitch(rnd.id)}
+                        disabled={categoryLoading}
+                        className={`px-3 py-1 text-xs font-medium font-sans transition-all uppercase whitespace-nowrap ${
+                          isRndSelected
+                            ? 'bg-luxury-white text-black font-bold border border-white'
+                            : 'bg-[#181818] text-luxury-white/60 border border-luxury-gray-border/30 hover:border-luxury-white/40 hover:text-white'
+                        }`}
+                      >
+                        {rnd.name} ({rnd.maxMarks} PTS)
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -296,7 +409,7 @@ export default function JudgeScoringConsole() {
 
       {/* 3. Main Console Layout */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 lg:p-8">
-        {loading ? (
+        {loading || categoryLoading ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-pulse">
             <div className="lg:col-span-4 h-96 bg-[#0A0A0A] border border-luxury-gray-border/20 rounded" />
             <div className="lg:col-span-8 h-96 bg-[#0A0A0A] border border-luxury-gray-border/20 rounded" />
@@ -307,7 +420,7 @@ export default function JudgeScoringConsole() {
               ACCESS ERROR
             </span>
             <p className="font-sans text-sm text-luxury-white/70">{errorMsg}</p>
-            <Button size="sm" variant="outline" onClick={loadConsoleData}>
+            <Button size="sm" variant="outline" onClick={() => loadConsoleData()}>
               RETRY CONNECTION
             </Button>
           </Card>
@@ -335,7 +448,7 @@ export default function JudgeScoringConsole() {
                 {filteredContestants.length === 0 ? (
                   <div className="py-8 text-center border border-dashed border-luxury-gray-border/20 p-4">
                     <span className="font-sans text-xs text-luxury-white/30 uppercase tracking-luxury">
-                      NO CONTESTANTS FOUND
+                      NO CONTESTANTS FOUND IN {assignment?.category.name}
                     </span>
                   </div>
                 ) : (
@@ -359,7 +472,7 @@ export default function JudgeScoringConsole() {
                             {c.id}
                           </span>
                           <span className="font-sans text-[9px] text-luxury-white/40 uppercase tracking-luxury">
-                            {assignment?.category.name}
+                            {assignment?.category.name} • {assignment?.round.name}
                           </span>
                         </div>
 
@@ -399,7 +512,7 @@ export default function JudgeScoringConsole() {
                         {selectedContestant.id}
                       </h3>
                       <span className="font-sans text-xs text-luxury-white/50">
-                        {assignment?.round.name} — Maximum Round Score: {assignment?.round.maxMarks} Points
+                        {assignment?.category.name} • {assignment?.round.name} (Max {assignment?.round.maxMarks} Points)
                       </span>
                     </div>
 
@@ -563,6 +676,12 @@ export default function JudgeScoringConsole() {
               <div className="flex justify-between text-xs">
                 <span className="text-luxury-white/50 uppercase">Contestant</span>
                 <span className="font-mono text-luxury-gold font-bold">{selectedContestantId}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-luxury-white/50 uppercase">Category & Round</span>
+                <span className="font-sans text-luxury-white font-medium">
+                  {assignment?.category.name} • {assignment?.round.name}
+                </span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-luxury-white/50 uppercase">Final Total</span>

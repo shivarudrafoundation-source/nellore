@@ -575,9 +575,10 @@ function ScoringContent() {
                       <th className="py-3 px-4 pl-6">Rank</th>
                       <th className="py-3 px-4">Contestant ID</th>
                       <th className="py-3 px-4">Category</th>
-                      <th className="py-3 px-4">Admin Score (/30)</th>
-                      <th className="py-3 px-4">Judges Score</th>
-                      <th className="py-3 px-4">Final Score</th>
+                      <th className="py-3 px-4">Day 1 Admin (/30)</th>
+                      <th className="py-3 px-4">Day 2 Traditional (/200)</th>
+                      <th className="py-3 px-4">Day 2 Western (/200)</th>
+                      <th className="py-3 px-4">Cumulative Score</th>
                       <th className="py-3 px-4">Status</th>
                       <th className="py-3 px-4 pr-6">Action</th>
                     </tr>
@@ -585,7 +586,7 @@ function ScoringContent() {
                   <tbody className="divide-y divide-luxury-gray-border/5 text-luxury-white">
                     {finalScores.map((row) => (
                       <tr key={row.contestantId} className="hover:bg-luxury-gold/[0.02] transition-colors">
-                        <td className="py-3 px-4 pl-6 font-serif text-luxury-gold font-bold text-sm">
+                        <td className="py-3 px-4 pl-6 font-serif text-luxury-gold font-bold text-base">
                           #{row.rank}
                         </td>
                         <td className="py-3 px-4 font-mono font-bold text-luxury-white">
@@ -595,13 +596,15 @@ function ScoringContent() {
                           <span className="font-bold uppercase text-luxury-gold/90">{row.category}</span>
                           <span className="block text-[10px] text-luxury-white/40">{row.categoryCode}</span>
                         </td>
+
+                        {/* Day 1 Admin: Discipline /10 + Talent /20 = /30 */}
                         <td className="py-3 px-4 font-mono">
                           <div className="flex items-center gap-2">
                             <div>
-                              <span className="text-luxury-white font-bold">{row.adminScore?.total?.toFixed(1)}</span>
+                              <span className="text-luxury-white font-bold">{row.adminScore?.total?.toFixed(1) || '0.0'}</span>
                               <span className="text-luxury-white/40"> / 30.0</span>
                               <span className="block text-[10px] text-luxury-white/30">
-                                (Disc: {row.adminScore?.discipline}, Tal: {row.adminScore?.talent})
+                                (Disc: {row.adminScore?.discipline || 0}, Tal: {row.adminScore?.talent || 0})
                               </span>
                             </div>
                             <button
@@ -609,23 +612,65 @@ function ScoringContent() {
                               className="font-sans text-[9px] tracking-wider text-luxury-gold hover:text-white border border-luxury-gold/30 hover:border-luxury-gold px-1.5 py-0.5 uppercase font-semibold transition-colors"
                               title="Enter or edit Admin Score"
                             >
-                              ✏️ EDIT
+                              ✏️
                             </button>
                           </div>
                         </td>
+
+                        {/* Day 2 Round 1: Traditional (/200 across 4 judges) */}
                         <td className="py-3 px-4 font-mono">
-                          <span className="text-luxury-white font-bold">{row.judgeTotal?.toFixed(1)}</span>
-                          <span className="text-luxury-white/40"> / {row.judgeMax}</span>
-                          <span className="block text-[10px] text-luxury-white/30">
-                            {row.judgeScores?.length || 0} evaluations
-                          </span>
+                          {row.traditional?.hasScore ? (
+                            <div>
+                              <span className="text-luxury-white font-bold">{row.traditional.total.toFixed(1)}</span>
+                              <span className="text-luxury-white/40"> / 200</span>
+                              <span className="block text-[10px] text-luxury-white/30">
+                                {row.traditional.judgeCount}/4 Judges
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-luxury-white/30 text-[11px] font-sans italic">— Pending —</span>
+                          )}
                         </td>
+
+                        {/* Day 2 Round 2: Western (/200 across 4 judges) */}
                         <td className="py-3 px-4 font-mono">
-                          <span className="text-luxury-gold font-bold text-base">
-                            {row.finalScore?.toFixed(1)}
-                          </span>
-                          <span className="text-luxury-white/40"> / {row.maxMarks}</span>
+                          {row.isKids ? (
+                            <span className="text-luxury-white/20 text-[10px] font-sans">N/A (Kids)</span>
+                          ) : row.western?.hasScore ? (
+                            <div>
+                              <span className="text-luxury-white font-bold">{row.western.total.toFixed(1)}</span>
+                              <span className="text-luxury-white/40"> / 200</span>
+                              <span className="block text-[10px] text-luxury-white/30">
+                                {row.western.judgeCount}/4 Judges
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-luxury-white/30 text-[11px] font-sans italic">— Pending —</span>
+                          )}
                         </td>
+
+                        {/* Dynamic Cumulative Score Display e.g. 197 / 230 or 377 / 430 */}
+                        <td className="py-3 px-4 font-mono">
+                          <div className="flex flex-col">
+                            <div className="flex items-baseline gap-1.5">
+                              <span className="text-luxury-gold font-bold text-base">
+                                {(row.cumulativeScore ?? row.finalScore)?.toFixed(1)}
+                              </span>
+                              <span className="text-luxury-white/50 text-xs">
+                                / {row.currentAvailableMaxMarks || row.maxMarks}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="px-1.5 py-0.2 bg-luxury-gold/15 text-luxury-gold font-mono text-[9px] font-bold">
+                                {row.percentage ? `${row.percentage}%` : `${(((row.cumulativeScore ?? row.finalScore) / (row.currentAvailableMaxMarks || row.maxMarks || 1)) * 100).toFixed(1)}%`}
+                              </span>
+                              <span className="text-[9px] text-luxury-white/30 font-sans">
+                                (Max {row.totalPotentialMax || row.maxMarks})
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
                         <td className="py-3 px-4">
                           <span
                             className={`font-sans text-[9px] tracking-luxury uppercase font-bold px-2 py-0.5 border ${

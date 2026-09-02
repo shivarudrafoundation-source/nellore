@@ -23,7 +23,7 @@ function CreateJudgeContent() {
   const [rounds, setRounds] = useState<any[]>([]);
 
   const [selectedEventId, setSelectedEventId] = useState('');
-  const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [selectedRoundId, setSelectedRoundId] = useState('');
 
   const [loading, setLoading] = useState(false);
@@ -82,7 +82,7 @@ function CreateJudgeContent() {
     async function loadCategories() {
       if (!selectedEventId) {
         setCategories([]);
-        setSelectedCategoryId('');
+        setSelectedCategoryIds([]);
         return;
       }
       try {
@@ -91,35 +91,35 @@ function CreateJudgeContent() {
         });
         if (res.ok) {
           const d = await res.json();
-          setCategories(d.data);
-          if (d.data.length > 0) {
-            setSelectedCategoryId(d.data[0].id);
-          } else {
-            setSelectedCategoryId('');
-          }
+          const cats = d.data || [];
+          setCategories(cats);
+          // By default, select all categories so judge has multi-category access across event
+          setSelectedCategoryIds(cats.map((c: any) => c.id));
         }
       } catch {}
     }
     loadCategories();
   }, [selectedEventId]);
 
-  // Load rounds for selected category
+  // Load rounds for the first selected category
   useEffect(() => {
+    const primaryCatId = selectedCategoryIds[0];
+    if (!primaryCatId) {
+      setRounds([]);
+      setSelectedRoundId('');
+      return;
+    }
     async function loadRounds() {
-      if (!selectedCategoryId) {
-        setRounds([]);
-        setSelectedRoundId('');
-        return;
-      }
       try {
-        const res = await fetch(`${API}/admin/rounds?categoryId=${selectedCategoryId}&limit=100`, {
+        const res = await fetch(`${API}/admin/rounds?categoryId=${primaryCatId}&limit=100`, {
           credentials: 'include',
         });
         if (res.ok) {
           const d = await res.json();
-          setRounds(d.data);
-          if (d.data.length > 0) {
-            setSelectedRoundId(d.data[0].id);
+          const rList = d.data || [];
+          setRounds(rList);
+          if (rList.length > 0) {
+            setSelectedRoundId(rList[0].id);
           } else {
             setSelectedRoundId('');
           }
@@ -127,7 +127,20 @@ function CreateJudgeContent() {
       } catch {}
     }
     loadRounds();
-  }, [selectedCategoryId]);
+  }, [selectedCategoryIds]);
+
+  const toggleCategory = (catId: string) => {
+    if (selectedCategoryIds.includes(catId)) {
+      if (selectedCategoryIds.length === 1) return; // Keep at least one
+      setSelectedCategoryIds((prev) => prev.filter((id) => id !== catId));
+    } else {
+      setSelectedCategoryIds((prev) => [...prev, catId]);
+    }
+  };
+
+  const selectAllCategories = () => {
+    setSelectedCategoryIds(categories.map((c) => c.id));
+  };
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
@@ -136,8 +149,7 @@ function CreateJudgeContent() {
     if (!judgeId.trim()) errs.judgeId = 'Judge ID is required.';
     if (!password.trim()) errs.password = 'Judge Password is required.';
     if (!selectedEventId) errs.eventId = 'Event assignment is required.';
-    if (!selectedCategoryId) errs.categoryId = 'Category assignment is required.';
-    if (!selectedRoundId) errs.roundId = 'Round assignment is required.';
+    if (selectedCategoryIds.length === 0) errs.categoryId = 'At least one Category assignment is required.';
 
     setFieldErrors(errs);
     return Object.keys(errs).length === 0;
@@ -160,8 +172,9 @@ function CreateJudgeContent() {
           email: email.trim().toLowerCase(),
           password: password.trim(),
           eventId: selectedEventId,
-          categoryId: selectedCategoryId,
-          roundId: selectedRoundId,
+          categoryId: selectedCategoryIds[0],
+          categoryIds: selectedCategoryIds,
+          roundId: selectedRoundId || undefined,
         }),
         credentials: 'include',
       });
@@ -191,7 +204,7 @@ function CreateJudgeContent() {
       <div>
         <h2 className="font-serif text-2xl font-light text-luxury-white tracking-wide">Create Judge Account</h2>
         <p className="font-sans text-xs text-luxury-white/30 tracking-luxury uppercase mt-1">
-          Register judge credentials and configure competition assignment
+          Register judge credentials with multi-category scoring capabilities
         </p>
       </div>
 
@@ -314,10 +327,10 @@ function CreateJudgeContent() {
           </div>
         </Card>
 
-        {/* Dependent Assignment Hierarchy Dropdowns */}
+        {/* Multi-Category Assignment Hierarchy */}
         <Card hoverEffect={false} className="bg-[#0A0A0A] border-luxury-gray-border/30 p-6 space-y-6">
           <h4 className="font-sans text-[10px] tracking-luxury text-luxury-gold uppercase font-bold">
-            Judge Competition Assignment Hierarchy
+            Judge Competition Assignment (Multi-Category Support)
           </h4>
 
           <div>
@@ -342,30 +355,57 @@ function CreateJudgeContent() {
           </div>
 
           <div>
-            <label className="font-sans text-xs uppercase tracking-luxury text-luxury-gold-rich font-medium block mb-1.5">
-              2. Category *
-            </label>
-            <select
-              value={selectedCategoryId}
-              onChange={(e) => setSelectedCategoryId(e.target.value)}
-              disabled={categories.length === 0}
-              className="w-full h-11 bg-luxury-black-obsidian border-b border-luxury-gray-border focus:border-luxury-gold text-luxury-white font-sans text-sm px-3 transition-colors outline-none disabled:opacity-30"
-            >
-              <option value="">Select Category</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.code})
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center justify-between mb-2">
+              <label className="font-sans text-xs uppercase tracking-luxury text-luxury-gold-rich font-medium block">
+                2. Assigned Categories (Multi-Select) *
+              </label>
+              <button
+                type="button"
+                onClick={selectAllCategories}
+                className="text-[10px] text-luxury-gold hover:underline uppercase font-mono"
+              >
+                ✓ Select All Categories
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-3 bg-[#050505] border border-luxury-gray-border/30 rounded-sm">
+              {categories.map((c) => {
+                const isChecked = selectedCategoryIds.includes(c.id);
+                return (
+                  <label
+                    key={c.id}
+                    onClick={() => toggleCategory(c.id)}
+                    className={`flex items-center gap-3 p-2.5 border cursor-pointer transition-colors ${
+                      isChecked
+                        ? 'bg-luxury-gold/10 border-luxury-gold/60 text-white'
+                        : 'bg-[#111111] border-luxury-gray-border/20 text-white/60 hover:border-luxury-gold/30'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => {}}
+                      className="accent-luxury-gold h-4 w-4"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-medium uppercase font-sans">{c.name}</span>
+                      <span className="text-[10px] font-mono text-luxury-gold">{c.code}</span>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
             {fieldErrors.categoryId && (
-              <span className="font-sans text-xs text-red-500 mt-0.5">{fieldErrors.categoryId}</span>
+              <span className="font-sans text-xs text-red-500 mt-1 block">{fieldErrors.categoryId}</span>
             )}
+            <span className="block text-[10px] text-white/40 mt-1 font-sans">
+              💡 The judge will be able to switch between all selected categories inside their scoring portal.
+            </span>
           </div>
 
           <div>
             <label className="font-sans text-xs uppercase tracking-luxury text-luxury-gold-rich font-medium block mb-1.5">
-              3. Round *
+              3. Default Primary Round
             </label>
             <select
               value={selectedRoundId}
@@ -373,16 +413,13 @@ function CreateJudgeContent() {
               disabled={rounds.length === 0}
               className="w-full h-11 bg-luxury-black-obsidian border-b border-luxury-gray-border focus:border-luxury-gold text-luxury-white font-sans text-sm px-3 transition-colors outline-none disabled:opacity-30"
             >
-              <option value="">Select Round</option>
+              <option value="">Auto-assign all judge rounds</option>
               {rounds.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name} (Day {r.day} — Max {r.maxMarks} pts)
                 </option>
               ))}
             </select>
-            {fieldErrors.roundId && (
-              <span className="font-sans text-xs text-red-500 mt-0.5">{fieldErrors.roundId}</span>
-            )}
           </div>
         </Card>
 
@@ -410,7 +447,7 @@ function CreateJudgeContent() {
             </div>
 
             <p className="font-sans text-xs text-luxury-white/60 leading-relaxed">
-              Account created for <span className="text-luxury-white font-bold">{createdResult.judge.name}</span>.
+              Account created for <span className="text-luxury-white font-bold">{createdResult.judge.name}</span> with multi-category scoring capabilities.
             </p>
 
             <div className="bg-black/90 border border-luxury-gold/30 p-4 space-y-3 rounded-sm text-xs">
@@ -421,7 +458,7 @@ function CreateJudgeContent() {
                   <button
                     type="button"
                     onClick={() => copyToClipboard(createdResult.judge.id, 'id')}
-                    className="text-[10px] text-white/50 hover:text-white uppercase font-mono px-1 py-0.5 bg-white/5 rounded"
+                    className="text-[10px] text-white/50 hover:text-white font-mono uppercase px-1.5 py-0.5 bg-white/5 rounded"
                   >
                     {copiedField === 'id' ? 'COPIED!' : 'COPY'}
                   </button>
@@ -429,14 +466,23 @@ function CreateJudgeContent() {
               </div>
 
               <div className="flex justify-between items-center pb-2 border-b border-white/10">
-                <span className="text-white/40 uppercase text-[10px]">Email:</span>
-                <span className="font-mono text-white">{createdResult.judge.email}</span>
+                <span className="text-white/40 uppercase text-[10px]">Official Email:</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-white/90">{createdResult.judge.email}</span>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(createdResult.judge.email, 'email')}
+                    className="text-[10px] text-white/50 hover:text-white font-mono uppercase px-1.5 py-0.5 bg-white/5 rounded"
+                  >
+                    {copiedField === 'email' ? 'COPIED!' : 'COPY'}
+                  </button>
+                </div>
               </div>
 
-              <div className="flex justify-between items-center pb-2 border-b border-white/10">
-                <span className="text-white/40 uppercase text-[10px]">Password:</span>
+              <div className="flex justify-between items-center">
+                <span className="text-white/40 uppercase text-[10px]">Login Password:</span>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono font-bold text-luxury-gold">
+                  <span className="font-mono font-bold text-luxury-gold tracking-wider">
                     {createdResult.password || createdResult.temporaryPassword}
                   </span>
                   <button
@@ -444,33 +490,17 @@ function CreateJudgeContent() {
                     onClick={() =>
                       copyToClipboard(createdResult.password || createdResult.temporaryPassword, 'pass')
                     }
-                    className="text-[10px] text-white/50 hover:text-white uppercase font-mono px-1 py-0.5 bg-white/5 rounded"
+                    className="text-[10px] text-white/50 hover:text-white font-mono uppercase px-1.5 py-0.5 bg-white/5 rounded"
                   >
                     {copiedField === 'pass' ? 'COPIED!' : 'COPY'}
                   </button>
                 </div>
               </div>
-
-              <div className="flex justify-between items-center text-[11px]">
-                <span className="text-white/40 uppercase text-[10px]">Assignment:</span>
-                <span className="text-white">
-                  {createdResult.judge.category?.name} &rsaquo; {createdResult.judge.round?.name}
-                </span>
-              </div>
             </div>
 
-            <div className="p-3 bg-luxury-gold/10 border border-luxury-gold/30 rounded-sm">
-              <span className="text-[10px] text-luxury-gold font-mono uppercase block font-bold mb-1">
-                Judge Portal Login URL:
-              </span>
-              <span className="text-xs font-mono text-white select-all">
-                https://judge.sivarudrafoundation.com/login
-              </span>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <Button size="sm" onClick={() => router.push('/judges')}>
-                PROCEED TO JUDGES LIST
+            <div className="pt-2 flex justify-end">
+              <Button size="sm" onClick={() => router.push(`/judges/${createdResult.judge.id}`)}>
+                VIEW JUDGE PROFILE →
               </Button>
             </div>
           </div>

@@ -65,6 +65,7 @@ export class JudgesService {
           email: true,
           mustResetPassword: true,
           isActive: true,
+          assignedCategoryIds: true,
           createdAt: true,
           event: { select: { id: true, name: true, code: true } },
           category: { select: { id: true, name: true, code: true } },
@@ -99,6 +100,7 @@ export class JudgesService {
         updatedAt: true,
         assignedEventId: true,
         assignedCategoryId: true,
+        assignedCategoryIds: true,
         assignedRoundId: true,
         event: { select: { id: true, name: true, code: true, location: true } },
         category: { select: { id: true, name: true, code: true } },
@@ -123,7 +125,24 @@ export class JudgesService {
       throw new NotFoundException('Judge account not found.');
     }
 
-    return judge;
+    const assignedCatIds: string[] = Array.isArray(judge.assignedCategoryIds) && (judge.assignedCategoryIds as string[]).length > 0
+      ? (judge.assignedCategoryIds as string[])
+      : [judge.assignedCategoryId];
+
+    const assignedCategories = await this.db.category.findMany({
+      where: { id: { in: assignedCatIds } },
+      include: {
+        rounds: {
+          where: { scoredBy: 'judge' },
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
+    });
+
+    return {
+      ...judge,
+      assignedCategories,
+    };
   }
 
   /**
@@ -170,8 +189,9 @@ export class JudgesService {
       email: string;
       password?: string;
       eventId: string;
-      categoryId: string;
-      roundId: string;
+      categoryId?: string;
+      categoryIds?: string[];
+      roundId?: string;
     },
     actorId: string,
     ipAddress?: string,
@@ -181,8 +201,34 @@ export class JudgesService {
       throw new BadRequestException('Valid email address is required.');
     }
     if (!data.eventId) throw new BadRequestException('Event assignment is required.');
-    if (!data.categoryId) throw new BadRequestException('Category assignment is required.');
-    if (!data.roundId) throw new BadRequestException('Round assignment is required.');
+
+    const categoryIds = (data.categoryIds && data.categoryIds.length > 0)
+      ? data.categoryIds
+      : (data.categoryId ? [data.categoryId] : []);
+
+    if (categoryIds.length === 0) {
+      throw new BadRequestException('At least one Category assignment is required.');
+    }
+
+    const primaryCategoryId = categoryIds[0];
+
+    // Find default round for primary category if not explicitly provided
+    let targetRoundId = data.roundId;
+    if (!targetRoundId) {
+      const defaultRound = await this.db.round.findFirst({
+        where: { categoryId: primaryCategoryId, scoredBy: 'judge' },
+        orderBy: { sortOrder: 'asc' },
+      });
+      if (!defaultRound) {
+        const anyRound = await this.db.round.findFirst({ where: { categoryId: primaryCategoryId } });
+        if (!anyRound) throw new BadRequestException('No rounds found for selected category.');
+        targetRoundId = anyRound.id;
+      } else {
+        targetRoundId = defaultRound.id;
+      }
+    } else {
+      await this.validateAssignmentHierarchy(data.eventId, primaryCategoryId, targetRoundId);
+    }
 
     const email = data.email.trim().toLowerCase();
 
@@ -213,9 +259,6 @@ export class JudgesService {
       judgeId = candidateId;
     }
 
-    // Validate relationship
-    await this.validateAssignmentHierarchy(data.eventId, data.categoryId, data.roundId);
-
     const plainPassword = data.password && String(data.password).trim() ? String(data.password).trim() : this.generateCleanPassword();
     const passwordHash = await bcrypt.hash(plainPassword, 10);
 
@@ -226,8 +269,9 @@ export class JudgesService {
         email,
         passwordHash,
         assignedEventId: data.eventId,
-        assignedCategoryId: data.categoryId,
-        assignedRoundId: data.roundId,
+        assignedCategoryId: primaryCategoryId,
+        assignedCategoryIds: categoryIds,
+        assignedRoundId: targetRoundId,
         mustResetPassword: false,
         isActive: true,
       },
@@ -239,6 +283,7 @@ export class JudgesService {
         isActive: true,
         assignedEventId: true,
         assignedCategoryId: true,
+        assignedCategoryIds: true,
         assignedRoundId: true,
         createdAt: true,
         event: { select: { id: true, name: true, code: true } },
@@ -325,30 +370,47 @@ export class JudgesService {
 
   async assign(
     id: string,
-    data: { eventId: string; categoryId: string; roundId: string },
+    data: { eventId: string; categoryId?: string; categoryIds?: string[]; roundId?: string },
     actorId: string,
     ipAddress?: string,
   ) {
     const judge = await this.db.judgeAccount.findUnique({ where: { id } });
     if (!judge) throw new NotFoundException('Judge account not found.');
 
-    // Check duplicate identical assignment
-    if (
-      judge.assignedEventId === data.eventId &&
-      judge.assignedCategoryId === data.categoryId &&
-      judge.assignedRoundId === data.roundId
-    ) {
-      throw new ConflictException('Judge is already assigned to this round.');
+    const categoryIds = (data.categoryIds && data.categoryIds.length > 0)
+      ? data.categoryIds
+      : (data.categoryId ? [data.categoryId] : []);
+
+    if (categoryIds.length === 0) {
+      throw new BadRequestException('At least one Category assignment is required.');
     }
 
-    await this.validateAssignmentHierarchy(data.eventId, data.categoryId, data.roundId);
+    const primaryCategoryId = categoryIds[0];
+
+    let targetRoundId = data.roundId;
+    if (!targetRoundId) {
+      const defaultRound = await this.db.round.findFirst({
+        where: { categoryId: primaryCategoryId, scoredBy: 'judge' },
+        orderBy: { sortOrder: 'asc' },
+      });
+      if (!defaultRound) {
+        const anyRound = await this.db.round.findFirst({ where: { categoryId: primaryCategoryId } });
+        if (!anyRound) throw new BadRequestException('No rounds found for selected category.');
+        targetRoundId = anyRound.id;
+      } else {
+        targetRoundId = defaultRound.id;
+      }
+    } else {
+      await this.validateAssignmentHierarchy(data.eventId, primaryCategoryId, targetRoundId);
+    }
 
     const updated = await this.db.judgeAccount.update({
       where: { id },
       data: {
         assignedEventId: data.eventId,
-        assignedCategoryId: data.categoryId,
-        assignedRoundId: data.roundId,
+        assignedCategoryId: primaryCategoryId,
+        assignedCategoryIds: categoryIds,
+        assignedRoundId: targetRoundId,
       },
       select: {
         id: true,
@@ -356,6 +418,7 @@ export class JudgesService {
         email: true,
         assignedEventId: true,
         assignedCategoryId: true,
+        assignedCategoryIds: true,
         assignedRoundId: true,
         event: { select: { id: true, name: true } },
         category: { select: { id: true, name: true } },

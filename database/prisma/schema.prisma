@@ -160,6 +160,7 @@ model JudgeAccount {
   category           Category @relation(fields: [assignedCategoryId], references: [id])
   assignedRoundId    String   @map("assigned_round_id")
   round              Round    @relation(fields: [assignedRoundId], references: [id])
+  assignedCategoryIds Json?   @map("assigned_category_ids")
   mustResetPassword  Boolean  @default(true) @map("must_reset_password")
   isActive           Boolean  @default(true) @map("is_active")
   scores             Score[]

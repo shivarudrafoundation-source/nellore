@@ -21,31 +21,41 @@ export class ScoringController {
   constructor(private readonly scoringService: ScoringService) {}
 
   @Get('assignment')
-  async getAssignment(@Req() req: any) {
+  async getAssignment(
+    @Req() req: any,
+    @Query('categoryId') categoryId?: string,
+    @Query('roundId') roundId?: string,
+  ) {
     const judgeId = req.user.sub;
-    return this.scoringService.getJudgeAssignment(judgeId);
+    return this.scoringService.getJudgeAssignment(judgeId, categoryId, roundId);
   }
 
   @Get('contestants')
-  async getContestants(@Req() req: any) {
+  async getContestants(
+    @Req() req: any,
+    @Query('categoryId') categoryId?: string,
+    @Query('roundId') roundId?: string,
+  ) {
     const judgeId = req.user.sub;
-    return this.scoringService.getJudgeContestants(judgeId);
+    return this.scoringService.getJudgeContestants(judgeId, categoryId, roundId);
   }
 
   @Get('scoring/:contestantId')
   async getContestantScore(
     @Req() req: any,
     @Param('contestantId') contestantId: string,
+    @Query('categoryId') categoryId?: string,
+    @Query('roundId') roundId?: string,
   ) {
     const judgeId = req.user.sub;
-    return this.scoringService.getJudgeContestantScore(judgeId, contestantId);
+    return this.scoringService.getJudgeContestantScore(judgeId, contestantId, categoryId, roundId);
   }
 
   @Post('scoring/:contestantId')
   async saveScore(
     @Req() req: any,
     @Param('contestantId') contestantId: string,
-    @Body() body: { subScores: Record<string, any>; lock?: boolean },
+    @Body() body: { categoryId?: string; roundId?: string; subScores: Record<string, any>; lock?: boolean },
   ) {
     const judgeId = req.user.sub;
     const ip = req.ip || req.headers?.['x-forwarded-for']?.toString() || undefined;

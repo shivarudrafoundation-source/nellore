@@ -60,25 +60,25 @@ export class JudgeAssignmentGuard implements CanActivate {
       request.query.round_id ||
       request.body.round_id;
 
+    const assignedCatIds: string[] = Array.isArray(judge.assignedCategoryIds) && (judge.assignedCategoryIds as string[]).length > 0
+      ? (judge.assignedCategoryIds as string[])
+      : [judge.assignedCategoryId];
+
     // Enforce matching event if provided
     if (eventId && judge.assignedEventId !== eventId) {
       throw new ForbiddenException(`Access denied. Judge is not assigned to event '${eventId}'.`);
     }
 
     // Enforce matching category if provided
-    if (categoryId && judge.assignedCategoryId !== categoryId) {
+    if (categoryId && !assignedCatIds.includes(categoryId) && judge.assignedCategoryId !== categoryId) {
       throw new ForbiddenException(`Access denied. Judge is not assigned to category '${categoryId}'.`);
     }
 
-    // Enforce matching round if provided
-    if (roundId && judge.assignedRoundId !== roundId) {
-      throw new ForbiddenException(`Access denied. Judge is not assigned to round '${roundId}'.`);
-    }
-
-    // Update request.user with database-backed assignment properties (avoids stale token data)
+    // Update request.user with database-backed assignment properties
     user.assignedEventId = judge.assignedEventId;
-    user.assignedCategoryId = judge.assignedCategoryId;
-    user.assignedRoundId = judge.assignedRoundId;
+    user.assignedCategoryId = categoryId || judge.assignedCategoryId;
+    user.assignedCategoryIds = assignedCatIds;
+    user.assignedRoundId = roundId || judge.assignedRoundId;
 
     return true;
   }
