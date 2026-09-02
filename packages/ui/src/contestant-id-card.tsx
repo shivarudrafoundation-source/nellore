@@ -4,7 +4,7 @@ import React, { useRef } from 'react';
 
 export interface ContestantIdCardProps {
   contestantId: string;
-  name: string;
+  name?: string;
   categoryName?: string;
   categoryCode?: string;
   eventName?: string;
@@ -25,7 +25,6 @@ export interface ContestantIdCardProps {
 
 export const ContestantIdCard: React.FC<ContestantIdCardProps> = ({
   contestantId,
-  name,
   categoryName = 'Contestant Category',
   categoryCode = 'CAT',
   eventName = 'Nellore Nerajana 2026',
@@ -33,7 +32,6 @@ export const ContestantIdCard: React.FC<ContestantIdCardProps> = ({
   eventLogoUrl,
   location = 'Nellore, Andhra Pradesh',
   startDate,
-  endDate,
   photoUrl,
   gender,
   age,
@@ -212,33 +210,34 @@ export const ContestantIdCard: React.FC<ContestantIdCardProps> = ({
           </div>
         </div>
 
-        {/* CONTESTANT IDENTITY SECTION */}
+        {/* CONTESTANT IDENTITY SECTION (ANONYMOUS BLIND PASS: NO PERSONAL NAME) */}
         <div className="my-2 p-4 bg-[#080808] border border-luxury-gold/30 rounded-xl relative z-10 space-y-4 shadow-md">
           <div className="flex items-center gap-4">
-            {/* Contestant Photo or Monogram Frame */}
+            {/* Contestant Photo or Monogram/Emblem Frame */}
             <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl border-2 border-luxury-gold p-0.5 bg-black flex-shrink-0 overflow-hidden shadow-[0_0_20px_rgba(212,175,55,0.25)] flex items-center justify-center">
               {photoUrl ? (
                 <img
                   src={photoUrl}
-                  alt={name}
+                  alt="Contestant"
                   className="w-full h-full object-cover rounded-lg"
                 />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-luxury-gold/30 via-black to-black flex flex-col items-center justify-center text-luxury-gold font-serif text-3xl font-bold">
-                  {name ? name.charAt(0).toUpperCase() : 'C'}
+                <div className="w-full h-full bg-gradient-to-br from-luxury-gold/30 via-black to-black flex flex-col items-center justify-center text-luxury-gold">
+                  <span className="font-serif text-3xl font-bold">★</span>
+                  <span className="text-[8px] font-mono tracking-widest uppercase text-luxury-gold/80 mt-1">CONTESTANT</span>
                 </div>
               )}
             </div>
 
-            {/* Name & Category details */}
-            <div className="text-left flex-1 min-w-0">
-              <h3 className="font-serif text-xl sm:text-2xl font-light text-white tracking-wide truncate">
-                {name || 'Contestant Name'}
-              </h3>
-              <div className="inline-block mt-1 px-3 py-1 bg-luxury-gold/20 border border-luxury-gold/60 rounded-md text-luxury-gold font-sans text-xs font-bold uppercase tracking-wider">
+            {/* Category details (NO PERSONAL NAME) */}
+            <div className="text-left flex-1 min-w-0 space-y-1">
+              <span className="text-[9px] font-mono text-luxury-gold uppercase tracking-widest block font-bold">
+                COMPETITION DIVISION
+              </span>
+              <div className="inline-block px-3 py-1 bg-luxury-gold/20 border border-luxury-gold/60 rounded-md text-luxury-gold font-sans text-xs sm:text-sm font-bold uppercase tracking-wider">
                 {categoryName} {categoryCode ? `(${categoryCode})` : ''}
               </div>
-              <div className="text-[11px] text-white/60 font-sans mt-1.5">
+              <div className="text-[11px] text-white/60 font-sans pt-0.5">
                 {gender && <span>{gender} • </span>}
                 {age && <span>{age} yrs • </span>}
                 <span>{location}</span>
