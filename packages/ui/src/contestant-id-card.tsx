@@ -23,6 +23,29 @@ export interface ContestantIdCardProps {
   showPrintButton?: boolean;
 }
 
+/**
+ * Extracts and formats the primary Stage / Chest Number (e.g. MR 1, MS 2, M16, 101)
+ * from either manual short codes or full system IDs
+ */
+function getBadgeNumbers(id: string) {
+  if (!id) return { mainNumber: '00', fullId: '' };
+  const clean = id.trim().toUpperCase();
+
+  // If it's a standard SRF structured code like SRF-HYD-MR1-2026 or SRF-NLR-MS-101
+  const match = clean.match(/^SRF-[A-Z0-9]+-([A-Z]+[- ]?[0-9]+)(?:-[0-9]+)?$/i);
+  if (match && match[1]) {
+    return {
+      mainNumber: match[1].replace('-', ' '),
+      fullId: clean,
+    };
+  }
+
+  return {
+    mainNumber: clean,
+    fullId: clean,
+  };
+}
+
 export const ContestantIdCard: React.FC<ContestantIdCardProps> = ({
   contestantId,
   categoryName = 'Contestant Category',
@@ -32,9 +55,6 @@ export const ContestantIdCard: React.FC<ContestantIdCardProps> = ({
   eventLogoUrl,
   location = 'Nellore, Andhra Pradesh',
   startDate,
-  photoUrl,
-  gender,
-  age,
   paymentStatus = 'PAID',
   showPrintButton = true,
 }) => {
@@ -42,6 +62,7 @@ export const ContestantIdCard: React.FC<ContestantIdCardProps> = ({
 
   const resolvedEventLogo = eventLogoUrl || '/brand/nellore-nerajana.jpeg';
   const srfLogo = '/brand/logo-circle.jpg';
+  const { mainNumber, fullId } = getBadgeNumbers(contestantId);
 
   const formattedDates = startDate
     ? new Date(startDate).toLocaleDateString('en-IN', {
@@ -49,9 +70,9 @@ export const ContestantIdCard: React.FC<ContestantIdCardProps> = ({
         month: 'short',
         year: 'numeric',
       })
-    : 'Official Entry';
+    : 'Official Staging';
 
-  // High-fidelity standalone badge printer
+  // High-fidelity standalone badge printer for stage / chest number & lanyard cards
   const handlePrint = () => {
     const cardEl = cardRef.current;
     if (!cardEl) return;
@@ -68,12 +89,12 @@ export const ContestantIdCard: React.FC<ContestantIdCardProps> = ({
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Contestant ID Pass - ${contestantId}</title>
+          <title>Contestant Stage Number - ${mainNumber}</title>
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
           <link rel="preconnect" href="https://fonts.googleapis.com">
           <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-          <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Montserrat:wght@400;600;700;800;900&family=JetBrains+Mono:wght@700;900&display=swap" rel="stylesheet">
+          <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Montserrat:wght@600;700;800;900&family=JetBrains+Mono:wght@800;900&display=swap" rel="stylesheet">
           <style>
             * {
               box-sizing: border-box;
@@ -100,12 +121,12 @@ export const ContestantIdCard: React.FC<ContestantIdCardProps> = ({
               }
               @page {
                 size: portrait;
-                margin: 10mm;
+                margin: 8mm;
               }
             }
             .badge-print-wrapper {
               width: 100%;
-              max-width: 440px;
+              max-width: 460px;
               margin: 0 auto;
             }
           </style>
@@ -144,23 +165,23 @@ export const ContestantIdCard: React.FC<ContestantIdCardProps> = ({
 
   return (
     <div className="flex flex-col items-center gap-5 w-full">
-      {/* Printable ID Card Container */}
+      {/* Official Pageant Staging Chest / Lanyard Card */}
       <div
         id="srf-contestant-id-badge"
         ref={cardRef}
-        className="w-full max-w-[450px] bg-gradient-to-b from-[#141414] via-[#0A0A0A] to-[#020202] text-white border-2 border-luxury-gold/70 rounded-2xl p-6 sm:p-7 shadow-[0_0_60px_rgba(212,175,55,0.22)] relative overflow-hidden select-none"
+        className="w-full max-w-[460px] bg-gradient-to-b from-[#181818] via-[#0D0D0D] to-[#030303] text-white border-[3px] border-luxury-gold/80 rounded-2xl p-6 sm:p-8 shadow-[0_0_70px_rgba(212,175,55,0.25)] relative overflow-hidden select-none"
         style={{ colorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}
       >
         {/* Subtle Luxury Watermark / Background Radial Lights */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-luxury-gold/10 filter blur-3xl rounded-full pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-luxury-gold/10 filter blur-3xl rounded-full pointer-events-none" />
-        <div className="absolute inset-0 border border-luxury-gold/20 rounded-xl m-1.5 pointer-events-none" />
+        <div className="absolute inset-0 border border-luxury-gold/25 rounded-xl m-2 pointer-events-none" />
 
-        {/* TOP DUAL LOGO HEADER: Shiva Rudra Foundation & Event Logo */}
-        <div className="flex items-center justify-between pb-4 border-b border-luxury-gold/40 gap-3 relative z-10">
-          {/* LEFT: Shiva Rudra Foundation Official Seal */}
+        {/* 1. TOP DUAL LOGO HEADER: Shiva Rudra Foundation & Event Logo */}
+        <div className="flex items-center justify-between pb-4 border-b-2 border-luxury-gold/40 gap-4 relative z-10">
+          {/* LEFT: Shiva Rudra Foundation Official Seal & Logo */}
           <div className="flex items-center gap-3">
-            <div className="w-14 h-14 rounded-full border-2 border-luxury-gold p-0.5 bg-black overflow-hidden flex-shrink-0 shadow-md">
+            <div className="w-16 h-16 rounded-full border-2 border-luxury-gold p-0.5 bg-black overflow-hidden flex-shrink-0 shadow-lg">
               <img
                 src={srfLogo}
                 alt="Shiva Rudra Foundation"
@@ -168,29 +189,29 @@ export const ContestantIdCard: React.FC<ContestantIdCardProps> = ({
               />
             </div>
             <div className="text-left">
-              <span className="text-[10px] font-sans tracking-[0.24em] text-luxury-gold uppercase font-bold block leading-tight">
+              <span className="text-[11px] font-sans tracking-[0.24em] text-luxury-gold uppercase font-black block leading-tight">
                 SIVA RUDRA
               </span>
-              <span className="text-[8px] font-sans tracking-[0.16em] text-white/80 uppercase block">
+              <span className="text-[9px] font-sans tracking-[0.18em] text-white/90 uppercase block font-bold">
                 FOUNDATIONS
               </span>
-              <span className="text-[7px] font-mono text-luxury-gold/70 uppercase tracking-widest block mt-0.5 font-semibold">
-                OFFICIAL ACCREDITATION
+              <span className="text-[7px] font-mono text-luxury-gold/70 uppercase tracking-widest block mt-0.5 font-bold">
+                OFFICIAL PAGEANT BADGE
               </span>
             </div>
           </div>
 
-          {/* RIGHT: Specific Event Logo */}
+          {/* RIGHT: Particular Event Logo */}
           <div className="flex items-center gap-3 text-right">
             <div>
-              <span className="text-[10px] font-sans tracking-[0.2em] text-luxury-gold uppercase font-bold block leading-tight">
+              <span className="text-[11px] font-sans tracking-[0.2em] text-luxury-gold uppercase font-black block leading-tight">
                 {eventName.length > 20 ? eventName.slice(0, 20) + '...' : eventName}
               </span>
-              <span className="text-[8px] font-mono text-white/60 uppercase tracking-widest block">
+              <span className="text-[8px] font-mono text-white/70 uppercase tracking-widest block font-semibold">
                 {eventCode} OFFICIAL PASS
               </span>
             </div>
-            <div className="w-14 h-14 rounded-lg border-2 border-luxury-gold p-0.5 bg-black overflow-hidden flex-shrink-0 shadow-md flex items-center justify-center">
+            <div className="w-16 h-16 rounded-xl border-2 border-luxury-gold p-1 bg-black overflow-hidden flex-shrink-0 shadow-lg flex items-center justify-center">
               <img
                 src={resolvedEventLogo}
                 alt={eventName}
@@ -200,109 +221,63 @@ export const ContestantIdCard: React.FC<ContestantIdCardProps> = ({
           </div>
         </div>
 
-        {/* ACCREDITATION RIBBON */}
-        <div className="py-3 text-center relative z-10">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-luxury-gold/15 border border-luxury-gold/60 rounded-full shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            <span className="font-sans text-[10px] tracking-[0.28em] text-luxury-gold uppercase font-extrabold">
-              OFFICIAL CONTESTANT ENTRY PASS
-            </span>
+        {/* 2. MIDDLE / CENTER HERO: GIGANTIC STAGE NUMBER (MR 1, MS 2, M16, etc.) */}
+        <div className="my-6 py-6 px-4 bg-gradient-to-b from-luxury-gold/25 via-luxury-gold/10 to-black/80 border-[3px] border-luxury-gold rounded-2xl text-center shadow-[inset_0_0_30px_rgba(212,175,55,0.2)] relative z-10 space-y-2">
+          <span className="text-[11px] sm:text-xs font-mono uppercase tracking-[0.35em] text-luxury-gold font-black block drop-shadow-sm">
+            ★ CONTESTANT NUMBER ★
+          </span>
+
+          {/* MASSIVE GIGANTIC STAGE NUMBER */}
+          <div className="font-mono text-6xl sm:text-7xl lg:text-8xl font-black text-white tracking-wider text-center break-words leading-none drop-shadow-[0_4px_15px_rgba(0,0,0,0.95)] my-2">
+            {mainNumber}
           </div>
-        </div>
 
-        {/* CONTESTANT IDENTITY SECTION (ANONYMOUS BLIND PASS: NO PERSONAL NAME) */}
-        <div className="my-2 p-4 bg-[#080808] border border-luxury-gold/30 rounded-xl relative z-10 space-y-4 shadow-md">
-          <div className="flex items-center gap-4">
-            {/* Contestant Photo or Monogram/Emblem Frame */}
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl border-2 border-luxury-gold p-0.5 bg-black flex-shrink-0 overflow-hidden shadow-[0_0_20px_rgba(212,175,55,0.25)] flex items-center justify-center">
-              {photoUrl ? (
-                <img
-                  src={photoUrl}
-                  alt="Contestant"
-                  className="w-full h-full object-cover rounded-lg"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-luxury-gold/30 via-black to-black flex flex-col items-center justify-center text-luxury-gold">
-                  <span className="font-serif text-3xl font-bold">★</span>
-                  <span className="text-[8px] font-mono tracking-widest uppercase text-luxury-gold/80 mt-1">CONTESTANT</span>
-                </div>
-              )}
-            </div>
-
-            {/* Category details (NO PERSONAL NAME) */}
-            <div className="text-left flex-1 min-w-0 space-y-1">
-              <span className="text-[9px] font-mono text-luxury-gold uppercase tracking-widest block font-bold">
-                COMPETITION DIVISION
+          {/* Full System ID if different from main stage number */}
+          {fullId && fullId !== mainNumber && (
+            <div className="pt-2 border-t border-luxury-gold/30">
+              <span className="text-[10px] font-mono text-luxury-gold/90 font-bold tracking-widest block">
+                REF ID: {fullId}
               </span>
-              <div className="inline-block px-3 py-1 bg-luxury-gold/20 border border-luxury-gold/60 rounded-md text-luxury-gold font-sans text-xs sm:text-sm font-bold uppercase tracking-wider">
-                {categoryName} {categoryCode ? `(${categoryCode})` : ''}
-              </div>
-              <div className="text-[11px] text-white/60 font-sans pt-0.5">
-                {gender && <span>{gender} • </span>}
-                {age && <span>{age} yrs • </span>}
-                <span>{location}</span>
-              </div>
             </div>
-          </div>
+          )}
+        </div>
 
-          {/* UNIQUE CONTESTANT ID - HERO GOLD BOX (BIGGER & BOLDER) */}
-          <div className="py-4 px-3 bg-gradient-to-r from-luxury-gold/20 via-luxury-gold/35 to-luxury-gold/20 border-2 border-luxury-gold rounded-lg text-center shadow-inner">
-            <span className="text-[10px] font-mono uppercase tracking-[0.32em] text-luxury-gold font-black block mb-1">
-              ★ UNIQUE CONTESTANT ID ★
-            </span>
-            <div className="font-mono text-3xl sm:text-4xl lg:text-[42px] font-black text-white tracking-wider text-center break-all leading-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
-              {contestantId}
-            </div>
+        {/* 3. CATEGORY & EVENT DIVISION */}
+        <div className="mb-4 text-center relative z-10 space-y-1.5">
+          <div className="inline-block px-4 py-1.5 bg-luxury-gold/20 border border-luxury-gold rounded-full text-luxury-gold font-sans text-xs sm:text-sm font-extrabold uppercase tracking-widest shadow-sm">
+            {categoryName} {categoryCode ? `• ${categoryCode}` : ''}
+          </div>
+          <div className="text-[10px] text-white/60 font-sans tracking-wide">
+            <span>📍 {location}</span>
+            <span className="mx-2 text-luxury-gold">|</span>
+            <span className="text-green-400 font-bold">✓ {paymentStatus === 'PAID' ? 'ACCREDITED ENTRY' : paymentStatus}</span>
           </div>
         </div>
 
-        {/* EVENT & VERIFICATION METADATA */}
-        <div className="grid grid-cols-2 gap-3 text-left text-[11px] font-sans py-3 border-t border-b border-white/15 relative z-10">
-          <div>
-            <span className="text-white/50 uppercase block text-[9px] tracking-wider font-semibold">Event & Venue</span>
-            <span className="text-white font-bold block truncate">{eventName}</span>
-            <span className="text-luxury-gold block font-medium">{location}</span>
-          </div>
-          <div className="text-right">
-            <span className="text-white/50 uppercase block text-[9px] tracking-wider font-semibold">Accreditation</span>
-            <span className="text-green-400 font-bold uppercase inline-flex items-center gap-1">
-              <span className="text-xs font-black">✓</span> {paymentStatus === 'PAID' ? 'PAID & VERIFIED' : paymentStatus}
-            </span>
-            <span className="text-white/50 block text-[10px] mt-0.5">{formattedDates}</span>
-          </div>
-        </div>
-
-        {/* SECURITY BARCODE / DIGITAL MATRIX */}
-        <div className="pt-3.5 flex items-center justify-between gap-3 relative z-10">
+        {/* 4. BOTTOM BARCODE & OFFICIAL FOOTER */}
+        <div className="pt-3.5 border-t border-luxury-gold/30 flex items-center justify-between gap-3 relative z-10">
           <div className="text-left">
-            <div className="font-mono text-[9px] text-luxury-gold tracking-widest uppercase font-bold">
-              SRF-OFFICIAL-CONTESTANT-PASS
+            <div className="font-mono text-[9px] text-luxury-gold font-black tracking-widest uppercase">
+              SRF-STAGE-VERIFIED
             </div>
-            <div className="font-mono text-[8px] text-white/40 tracking-wider mt-0.5">
-              AUTH ID: {contestantId.replace(/[^A-Za-z0-9]/g, '')}
+            <div className="font-mono text-[8px] text-white/40 tracking-wider">
+              {formattedDates}
             </div>
           </div>
 
-          {/* Simulated Digital Security Matrix / Barcode */}
-          <div className="flex items-center gap-0.5 h-7 opacity-90">
-            {[4, 2, 7, 3, 6, 2, 8, 4, 3, 7, 2, 6, 3, 8, 2, 5, 7, 3, 6, 2, 5].map((h, i) => (
+          {/* High-visibility barcode matrix */}
+          <div className="flex items-center gap-0.5 h-8 opacity-95">
+            {[4, 2, 7, 3, 6, 2, 8, 4, 3, 7, 2, 6, 3, 8, 2, 5, 7, 3, 6, 2, 5, 7, 4].map((h, i) => (
               <div
                 key={i}
                 className="bg-luxury-gold"
                 style={{
                   width: i % 3 === 0 ? '3.5px' : '2px',
-                  height: `${h * 3.2}px`,
+                  height: `${h * 3.4}px`,
                 }}
               />
             ))}
           </div>
-        </div>
-
-        {/* FOOTER */}
-        <div className="mt-3.5 pt-2.5 border-t border-luxury-gold/30 text-center">
-          <span className="text-[9px] font-sans text-white/50 uppercase tracking-widest block font-medium">
-            Issued by Siva Rudra Foundations • Valid for Staging & Venue Access
-          </span>
         </div>
       </div>
 
@@ -312,10 +287,10 @@ export const ContestantIdCard: React.FC<ContestantIdCardProps> = ({
           <button
             type="button"
             onClick={handlePrint}
-            className="px-6 py-3 bg-luxury-gold hover:bg-[#E5C158] text-black font-sans text-xs uppercase font-extrabold tracking-wider rounded-sm transition-all duration-300 shadow-[0_0_25px_rgba(212,175,55,0.4)] flex items-center gap-2 cursor-pointer active:scale-95"
+            className="px-8 py-3.5 bg-luxury-gold hover:bg-[#E5C158] text-black font-sans text-xs sm:text-sm uppercase font-black tracking-wider rounded-sm transition-all duration-300 shadow-[0_0_30px_rgba(212,175,55,0.45)] flex items-center gap-2 cursor-pointer active:scale-95"
           >
-            <span className="text-base">🖨️</span>
-            <span>PRINT OFFICIAL ID CARD</span>
+            <span className="text-lg">🖨️</span>
+            <span>PRINT OFFICIAL STAGE BADGE</span>
           </button>
         </div>
       )}
