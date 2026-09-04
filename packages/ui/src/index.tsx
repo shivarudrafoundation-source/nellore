@@ -179,7 +179,7 @@ export function getWsBaseUrl(): string {
       return 'http://localhost:4000';
     }
   }
-  return 'wss://api.sivarudrafoundation.com/realtime';
+  return 'https://api.sivarudrafoundation.com';
 }
 
 export function getContestantPortalUrl(): string {

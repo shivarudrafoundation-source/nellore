@@ -25,7 +25,8 @@ export function useRealtimeScores({
   onScoreEventRef.current = onScoreEvent;
 
   useEffect(() => {
-    const wsUrl = getWsBaseUrl();
+    const rawUrl = getWsBaseUrl();
+    const wsUrl = rawUrl.replace(/\/realtime\/?$/, '');
     const socket = io(`${wsUrl}/realtime`, {
       withCredentials: true,
       transports: ['websocket', 'polling'],

@@ -207,13 +207,17 @@ export class PublicEventsController {
   }
 
   /**
-   * Public Live Stage Feed: Returns the most recent live score and recent evaluation strip (Zero PII)
+   * Public Live Stage Feed: Returns active contestant with full cumulative score + live descending leaderboard
    */
   @Get(':slug/live-stage')
   async getLiveStage(@Param('slug') slug: string) {
     const event = await this.findEventBySlugOrId(slug);
     if (!event) throw new NotFoundException('Event not found.');
 
+    // 1. Fetch live leaderboard across all contestants in this event, sorted descending by cumulative score
+    const finalScores = await this.scoringService.getFinalScores({ eventId: event.id });
+
+    // 2. Fetch recent score transactions to identify the active live contestant
     const recentScores = await this.db.score.findMany({
       where: {
         round: { category: { eventId: event.id } },
@@ -225,36 +229,68 @@ export class PublicEventsController {
       take: 10,
     });
 
-    const activeScore = recentScores[0]
-      ? {
-          eventId: event.id,
-          contestantId: recentScores[0].contestantId,
-          categoryName: recentScores[0].round.category.name,
-          categoryCode: recentScores[0].round.category.code,
-          roundName: recentScores[0].round.name,
-          roundMaxMarks: recentScores[0].round.maxMarks,
-          totalScore: recentScores[0].value,
-          status: recentScores[0].locked ? ('LOCKED' as const) : ('DRAFT' as const),
-          timestamp: recentScores[0].submittedAt ? recentScores[0].submittedAt.toISOString() : new Date().toISOString(),
-        }
-      : null;
+    const latest = recentScores[0] || null;
+    let activeScore: any = null;
 
-    const recent = recentScores.map((s) => ({
-      eventId: event.id,
-      contestantId: s.contestantId,
-      categoryName: s.round.category.name,
-      categoryCode: s.round.category.code,
-      roundName: s.round.name,
-      roundMaxMarks: s.round.maxMarks,
-      totalScore: s.value,
-      status: s.locked ? ('LOCKED' as const) : ('DRAFT' as const),
-      timestamp: s.submittedAt ? s.submittedAt.toISOString() : new Date().toISOString(),
+    if (latest) {
+      // Match with the contestant's full cumulative record
+      const matchedRecord = finalScores.find((f: any) => f.contestantId === latest.contestantId);
+
+      activeScore = {
+        eventId: event.id,
+        contestantId: latest.contestantId,
+        categoryName: latest.round.category.name,
+        categoryCode: latest.round.category.code,
+        roundName: latest.round.name,
+        roundMaxMarks: latest.round.maxMarks,
+        roundScore: latest.value,
+        totalCumulativeScore: matchedRecord ? matchedRecord.cumulativeScore : latest.value,
+        availableMaxMarks: matchedRecord ? matchedRecord.currentAvailableMaxMarks : latest.round.maxMarks,
+        rank: matchedRecord ? matchedRecord.rank : 1,
+        percentage: matchedRecord ? matchedRecord.percentage : 0,
+        status: latest.locked ? ('LOCKED' as const) : ('DRAFT' as const),
+        timestamp: latest.submittedAt ? latest.submittedAt.toISOString() : new Date().toISOString(),
+      };
+    } else if (finalScores.length > 0) {
+      // Fallback to top ranked contestant if no recent score transaction
+      const top = finalScores[0];
+      activeScore = {
+        eventId: event.id,
+        contestantId: top.contestantId,
+        categoryName: top.category,
+        categoryCode: top.categoryCode,
+        roundName: 'Official Evaluation',
+        roundMaxMarks: top.currentAvailableMaxMarks,
+        roundScore: top.cumulativeScore,
+        totalCumulativeScore: top.cumulativeScore,
+        availableMaxMarks: top.currentAvailableMaxMarks,
+        rank: top.rank,
+        percentage: top.percentage,
+        status: top.isLocked ? ('LOCKED' as const) : ('DRAFT' as const),
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    // Leaderboard sorted descending by rank / cumulative score (High to Low)
+    const leaderboard = finalScores.map((row) => ({
+      rank: row.rank,
+      contestantId: row.contestantId,
+      category: row.category,
+      categoryCode: row.categoryCode,
+      cumulativeScore: row.cumulativeScore,
+      availableMaxMarks: row.currentAvailableMaxMarks,
+      percentage: row.percentage,
+      adminScore: row.adminScore?.total ?? 0,
+      judgeTotal: row.judgeTotal ?? 0,
+      isKids: row.isKids,
+      allLocked: !!row.isLocked,
+      isLatestUpdated: latest ? latest.contestantId === row.contestantId : false,
     }));
 
     return {
       event: { id: event.id, name: event.name, code: event.code, location: event.location },
       activeScore,
-      recentScores: recent,
+      leaderboard,
     };
   }
 

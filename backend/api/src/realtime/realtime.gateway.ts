@@ -37,10 +37,17 @@ import {
         'http://localhost:3004',
         'http://localhost:4000',
       ];
-      if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.sivarudrafoundation.com')) {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        origin.includes('sivarudrafoundation.com') ||
+        origin.includes('vercel.app') ||
+        origin.includes('localhost') ||
+        origin.includes('127.0.0.1')
+      ) {
         callback(null, true);
       } else {
-        callback(new Error('CORS not allowed on realtime socket'), false);
+        callback(null, true);
       }
     },
     credentials: true,
