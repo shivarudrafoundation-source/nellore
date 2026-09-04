@@ -94,7 +94,8 @@ export class RoundsService {
   }
 
   async create(data: {
-    categoryId: string;
+    categoryId?: string;
+    categoryIds?: string[];
     eventId: string;
     name: string;
     maxMarks: number;
@@ -105,20 +106,31 @@ export class RoundsService {
     status?: string;
     subCriteria?: any;
   }, actorId: string, ipAddress?: string) {
-    if (!data.categoryId) throw new BadRequestException('Category ID is required.');
     if (!data.eventId) throw new BadRequestException('Event ID is required.');
     if (!data.name?.trim()) throw new BadRequestException('Round name is required.');
     if (typeof data.maxMarks !== 'number' || data.maxMarks <= 0) throw new BadRequestException('Maximum marks must be greater than 0.');
     if (typeof data.day !== 'number' || data.day <= 0) throw new BadRequestException('Day must be a positive number.');
 
-    // Verify category exists AND belongs to the specified event
-    const category = await this.db.category.findUnique({
-      where: { id: data.categoryId },
-      select: { id: true, eventId: true },
+    const targetCategoryIds: string[] = [];
+    if (data.categoryIds && Array.isArray(data.categoryIds) && data.categoryIds.length > 0) {
+      targetCategoryIds.push(...data.categoryIds);
+    } else if (data.categoryId) {
+      targetCategoryIds.push(data.categoryId);
+    } else {
+      throw new BadRequestException('At least one Category must be selected.');
+    }
+
+    // Verify categories exist AND belong to the specified event
+    const categories = await this.db.category.findMany({
+      where: {
+        id: { in: targetCategoryIds },
+        eventId: data.eventId,
+      },
+      select: { id: true, name: true, code: true },
     });
-    if (!category) throw new BadRequestException('Category not found.');
-    if (category.eventId !== data.eventId) {
-      throw new BadRequestException('Selected category does not belong to the selected event.');
+
+    if (categories.length === 0) {
+      throw new BadRequestException('No valid categories found for the selected event.');
     }
 
     // Validate status
@@ -138,35 +150,51 @@ export class RoundsService {
       this.validateSubCriteria(data.subCriteria);
     }
 
-    // Check unique name within category
-    const existing = await this.db.round.findUnique({
-      where: { categoryId_name: { categoryId: data.categoryId, name: data.name.trim() } },
-    });
-    if (existing) throw new ConflictException('A round with this name already exists in this category.');
-
     const sortOrder = data.sortOrder && data.sortOrder > 0 ? data.sortOrder : 1;
     const judgesRequired = data.judgesRequired && data.judgesRequired > 0 ? data.judgesRequired : 1;
 
-    const round = await this.db.round.create({
-      data: {
-        categoryId: data.categoryId,
-        name: data.name.trim(),
-        maxMarks: data.maxMarks,
-        scoredBy,
-        day: data.day,
-        sortOrder,
-        judgesRequired,
-        status: status as any,
-        subCriteria: data.subCriteria || null,
-      },
-    });
+    const createdRounds = [];
 
-    await this.audit.log({
-      actorType: 'ADMIN', actorId, action: 'ROUND_CREATED', entity: 'Round',
-      entityId: round.id, after: { name: round.name, categoryId: data.categoryId, maxMarks: round.maxMarks }, ipAddress,
-    });
+    for (const cat of categories) {
+      // Check unique name within category
+      const existing = await this.db.round.findUnique({
+        where: { categoryId_name: { categoryId: cat.id, name: data.name.trim() } },
+      });
 
-    return round;
+      if (!existing) {
+        const round = await this.db.round.create({
+          data: {
+            categoryId: cat.id,
+            name: data.name.trim(),
+            maxMarks: data.maxMarks,
+            scoredBy,
+            day: data.day,
+            sortOrder,
+            judgesRequired,
+            status: status as any,
+            subCriteria: data.subCriteria || null,
+          },
+        });
+
+        createdRounds.push(round);
+
+        await this.audit.log({
+          actorType: 'ADMIN',
+          actorId,
+          action: 'ROUND_CREATED',
+          entity: 'Round',
+          entityId: round.id,
+          after: { name: round.name, categoryId: cat.id, maxMarks: round.maxMarks },
+          ipAddress,
+        });
+      }
+    }
+
+    if (createdRounds.length === 0 && categories.length > 0) {
+      throw new ConflictException('Rounds with this name already exist in all selected categories.');
+    }
+
+    return createdRounds.length === 1 ? createdRounds[0] : { created: createdRounds.length, rounds: createdRounds };
   }
 
   async update(id: string, data: {
