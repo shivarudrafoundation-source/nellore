@@ -18,6 +18,8 @@ function ScoringContent() {
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [events, setEvents] = useState<any[]>([]);
   const [selectedEventId, setSelectedEventId] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [eventCategories, setEventCategories] = useState<any[]>([]);
   const [selectedLockStatus, setSelectedLockStatus] = useState('');
   const [contestantSearch, setContestantSearch] = useState('');
   const [selectedScoreModal, setSelectedScoreModal] = useState<any | null>(null);
@@ -30,6 +32,7 @@ function ScoringContent() {
   // Final Matrix state
   const [finalScores, setFinalScores] = useState<any[]>([]);
   const [finalCategoryFilter, setFinalCategoryFilter] = useState('');
+  const [finalContestantSearch, setFinalContestantSearch] = useState('');
   const [finalLoading, setFinalLoading] = useState(false);
 
   // Round Standings state (Phase 6F)
@@ -134,6 +137,24 @@ function ScoringContent() {
     loadEvents();
   }, []);
 
+  // Fetch categories for selected event (for Final Matrix & Ledger)
+  useEffect(() => {
+    if (!selectedEventId) {
+      setEventCategories([]);
+      return;
+    }
+    async function loadEventCats() {
+      try {
+        const res = await fetch(`${API}/admin/categories?eventId=${selectedEventId}&limit=50`, { credentials: 'include' });
+        if (res.ok) {
+          const d = await res.json();
+          setEventCategories(d.data || []);
+        }
+      } catch {}
+    }
+    loadEventCats();
+  }, [selectedEventId]);
+
   // Fetch categories for Standings
   useEffect(() => {
     if (!standingsEventId) return;
@@ -234,6 +255,7 @@ function ScoringContent() {
       const params = new URLSearchParams();
       if (selectedEventId) params.set('eventId', selectedEventId);
       if (finalCategoryFilter) params.set('categoryId', finalCategoryFilter);
+      if (finalContestantSearch.trim()) params.set('contestantId', finalContestantSearch.trim());
 
       const res = await fetch(`${API}/admin/scoring/final-scores?${params}`, {
         credentials: 'include',
@@ -247,7 +269,7 @@ function ScoringContent() {
     } finally {
       setFinalLoading(false);
     }
-  }, [selectedEventId, finalCategoryFilter]);
+  }, [selectedEventId, finalCategoryFilter, finalContestantSearch]);
 
   // 4. Real-time Live Score Updates without Browser Refresh
   const handleLiveScoreEvent = useCallback((event: any) => {
@@ -336,7 +358,8 @@ function ScoringContent() {
         });
 
         if (selectedEventId) params.set('eventId', selectedEventId);
-        if (contestantSearch) params.set('contestantId', contestantSearch);
+        if (selectedCategoryId) params.set('categoryId', selectedCategoryId);
+        if (contestantSearch.trim()) params.set('contestantId', contestantSearch.trim());
         if (selectedLockStatus) params.set('locked', selectedLockStatus);
 
         const res = await fetch(`${API}/admin/scoring?${params}`, { credentials: 'include' });
@@ -350,14 +373,29 @@ function ScoringContent() {
         setLoading(false);
       }
     },
-    [selectedEventId, contestantSearch, selectedLockStatus],
+    [selectedEventId, selectedCategoryId, contestantSearch, selectedLockStatus],
   );
 
+  // Debounced fetch for Ledger scores
   useEffect(() => {
-    fetchScores(1);
-    fetchFinalScores();
+    const timer = setTimeout(() => {
+      fetchScores(1);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [fetchScores]);
+
+  // Debounced fetch for Final Leaderboard scores
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchFinalScores();
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [fetchFinalScores]);
+
+  // Fetch publication status when event or category changes
+  useEffect(() => {
     fetchPublicationStatus();
-  }, [fetchScores, fetchFinalScores, fetchPublicationStatus]);
+  }, [fetchPublicationStatus]);
 
   const handleUnlockScore = async (scoreId: string) => {
     setActionLoadingId(scoreId);
@@ -501,10 +539,21 @@ function ScoringContent() {
           <Card hoverEffect={false} className="bg-[#0A0A0A] border-luxury-gray-border/20 p-4">
             <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
               <div className="flex flex-col sm:flex-row gap-3 flex-1">
+                <input
+                  type="text"
+                  placeholder="Search by Contestant ID / Number..."
+                  value={finalContestantSearch}
+                  onChange={(e) => setFinalContestantSearch(e.target.value)}
+                  className="flex-1 h-10 bg-[#050505] border border-luxury-gray-border/20 px-4 font-sans text-sm text-luxury-white placeholder:text-luxury-white/25 outline-none focus:border-luxury-gold/40 transition-colors min-w-[200px]"
+                />
+
                 <select
                   value={selectedEventId}
-                  onChange={(e) => setSelectedEventId(e.target.value)}
-                  className="h-10 bg-[#050505] border border-luxury-gray-border/20 px-4 font-sans text-xs text-luxury-white uppercase tracking-luxury outline-none focus:border-luxury-gold/40 flex-1"
+                  onChange={(e) => {
+                    setSelectedEventId(e.target.value);
+                    setFinalCategoryFilter('');
+                  }}
+                  className="h-10 bg-[#050505] border border-luxury-gray-border/20 px-4 font-sans text-xs text-luxury-white uppercase tracking-luxury outline-none focus:border-luxury-gold/40 min-w-[160px]"
                 >
                   {events.map((ev) => (
                     <option key={ev.id} value={ev.id}>
@@ -519,11 +568,21 @@ function ScoringContent() {
                   className="h-10 bg-[#050505] border border-luxury-gray-border/20 px-4 font-sans text-xs text-luxury-white/70 uppercase tracking-luxury outline-none focus:border-luxury-gold/40 min-w-[180px]"
                 >
                   <option value="">All Categories</option>
-                  <option value="KIDS">Kids (/230)</option>
-                  <option value="MR">Mr (/430)</option>
-                  <option value="MISS">Miss (/430)</option>
-                  <option value="MS">Ms (/430)</option>
-                  <option value="TEEN">Teen (/430)</option>
+                  {eventCategories.length > 0 ? (
+                    eventCategories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.code})
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="KIDS">Kids (/230)</option>
+                      <option value="MR">Mr (/430)</option>
+                      <option value="MISS">Miss (/430)</option>
+                      <option value="MS">Ms (/430)</option>
+                      <option value="TEEN">Teen (/430)</option>
+                    </>
+                  )}
                 </select>
 
                 <Button size="sm" variant="outline" onClick={fetchFinalScores}>
@@ -713,19 +772,34 @@ function ScoringContent() {
             <div className="flex flex-col sm:flex-row gap-3">
               <input
                 type="text"
-                placeholder="Search by Contestant ID..."
+                placeholder="Search by Contestant ID / Number..."
                 value={contestantSearch}
                 onChange={(e) => setContestantSearch(e.target.value)}
                 className="flex-1 h-10 bg-[#050505] border border-luxury-gray-border/20 px-4 font-sans text-sm text-luxury-white placeholder:text-luxury-white/20 outline-none focus:border-luxury-gold/40 transition-colors"
               />
               <select
                 value={selectedEventId}
-                onChange={(e) => setSelectedEventId(e.target.value)}
+                onChange={(e) => {
+                  setSelectedEventId(e.target.value);
+                  setSelectedCategoryId('');
+                }}
                 className="h-10 bg-[#050505] border border-luxury-gray-border/20 px-4 font-sans text-xs text-luxury-white uppercase tracking-luxury outline-none focus:border-luxury-gold/40 min-w-[160px]"
               >
                 {events.map((ev) => (
                   <option key={ev.id} value={ev.id}>
                     {ev.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={selectedCategoryId}
+                onChange={(e) => setSelectedCategoryId(e.target.value)}
+                className="h-10 bg-[#050505] border border-luxury-gray-border/20 px-4 font-sans text-xs text-luxury-white/70 uppercase tracking-luxury outline-none focus:border-luxury-gold/40 min-w-[160px]"
+              >
+                <option value="">All Categories</option>
+                {eventCategories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.code})
                   </option>
                 ))}
               </select>

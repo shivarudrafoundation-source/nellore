@@ -754,8 +754,21 @@ export class ScoringService {
   async getFinalScores(query: { eventId?: string; categoryId?: string; contestantId?: string }) {
     const whereContestant: Prisma.ContestantWhereInput = {};
     if (query.eventId) whereContestant.eventId = query.eventId;
-    if (query.categoryId) whereContestant.registration = { categoryId: query.categoryId };
-    if (query.contestantId) whereContestant.id = { contains: query.contestantId, mode: 'insensitive' };
+    if (query.categoryId) {
+      whereContestant.registration = {
+        OR: [
+          { categoryId: query.categoryId },
+          { category: { code: { equals: query.categoryId, mode: 'insensitive' } } },
+          { category: { name: { contains: query.categoryId, mode: 'insensitive' } } },
+        ],
+      };
+    }
+    if (query.contestantId) {
+      whereContestant.OR = [
+        { id: { contains: query.contestantId, mode: 'insensitive' } },
+        { mobile: { contains: query.contestantId } },
+      ];
+    }
 
     const contestants = await this.db.contestant.findMany({
       where: whereContestant,
