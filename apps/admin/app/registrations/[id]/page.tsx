@@ -100,7 +100,6 @@ function RegistrationDetailContent() {
         credentials: 'include',
         body: JSON.stringify({
           contestantId,
-          password: passwordInput.trim(),
         }),
       });
 
@@ -111,7 +110,7 @@ function RegistrationDetailContent() {
 
       setRegistration(d.registration || d);
       setModalOpen(false);
-      setActionMessage(`Payment verified and Contestant ID "${contestantId}" with credentials dispatched to applicant's email!`);
+      setActionMessage(`Payment verified and Contestant ID "${contestantId}" assigned successfully!`);
     } catch (err: any) {
       setModalError(err.message);
     } finally {
@@ -329,10 +328,10 @@ function RegistrationDetailContent() {
           <div className="bg-[#0A0A0A] border border-luxury-gold/40 w-full max-w-md p-6 space-y-5 shadow-2xl rounded-sm">
             <div className="border-b border-luxury-gray-border/20 pb-3">
               <span className="font-sans text-[9px] tracking-[0.24em] text-luxury-gold uppercase font-bold block">
-                PAYMENT VERIFICATION & CREDENTIAL DISPATCH
+                ADMIN PAYMENT VERIFICATION
               </span>
               <h3 className="font-serif text-xl font-light text-white mt-1">
-                Assign Contestant ID & Password
+                Confirm & Assign Contestant ID
               </h3>
             </div>
 
@@ -391,46 +390,14 @@ function RegistrationDetailContent() {
                 </span>
               </div>
 
-              <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <label className="block text-[10px] font-mono uppercase tracking-[0.2em] text-white/60">
-                    Contestant Login Password *
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setPasswordInput(generateRandomPassword())}
-                    className="text-[10px] text-luxury-gold hover:underline font-mono uppercase"
-                  >
-                    Generate Password
-                  </button>
-                </div>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={passwordInput}
-                    onChange={(e) => setPasswordInput(e.target.value)}
-                    placeholder="Enter or generate password"
-                    className="w-full bg-[#050505] border border-luxury-gold/50 focus:border-luxury-gold px-3.5 py-2.5 font-mono text-sm text-white focus:outline-none rounded-sm pr-16"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-white/50 hover:text-white font-mono uppercase px-1.5 py-1 bg-white/5 rounded"
-                  >
-                    {showPassword ? 'HIDE' : 'SHOW'}
-                  </button>
-                </div>
-              </div>
-
               <div className="p-3 bg-luxury-gold/10 border border-luxury-gold/30 rounded-sm space-y-1">
                 <div className="flex items-center gap-1.5 text-xs text-luxury-gold font-semibold">
                   <span>✉</span>
-                  <span>Instant Email Notification</span>
+                  <span>Official Contestant Accreditation</span>
                 </div>
                 <p className="text-[11px] text-white/70 leading-relaxed">
-                  Upon verification, the <strong>Contestant ID</strong> and <strong>Password</strong> will be dispatched to{' '}
-                  <span className="text-white font-mono">{base.email || 'registrant email'}</span> with login URL.
+                  Upon verification, the <strong>Contestant ID</strong> will be assigned and an official confirmation email will be dispatched to{' '}
+                  <span className="text-white font-mono">{base.email || 'registrant email'}</span>. The contestant will log in to the portal using their own registered password.
                 </p>
               </div>
 
@@ -440,7 +407,7 @@ function RegistrationDetailContent() {
                   disabled={actionLoading}
                   className="flex-1 bg-luxury-gold hover:bg-luxury-gold/80 text-black font-bold uppercase tracking-wider text-xs"
                 >
-                  {actionLoading ? 'DISPATCHING...' : 'VERIFY & DISPATCH CREDENTIALS ↗'}
+                  {actionLoading ? 'CONFIRMING...' : 'CONFIRM & ASSIGN CONTESTANT ID ↗'}
                 </Button>
                 <Button
                   type="button"
