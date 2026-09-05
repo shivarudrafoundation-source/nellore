@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { AuthGuard } from '../components/auth-guard';
 import { AdminShell } from '../components/admin-shell';
+import { ConfirmModal } from '../components/confirm-modal';
 import { Card, Button, Input } from '@srf/ui';
 
 interface GalleryItem {
@@ -38,7 +39,15 @@ const initialMedia: GalleryItem[] = [
   },
 ];
 
-function GalleryCard({ item, isPriority }: { item: GalleryItem; isPriority: boolean }) {
+function GalleryCard({
+  item,
+  isPriority,
+  onDelete,
+}: {
+  item: GalleryItem;
+  isPriority: boolean;
+  onDelete: (item: GalleryItem) => void;
+}) {
   const [imageStatus, setImageStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
 
   return (
@@ -101,18 +110,33 @@ function GalleryCard({ item, isPriority }: { item: GalleryItem; isPriority: bool
           </span>
         </div>
 
+        {/* Delete button overlay */}
+        <div className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={() => onDelete(item)}
+            className="px-2 py-1 bg-red-950/80 hover:bg-red-900 border border-red-500/50 text-red-200 font-sans text-[9px] tracking-wider uppercase font-bold rounded-sm shadow-md transition-colors"
+          >
+            DELETE ✕
+          </button>
+        </div>
+
         {/* Subtle gradient vignette */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 pointer-events-none" />
       </div>
 
       {/* Card Description Block */}
-      <div className="p-5 space-y-2 border-t border-luxury-gray-border/10 bg-[#0A0A0A]">
+      <div className="p-5 space-y-2 border-t border-luxury-gray-border/10 bg-[#0A0A0A] flex flex-col justify-between flex-1">
         <h4 className="font-serif text-sm font-light text-luxury-white tracking-wide leading-snug">
           {item.title}
         </h4>
-        <div className="flex items-center justify-between text-[10px] font-mono text-luxury-white/40">
-          <span className="truncate max-w-[200px]">{item.src}</span>
-          {item.createdAt && <span>{item.createdAt}</span>}
+        <div className="flex items-center justify-between text-[10px] font-mono text-luxury-white/40 pt-2 border-t border-luxury-gray-border/5">
+          <span className="truncate max-w-[180px]">{item.src}</span>
+          <button
+            onClick={() => onDelete(item)}
+            className="text-red-400/60 hover:text-red-400 font-sans text-[10px] tracking-wider font-bold uppercase transition-colors"
+          >
+            DELETE
+          </button>
         </div>
       </div>
     </Card>
@@ -126,6 +150,15 @@ function GalleryContent() {
   const [newSrc, setNewSrc] = useState('');
   const [newCategory, setNewCategory] = useState('Event Banner');
   const [formError, setFormError] = useState('');
+
+  // Delete State
+  const [deleteTarget, setDeleteTarget] = useState<GalleryItem | null>(null);
+
+  const handleDeleteMedia = () => {
+    if (!deleteTarget) return;
+    setMediaList((prev) => prev.filter((m) => m.id !== deleteTarget.id));
+    setDeleteTarget(null);
+  };
 
   const validateUrl = (url: string): boolean => {
     if (!url.trim()) return false;
@@ -186,9 +219,24 @@ function GalleryContent() {
       {/* Grid of Gallery Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {mediaList.map((m, idx) => (
-          <GalleryCard key={m.id} item={m} isPriority={idx === 0} />
+          <GalleryCard
+            key={m.id}
+            item={m}
+            isPriority={idx === 0}
+            onDelete={(item) => setDeleteTarget(item)}
+          />
         ))}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="DELETE MEDIA ASSET?"
+        message={`Are you sure you want to remove "${deleteTarget?.title}" from the gallery?`}
+        confirmLabel="DELETE ASSET"
+        onConfirm={handleDeleteMedia}
+        onCancel={() => setDeleteTarget(null)}
+      />
 
       {/* Add Media Modal */}
       {modalOpen && (

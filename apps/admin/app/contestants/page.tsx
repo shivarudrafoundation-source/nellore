@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AuthGuard } from '../components/auth-guard';
 import { AdminShell } from '../components/admin-shell';
 import { Pagination } from '../components/pagination';
+import { ConfirmModal } from '../components/confirm-modal';
 import { Card, getApiBaseUrl } from '@srf/ui';
 
 const API = getApiBaseUrl();
@@ -21,6 +22,33 @@ function ContestantsContent() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Delete State
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    setDeleteError('');
+    try {
+      const res = await fetch(`${API}/admin/contestants/${deleteTarget.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.message || 'Failed to delete contestant.');
+      }
+      setDeleteTarget(null);
+      fetchContestants(pagination.page);
+    } catch (err: any) {
+      setDeleteError(err.message);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
 
   useEffect(() => {
     async function loadEvents() {
@@ -202,12 +230,21 @@ function ContestantsContent() {
                           year: 'numeric',
                         })}
                       </td>
-                      <td className="py-3 px-4 pr-6">
+                      <td className="py-3 px-4 pr-6 flex items-center gap-3">
                         <button
                           onClick={() => router.push(`/contestants/${c.id}`)}
                           className="font-sans text-[10px] tracking-luxury text-luxury-gold hover:text-luxury-white uppercase font-bold transition-colors"
                         >
                           VIEW PROFILE
+                        </button>
+                        <button
+                          onClick={() => {
+                            setDeleteTarget(c);
+                            setDeleteError('');
+                          }}
+                          className="font-sans text-[10px] tracking-luxury text-red-400/60 hover:text-red-400 uppercase font-bold transition-colors"
+                        >
+                          DELETE
                         </button>
                       </td>
                     </tr>
@@ -226,6 +263,23 @@ function ContestantsContent() {
           </div>
         </Card>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="DELETE CONTESTANT?"
+        message={
+          deleteError ||
+          `Are you sure you want to permanently delete contestant "${deleteTarget?.id}" (${deleteTarget?.registration?.baseFields?.name || 'Contestant'})? This will remove all their logged scores.`
+        }
+        confirmLabel="DELETE CONTESTANT"
+        onConfirm={handleDelete}
+        onCancel={() => {
+          setDeleteTarget(null);
+          setDeleteError('');
+        }}
+        loading={deleteLoading}
+      />
     </div>
   );
 }

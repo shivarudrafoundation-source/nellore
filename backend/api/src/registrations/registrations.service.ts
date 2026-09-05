@@ -892,4 +892,65 @@ export class RegistrationsService {
       };
     });
   }
+
+  async deleteRegistration(id: string, adminId: string, ipAddress?: string) {
+    const reg = await this.db.registration.findUnique({
+      where: { id },
+      include: {
+        contestant: true,
+      },
+    });
+
+    if (!reg) {
+      throw new NotFoundException('Registration record not found.');
+    }
+
+    await this.db.$transaction(async (tx) => {
+      if (reg.contestant) {
+        // Delete any scores associated with the contestant
+        await tx.score.deleteMany({
+          where: { contestantId: reg.contestant.id },
+        });
+
+        // Disconnect contestantId before deleting contestant to avoid foreign key constraints
+        await tx.registration.update({
+          where: { id: reg.id },
+          data: { contestantId: null },
+        });
+
+        // Delete contestant
+        await tx.contestant.delete({
+          where: { id: reg.contestant.id },
+        });
+      }
+
+      // Delete registration
+      await tx.registration.delete({
+        where: { id },
+      });
+    });
+
+    await this.audit.log({
+      actorType: 'ADMIN',
+      actorId: adminId,
+      action: 'REGISTRATION_DELETED',
+      entity: 'Registration',
+      entityId: id,
+      before: {
+        id: reg.id,
+        eventId: reg.eventId,
+        categoryId: reg.categoryId,
+        baseFields: reg.baseFields,
+        contestantId: reg.contestantId,
+      },
+      after: null,
+      ipAddress,
+    });
+
+    return {
+      success: true,
+      message: 'Registration deleted successfully.',
+    };
+  }
 }
+

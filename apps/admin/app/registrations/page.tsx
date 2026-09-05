@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AuthGuard } from '../components/auth-guard';
 import { AdminShell } from '../components/admin-shell';
 import { Pagination } from '../components/pagination';
+import { ConfirmModal } from '../components/confirm-modal';
 import { Card, Button, getApiBaseUrl } from '@srf/ui';
 
 const API = getApiBaseUrl();
@@ -23,6 +24,11 @@ function RegistrationsContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Delete State
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
   // Payment Verification Modal State
   const [verifyModalOpen, setVerifyModalOpen] = useState(false);
   const [selectedReg, setSelectedReg] = useState<any | null>(null);
@@ -31,6 +37,28 @@ function RegistrationsContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyError, setVerifyError] = useState('');
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    setDeleteError('');
+    try {
+      const res = await fetch(`${API}/admin/registrations/${deleteTarget.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.message || 'Failed to delete registration.');
+      }
+      setDeleteTarget(null);
+      fetchRegistrations(pagination.page);
+    } catch (err: any) {
+      setDeleteError(err.message);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
 
   // Load events
   useEffect(() => {
@@ -301,6 +329,15 @@ function RegistrationsContent() {
                         >
                           DETAILS →
                         </button>
+                        <button
+                          onClick={() => {
+                            setDeleteTarget(reg);
+                            setDeleteError('');
+                          }}
+                          className="font-sans text-[10px] tracking-luxury text-red-400/60 hover:text-red-400 uppercase font-bold transition-colors ml-2"
+                        >
+                          DELETE
+                        </button>
                       </td>
                     </tr>
                   );
@@ -438,6 +475,23 @@ function RegistrationsContent() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="DELETE REGISTRATION?"
+        message={
+          deleteError ||
+          `Are you sure you want to permanently delete registration for "${deleteTarget?.baseFields?.name || deleteTarget?.id}"? This will also remove any assigned contestant ID and scores.`
+        }
+        confirmLabel="DELETE REGISTRATION"
+        onConfirm={handleDelete}
+        onCancel={() => {
+          setDeleteTarget(null);
+          setDeleteError('');
+        }}
+        loading={deleteLoading}
+      />
     </div>
   );
 }

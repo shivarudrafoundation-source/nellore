@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Query, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Query, Body, UseGuards, Req } from '@nestjs/common';
 import { RegistrationsService } from './registrations.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -68,5 +68,12 @@ export class RegistrationsController {
     const user = req.user;
     const ip = req.ip || req.headers?.['x-forwarded-for']?.toString() || undefined;
     return this.registrationsService.updateStatus(id, body as any, user.sub, ip);
+  }
+
+  @Delete(':id')
+  async remove(@Param('id') id: string, @Req() req: any) {
+    const user = req.user;
+    const ip = req.ip || req.headers?.['x-forwarded-for']?.toString() || undefined;
+    return this.registrationsService.deleteRegistration(id, user.sub, ip);
   }
 }

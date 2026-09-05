@@ -530,4 +530,49 @@ export class JudgesService {
 
     return updated;
   }
+
+  async deleteJudge(id: string, actorId: string, ipAddress?: string) {
+    const judge = await this.db.judgeAccount.findUnique({
+      where: { id },
+      include: {
+        scores: true,
+      },
+    });
+
+    if (!judge) throw new NotFoundException('Judge account not found.');
+
+    await this.db.$transaction(async (tx) => {
+      // 1. Delete score evaluations entered by this judge
+      await tx.score.deleteMany({
+        where: { judgeId: id },
+      });
+
+      // 2. Delete the judge account
+      await tx.judgeAccount.delete({
+        where: { id },
+      });
+    });
+
+    await this.audit.log({
+      actorType: 'ADMIN',
+      actorId,
+      action: 'JUDGE_DELETED',
+      entity: 'JudgeAccount',
+      entityId: id,
+      before: {
+        id: judge.id,
+        name: judge.name,
+        email: judge.email,
+        assignedEventId: judge.assignedEventId,
+        assignedCategoryId: judge.assignedCategoryId,
+      },
+      after: null,
+      ipAddress,
+    });
+
+    return {
+      success: true,
+      message: 'Judge account and associated records deleted successfully.',
+    };
+  }
 }

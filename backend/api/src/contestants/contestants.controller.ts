@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { ContestantsService } from './contestants.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -38,4 +38,12 @@ export class ContestantsController {
     const ip = req.ip || req.headers?.['x-forwarded-for']?.toString() || undefined;
     return this.contestantsService.createContestant(body, user.sub, ip);
   }
+
+  @Delete(':id')
+  async remove(@Param('id') id: string, @Req() req: any) {
+    const user = req.user;
+    const ip = req.ip || req.headers?.['x-forwarded-for']?.toString() || undefined;
+    return this.contestantsService.deleteContestant(id, user.sub, ip);
+  }
 }
+

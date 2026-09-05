@@ -26,7 +26,7 @@ function JudgesContent() {
 
   // Action states
   const [targetJudge, setTargetJudge] = useState<any>(null);
-  const [actionType, setActionType] = useState<'disable' | 'enable' | 'reset' | null>(null);
+  const [actionType, setActionType] = useState<'disable' | 'enable' | 'reset' | 'delete' | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState('');
   const [tempPasswordModal, setTempPasswordModal] = useState<{ open: boolean; password: string }>({
@@ -99,21 +99,32 @@ function JudgesContent() {
     setActionLoading(true);
     setActionError('');
     try {
-      let endpoint = '';
-      if (actionType === 'disable') endpoint = `${API}/admin/judges/${targetJudge.id}/disable`;
-      if (actionType === 'enable') endpoint = `${API}/admin/judges/${targetJudge.id}/enable`;
-      if (actionType === 'reset') endpoint = `${API}/admin/judges/${targetJudge.id}/reset-password`;
+      if (actionType === 'delete') {
+        const res = await fetch(`${API}/admin/judges/${targetJudge.id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+        if (!res.ok) {
+          const d = await res.json();
+          throw new Error(d.message || 'Failed to delete judge account.');
+        }
+      } else {
+        let endpoint = '';
+        if (actionType === 'disable') endpoint = `${API}/admin/judges/${targetJudge.id}/disable`;
+        if (actionType === 'enable') endpoint = `${API}/admin/judges/${targetJudge.id}/enable`;
+        if (actionType === 'reset') endpoint = `${API}/admin/judges/${targetJudge.id}/reset-password`;
 
-      const res = await fetch(endpoint, { method: 'POST', credentials: 'include' });
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.message || 'Action failed.');
-      }
+        const res = await fetch(endpoint, { method: 'POST', credentials: 'include' });
+        if (!res.ok) {
+          const d = await res.json();
+          throw new Error(d.message || 'Action failed.');
+        }
 
-      const result = await res.json();
+        const result = await res.json();
 
-      if (actionType === 'reset' && result.temporaryPassword) {
-        setTempPasswordModal({ open: true, password: result.temporaryPassword });
+        if (actionType === 'reset' && result.temporaryPassword) {
+          setTempPasswordModal({ open: true, password: result.temporaryPassword });
+        }
       }
 
       setActionType(null);
@@ -296,6 +307,16 @@ function JudgesContent() {
                             ENABLE
                           </button>
                         )}
+                        <button
+                          onClick={() => {
+                            setTargetJudge(j);
+                            setActionType('delete');
+                            setActionError('');
+                          }}
+                          className="font-sans text-[10px] tracking-luxury text-red-500/80 hover:text-red-400 uppercase font-bold transition-colors ml-1"
+                        >
+                          DELETE
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -318,7 +339,9 @@ function JudgesContent() {
       <ConfirmModal
         open={!!actionType}
         title={
-          actionType === 'reset'
+          actionType === 'delete'
+            ? 'DELETE JUDGE ACCOUNT?'
+            : actionType === 'reset'
             ? 'RESET JUDGE PASSWORD?'
             : actionType === 'disable'
             ? 'DISABLE JUDGE ACCOUNT?'
@@ -326,13 +349,23 @@ function JudgesContent() {
         }
         message={
           actionError ||
-          (actionType === 'reset'
+          (actionType === 'delete'
+            ? `Are you sure you want to permanently delete judge account "${targetJudge?.name}" (${targetJudge?.email})? This will remove the judge account and their score logs.`
+            : actionType === 'reset'
             ? `Are you sure you want to reset password for "${targetJudge?.name}"? A new temporary password will be generated and shown ONCE.`
             : actionType === 'disable'
             ? `Judge "${targetJudge?.name}" will immediately lose access to the Judge scoring portal.`
             : `Judge "${targetJudge?.name}" will be granted access to the scoring portal.`)
         }
-        confirmLabel={actionType === 'reset' ? 'RESET PASSWORD' : actionType === 'disable' ? 'DISABLE' : 'ENABLE'}
+        confirmLabel={
+          actionType === 'delete'
+            ? 'DELETE ACCOUNT'
+            : actionType === 'reset'
+            ? 'RESET PASSWORD'
+            : actionType === 'disable'
+            ? 'DISABLE'
+            : 'ENABLE'
+        }
         onConfirm={handleActionConfirm}
         onCancel={() => {
           setActionType(null);

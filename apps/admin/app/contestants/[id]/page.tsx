@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AuthGuard } from '../../components/auth-guard';
 import { AdminShell } from '../../components/admin-shell';
+import { ConfirmModal } from '../../components/confirm-modal';
 import { Card, Button, ContestantIdCard, getApiBaseUrl } from '@srf/ui';
 
 const API = getApiBaseUrl();
@@ -24,6 +25,31 @@ function ContestantDetailContent() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
   const [modalError, setModalError] = useState('');
+
+  // Delete State
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  const handleDeleteContestant = async () => {
+    setDeleteLoading(true);
+    setDeleteError('');
+    try {
+      const res = await fetch(`${API}/admin/contestants/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.message || 'Failed to delete contestant.');
+      }
+      router.push('/contestants');
+    } catch (err: any) {
+      setDeleteError(err.message);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
 
   // Admin Score Modal State
   const [adminScoreModalOpen, setAdminScoreModalOpen] = useState(false);
@@ -227,6 +253,17 @@ function ContestantDetailContent() {
               </Link>
             </>
           )}
+
+          <Button
+            size="sm"
+            onClick={() => {
+              setDeleteError('');
+              setDeleteModalOpen(true);
+            }}
+            className="bg-red-600 hover:bg-red-700 text-white font-bold tracking-wider text-xs"
+          >
+            DELETE CONTESTANT
+          </Button>
         </div>
       </div>
 
@@ -632,6 +669,23 @@ function ContestantDetailContent() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        open={deleteModalOpen}
+        title="DELETE CONTESTANT?"
+        message={
+          deleteError ||
+          `Are you sure you want to permanently delete contestant "${contestant?.id}" (${contestant?.registration?.baseFields?.name || 'Contestant'})? This will remove all their logged scores.`
+        }
+        confirmLabel="DELETE CONTESTANT"
+        onConfirm={handleDeleteContestant}
+        onCancel={() => {
+          setDeleteModalOpen(false);
+          setDeleteError('');
+        }}
+        loading={deleteLoading}
+      />
 
       <div className="pt-4">
         <Button variant="text" onClick={() => router.push('/contestants')}>

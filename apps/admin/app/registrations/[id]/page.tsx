@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AuthGuard } from '../../components/auth-guard';
 import { AdminShell } from '../../components/admin-shell';
+import { ConfirmModal } from '../../components/confirm-modal';
 import { Card, Button, ContestantIdCard, getApiBaseUrl } from '@srf/ui';
 
 const API = getApiBaseUrl();
@@ -20,6 +21,11 @@ function RegistrationDetailContent() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
 
+  // Delete State
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [resendModalOpen, setResendModalOpen] = useState(false);
@@ -28,6 +34,26 @@ function RegistrationDetailContent() {
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [modalError, setModalError] = useState('');
+
+  const handleDeleteRegistration = async () => {
+    setDeleteLoading(true);
+    setDeleteError('');
+    try {
+      const res = await fetch(`${API}/admin/registrations/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.message || 'Failed to delete registration.');
+      }
+      router.push('/registrations');
+    } catch (err: any) {
+      setDeleteError(err.message);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
 
   const generateRandomPassword = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
@@ -224,6 +250,17 @@ function RegistrationDetailContent() {
               VERIFY PAYMENT & ASSIGN ID ↗
             </Button>
           )}
+
+          <Button
+            size="sm"
+            onClick={() => {
+              setDeleteError('');
+              setDeleteModalOpen(true);
+            }}
+            className="bg-red-600 hover:bg-red-700 text-white font-bold tracking-wider text-xs"
+          >
+            DELETE REGISTRATION
+          </Button>
         </div>
       </div>
 
@@ -558,6 +595,23 @@ function RegistrationDetailContent() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        open={deleteModalOpen}
+        title="DELETE REGISTRATION?"
+        message={
+          deleteError ||
+          `Are you sure you want to permanently delete registration for "${registration?.baseFields?.name || registration?.id}"? This action is irreversible and will remove any associated contestant and scores.`
+        }
+        confirmLabel="DELETE REGISTRATION"
+        onConfirm={handleDeleteRegistration}
+        onCancel={() => {
+          setDeleteModalOpen(false);
+          setDeleteError('');
+        }}
+        loading={deleteLoading}
+      />
     </div>
   );
 }

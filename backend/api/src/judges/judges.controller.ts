@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Query,
   Body,
@@ -93,5 +94,12 @@ export class JudgesController {
     const user = req.user;
     const ip = req.ip || req.headers?.['x-forwarded-for']?.toString() || undefined;
     return this.judgesService.enable(id, user.sub, ip);
+  }
+
+  @Delete(':id')
+  async remove(@Param('id') id: string, @Req() req: any) {
+    const user = req.user;
+    const ip = req.ip || req.headers?.['x-forwarded-for']?.toString() || undefined;
+    return this.judgesService.deleteJudge(id, user.sub, ip);
   }
 }

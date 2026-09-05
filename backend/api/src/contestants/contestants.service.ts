@@ -268,4 +268,58 @@ export class ContestantsService {
       categoryId: contestant.registration?.categoryId || contestant.categoryId,
     };
   }
+
+  async deleteContestant(id: string, adminId: string, ipAddress?: string) {
+    const contestant = await this.db.contestant.findUnique({
+      where: { id },
+      include: {
+        registration: true,
+      },
+    });
+
+    if (!contestant) {
+      throw new NotFoundException('Contestant record not found.');
+    }
+
+    await this.db.$transaction(async (tx) => {
+      // 1. Delete associated scores
+      await tx.score.deleteMany({
+        where: { contestantId: id },
+      });
+
+      // 2. Unlink contestant from registration if exists
+      if (contestant.registration) {
+        await tx.registration.update({
+          where: { id: contestant.registration.id },
+          data: { contestantId: null },
+        });
+      }
+
+      // 3. Delete contestant
+      await tx.contestant.delete({
+        where: { id },
+      });
+    });
+
+    await this.audit.log({
+      actorType: 'ADMIN',
+      actorId: adminId,
+      action: 'CONTESTANT_DELETED',
+      entity: 'Contestant',
+      entityId: id,
+      before: {
+        id: contestant.id,
+        eventId: contestant.eventId,
+        registrationId: contestant.registrationId,
+        mobile: contestant.mobile,
+      },
+      after: null,
+      ipAddress,
+    });
+
+    return {
+      success: true,
+      message: 'Contestant deleted successfully.',
+    };
+  }
 }

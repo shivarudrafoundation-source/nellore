@@ -35,7 +35,7 @@ function JudgeDetailContent() {
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignError, setAssignError] = useState('');
 
-  const [confirmAction, setConfirmAction] = useState<'disable' | 'enable' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'disable' | 'enable' | 'delete' | null>(null);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [newPasswordInput, setNewPasswordInput] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -271,6 +271,19 @@ function JudgeDetailContent() {
     setActionLoading(true);
     setActionError('');
     try {
+      if (confirmAction === 'delete') {
+        const res = await fetch(`${API}/admin/judges/${id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        });
+        if (!res.ok) {
+          const d = await res.json();
+          throw new Error(d.message || 'Failed to delete judge account.');
+        }
+        router.push('/judges');
+        return;
+      }
+
       let endpoint = '';
       if (confirmAction === 'disable') endpoint = `${API}/admin/judges/${id}/disable`;
       if (confirmAction === 'enable') endpoint = `${API}/admin/judges/${id}/enable`;
@@ -363,6 +376,13 @@ function JudgeDetailContent() {
               ENABLE
             </Button>
           )}
+          <Button
+            size="sm"
+            onClick={() => setConfirmAction('delete')}
+            className="bg-red-800 hover:bg-red-900 text-white font-bold"
+          >
+            DELETE ACCOUNT
+          </Button>
         </div>
       </div>
 
@@ -745,18 +765,36 @@ function JudgeDetailContent() {
         </div>
       )}
 
-      {/* Disable/Enable Confirmation */}
+      {/* Disable/Enable/Delete Confirmation */}
       <ConfirmModal
         open={confirmAction !== null}
-        onCancel={() => setConfirmAction(null)}
+        onCancel={() => {
+          setConfirmAction(null);
+          setActionError('');
+        }}
         onConfirm={handleActionConfirm}
-        title={confirmAction === 'disable' ? 'Disable Judge Account' : 'Enable Judge Account'}
-        message={`Are you sure you want to ${confirmAction} "${judge.name}"? ${
-          confirmAction === 'disable'
-            ? 'They will be immediately logged out and unable to submit scores.'
-            : 'They will be able to log in and score assigned contestants.'
-        }`}
-        confirmLabel={confirmAction === 'disable' ? 'DISABLE ACCOUNT' : 'ENABLE ACCOUNT'}
+        title={
+          confirmAction === 'delete'
+            ? 'DELETE JUDGE ACCOUNT?'
+            : confirmAction === 'disable'
+            ? 'Disable Judge Account'
+            : 'Enable Judge Account'
+        }
+        message={
+          actionError ||
+          (confirmAction === 'delete'
+            ? `Are you sure you want to permanently delete judge account "${judge.name}" (${judge.email})? All associated score records by this judge will also be removed. This action cannot be undone.`
+            : confirmAction === 'disable'
+            ? `Are you sure you want to disable "${judge.name}"? They will be immediately logged out and unable to submit scores.`
+            : `Are you sure you want to enable "${judge.name}"? They will be able to log in and score assigned contestants.`)
+        }
+        confirmLabel={
+          confirmAction === 'delete'
+            ? 'DELETE ACCOUNT'
+            : confirmAction === 'disable'
+            ? 'DISABLE ACCOUNT'
+            : 'ENABLE ACCOUNT'
+        }
         loading={actionLoading}
       />
     </div>
