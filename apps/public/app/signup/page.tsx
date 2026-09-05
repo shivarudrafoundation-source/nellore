@@ -190,6 +190,10 @@ function SignupContent() {
         throw new Error(data.message || 'Account creation failed. Please try again.');
       }
 
+      if (data.tokens?.accessToken) {
+        localStorage.setItem('srf_token', data.tokens.accessToken);
+      }
+
       router.push(returnUrl);
     } catch (err: any) {
       setError(err.message || 'Account creation failed. Please try again.');

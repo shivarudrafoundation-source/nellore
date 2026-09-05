@@ -100,8 +100,12 @@ export default function JudgeScoringConsole() {
       if (rndId) queryParams.set('roundId', rndId);
       const queryStr = queryParams.toString() ? `?${queryParams.toString()}` : '';
 
+      const token = typeof window !== 'undefined' ? localStorage.getItem('srf_token') : null;
       const res = await fetch(`${API}/judge/contestants${queryStr}`, {
         credentials: 'include',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
 
       if (res.status === 401) {

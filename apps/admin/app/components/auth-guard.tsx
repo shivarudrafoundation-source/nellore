@@ -22,9 +22,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     async function checkAuth() {
       try {
         const apiUrl = getApiBaseUrl();
+        const token = typeof window !== 'undefined' ? localStorage.getItem('srf_token') : null;
         const res = await fetch(`${apiUrl}/auth/me`, {
           method: 'GET',
           credentials: 'include',
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         });
 
         if (!res.ok) {

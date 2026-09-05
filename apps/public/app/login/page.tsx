@@ -20,12 +20,18 @@ function LoginContent() {
 
   // Check if already logged in
   useEffect(() => {
-    fetch(`${API_BASE}/auth/user/profile`, { credentials: 'include' })
+    const token = typeof window !== 'undefined' ? localStorage.getItem('srf_token') : null;
+    fetch(`${API_BASE}/auth/user/profile`, {
+      credentials: 'include',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    })
       .then((res) => {
         if (res.ok) router.push(returnUrl);
       })
       .catch(() => {});
-  }, [router, returnUrl]);
+  }, [router, returnUrl, API_BASE]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +52,10 @@ function LoginContent() {
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.message || 'Invalid email or password.');
+      }
+
+      if (data.tokens?.accessToken) {
+        localStorage.setItem('srf_token', data.tokens.accessToken);
       }
 
       router.push(returnUrl);

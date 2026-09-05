@@ -61,8 +61,12 @@ export default function ProfilePage() {
 
   const fetchProfile = async () => {
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('srf_token') : null;
       const res = await fetch(`${API_BASE}/auth/user/profile`, {
         credentials: 'include',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
 
       if (res.status === 401) {
@@ -97,9 +101,13 @@ export default function ProfilePage() {
     setSaveSuccess(false);
 
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('srf_token') : null;
       const res = await fetch(`${API_BASE}/auth/user/profile`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         credentials: 'include',
         body: JSON.stringify({
           name: editName.trim(),

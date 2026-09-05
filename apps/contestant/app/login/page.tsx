@@ -48,6 +48,10 @@ export default function ContestantLoginPage() {
         throw new Error(data.message || 'Invalid Contestant ID, email, or password.');
       }
 
+      if (data.tokens?.accessToken) {
+        localStorage.setItem('srf_token', data.tokens.accessToken);
+      }
+
       // Successful login creates secure HTTPOnly cookie
       router.replace('/');
     } catch (err: any) {

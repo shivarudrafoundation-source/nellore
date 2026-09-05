@@ -12,16 +12,20 @@ export class AuthController {
 
   private getCookieOptions(req?: express.Request) {
     const origin = (req?.headers.origin || '') as string;
+    const host = (req?.headers.host || '') as string;
+    const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1') || host.includes('localhost') || !origin;
+
+    // Only set domain attribute if backend host itself matches the configured COOKIE_DOMAIN.
+    // If backend is on onrender.com and frontend is on vercel.app / custom domain,
+    // setting domain to .shivarudrafoundation.com causes browsers to REJECT the cookie.
     const cookieDomain = process.env.COOKIE_DOMAIN ? process.env.COOKIE_DOMAIN.trim() : '';
-    const isCustomDomain = cookieDomain && origin.includes(cookieDomain.replace(/^\./, ''));
-    const isVercelDomain = origin.includes('vercel.app');
-    const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1') || !origin;
+    const isSameRootDomain = cookieDomain && host.endsWith(cookieDomain.replace(/^\./, ''));
 
     return {
       httpOnly: true,
-      secure: !isLocalhost && process.env.NODE_ENV === 'production',
-      sameSite: (isVercelDomain && !isCustomDomain ? 'none' : 'lax') as 'none' | 'lax',
-      domain: isCustomDomain ? cookieDomain : (origin.includes('sivarudrafoundation.com') ? '.sivarudrafoundation.com' : undefined),
+      secure: !isLocalhost,
+      sameSite: (isLocalhost ? 'lax' : 'none') as 'none' | 'lax',
+      domain: isSameRootDomain ? cookieDomain : undefined,
       path: '/',
     };
   }
@@ -57,7 +61,7 @@ export class AuthController {
     const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
     const result = await this.authService.loginAdmin(body, ipAddress);
     this.setCookies(res, result.tokens, req);
-    return { user: result.user };
+    return { user: result.user, tokens: result.tokens };
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -88,7 +92,7 @@ export class AuthController {
     const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
     const result = await this.authService.loginJudge(body, ipAddress);
     this.setCookies(res, result.tokens, req);
-    return { user: result.user };
+    return { user: result.user, tokens: result.tokens };
   }
 
   @Post('judge/reset-password')
@@ -106,7 +110,7 @@ export class AuthController {
     const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
     const result = await this.authService.loginContestant(body, ipAddress);
     this.setCookies(res, result.tokens, req);
-    return { user: result.user };
+    return { user: result.user, tokens: result.tokens };
   }
 
   @Post('contestant/forgot-password/request-otp')
@@ -142,7 +146,7 @@ export class AuthController {
     const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
     const result = await this.authService.verifyContestantOtp(body, ipAddress);
     this.setCookies(res, result.tokens, req);
-    return { user: result.user };
+    return { user: result.user, tokens: result.tokens };
   }
 
   @Post('refresh')
@@ -153,7 +157,7 @@ export class AuthController {
     }
     const tokens = await this.authService.refreshTokens(refreshToken);
     this.setCookies(res, tokens, req);
-    return { success: true };
+    return { success: true, tokens };
   }
 
   @Post('logout')
@@ -183,7 +187,7 @@ export class AuthController {
     const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
     const result = await this.authService.createPermanentUserAccount(body, ipAddress);
     this.setCookies(res, result.tokens, req);
-    return { user: result.user };
+    return { user: result.user, tokens: result.tokens };
   }
 
   @Post('user/signup/verify')
@@ -195,7 +199,7 @@ export class AuthController {
     const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
     const result = await this.authService.verifyUserSignupAndCreate(body, ipAddress);
     this.setCookies(res, result.tokens, req);
-    return { user: result.user };
+    return { user: result.user, tokens: result.tokens };
   }
 
   @Post('user/login')
@@ -207,7 +211,7 @@ export class AuthController {
     const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
     const result = await this.authService.loginUser(body, ipAddress);
     this.setCookies(res, result.tokens, req);
-    return { user: result.user };
+    return { user: result.user, tokens: result.tokens };
   }
 
   @UseGuards(JwtAuthGuard)

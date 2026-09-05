@@ -24,9 +24,13 @@ export default function AdminLogin() {
         credentials: 'include',
       });
 
+      const data = await res.json();
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.message || 'Authentication failed');
+      }
+
+      if (data.tokens?.accessToken) {
+        localStorage.setItem('srf_token', data.tokens.accessToken);
       }
 
       window.location.href = '/';
