@@ -131,22 +131,32 @@ function RegistrationsContent() {
 
   const generateAutoContestantId = (reg: any, style: 'standard' | 'short' | 'number' = 'standard') => {
     if (!reg) return '';
-    const cleanEvent = (reg.event?.code || 'NLR').replace(/^SRF-?/i, '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-    const cleanCat = (reg.category?.code || 'GEN').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    const catCode = (reg.category?.code || 'GEN').toUpperCase().trim();
+    let mapped = catCode;
+    if (catCode === 'K' || catCode.includes('KID')) mapped = 'KIDS';
+    else if (catCode === 'T' || catCode.includes('TEEN')) mapped = 'TEEN';
+    else if (catCode === 'MISS' || catCode.includes('MISS')) mapped = 'MISS';
+    else if (catCode === 'MS' || catCode === 'MRS' || catCode.includes('MS')) mapped = 'MS';
+    else if (catCode === 'MR' || catCode.includes('MR')) mapped = 'MR';
+
     const randomSeq = String(Math.floor(100 + Math.random() * 900));
 
     if (style === 'short') {
-      return `SRF-${cleanCat}-${randomSeq}`;
+      return `SRF-${mapped}-${randomSeq}`;
     }
     if (style === 'number') {
-      return `${cleanCat}-${randomSeq}`;
+      return `${mapped}-${randomSeq}`;
     }
-    return cleanEvent ? `SRF-${cleanEvent}-${cleanCat}-${randomSeq}` : `SRF-${cleanCat}-${randomSeq}`;
+    return `SRF-NLR26-${mapped}-${randomSeq}`;
   };
 
   const openVerifyModal = (reg: any) => {
     setSelectedReg(reg);
-    setEnteredContestantId(generateAutoContestantId(reg, 'standard'));
+    if (reg.contestantId) {
+      setEnteredContestantId(reg.contestantId);
+    } else {
+      setEnteredContestantId(generateAutoContestantId(reg, 'standard'));
+    }
     setVerifyError('');
     setVerifyModalOpen(true);
   };
@@ -315,17 +325,24 @@ function RegistrationsContent() {
                         )}
                       </td>
                       <td className="py-3 px-4 pr-6 flex items-center gap-2">
-                        {reg.paymentStatus === 'UNPAID' && (
+                        {reg.paymentStatus === 'UNPAID' ? (
                           <button
                             onClick={() => openVerifyModal(reg)}
                             className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white font-sans text-[10px] uppercase font-bold tracking-wider rounded-sm transition-colors"
                           >
                             VERIFY PAYMENT
                           </button>
+                        ) : (
+                          <button
+                            onClick={() => openVerifyModal(reg)}
+                            className="px-2.5 py-1.5 bg-luxury-gold/10 hover:bg-luxury-gold hover:text-black text-luxury-gold font-sans text-[10px] uppercase font-bold tracking-wider rounded-sm transition-colors border border-luxury-gold/30"
+                          >
+                            ✏️ EDIT ID
+                          </button>
                         )}
                         <button
                           onClick={() => router.push(`/registrations/${reg.id}`)}
-                          className="font-sans text-[10px] tracking-luxury text-luxury-gold hover:text-luxury-white uppercase font-bold transition-colors ml-1"
+                          className="font-sans text-[10px] tracking-luxury text-luxury-white/70 hover:text-luxury-white uppercase font-bold transition-colors ml-1"
                         >
                           DETAILS →
                         </button>
@@ -334,7 +351,7 @@ function RegistrationsContent() {
                             setDeleteTarget(reg);
                             setDeleteError('');
                           }}
-                          className="font-sans text-[10px] tracking-luxury text-red-400/60 hover:text-red-400 uppercase font-bold transition-colors ml-2"
+                          className="font-sans text-[10px] tracking-luxury text-red-400/60 hover:text-red-400 uppercase font-bold transition-colors ml-1"
                         >
                           DELETE
                         </button>
