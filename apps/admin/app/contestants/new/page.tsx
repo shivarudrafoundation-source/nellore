@@ -24,6 +24,9 @@ function NewContestantContent() {
     dob: '',
     age: '',
     location: 'Nellore',
+    contestantId: '',
+    password: '',
+    notifyEmail: true,
     customFields: {
       height: '',
       instagram: '',
@@ -402,6 +405,65 @@ function NewContestantContent() {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Contestant ID & Access Settings */}
+            <div className="border-t border-luxury-gray-border/10 pt-4 space-y-4">
+              <span className="font-sans text-[9px] tracking-widest text-luxury-gold uppercase font-bold block">
+                Contestant ID & Access Credentials
+              </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block font-sans text-[10px] text-luxury-white/50 uppercase tracking-luxury">
+                      Contestant ID (Optional)
+                    </label>
+                  </div>
+                  <input
+                    type="text"
+                    value={form.contestantId}
+                    onChange={(e) => setForm({ ...form, contestantId: e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '') })}
+                    placeholder="Leave blank for auto-generated ID"
+                    className="w-full h-10 bg-[#050505] border border-luxury-gold/40 px-3 font-mono text-xs text-luxury-gold font-bold uppercase outline-none focus:border-luxury-gold"
+                  />
+                  <p className="text-[10px] text-luxury-white/40 mt-1">
+                    Leave blank to auto-generate standard sequential ID (e.g. SRF-NLR26-MR-0001).
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block font-sans text-[10px] text-luxury-white/50 uppercase tracking-luxury mb-1">
+                    Initial Password (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    placeholder="e.g. SRF@2026 or leave blank"
+                    className="w-full h-10 bg-[#050505] border border-luxury-gray-border/20 px-3 font-mono text-xs text-luxury-white outline-none focus:border-luxury-gold/40"
+                  />
+                  <p className="text-[10px] text-luxury-white/40 mt-1">
+                    Optional portal password for the contestant to login.
+                  </p>
+                </div>
+              </div>
+
+              {form.email && (
+                <div className="p-3 bg-luxury-gold/10 border border-luxury-gold/30 rounded-sm">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.notifyEmail}
+                      onChange={(e) => setForm({ ...form, notifyEmail: e.target.checked })}
+                      className="accent-[#D4AF37] w-4 h-4 rounded cursor-pointer"
+                    />
+                    <span className="font-sans text-xs text-luxury-gold font-semibold">
+                      Dispatch activation email with Contestant ID & login credentials to {form.email}
+                    </span>
+                  </label>
+                </div>
+              )}
             </div>
 
             <div className="border-t border-luxury-gray-border/10 pt-6 flex justify-end gap-3">

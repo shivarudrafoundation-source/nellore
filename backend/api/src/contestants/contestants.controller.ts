@@ -39,6 +39,17 @@ export class ContestantsController {
     return this.contestantsService.createContestant(body, user.sub, ip);
   }
 
+  @Post(':id/update-id')
+  async updateContestantId(
+    @Param('id') id: string,
+    @Body() body: { newContestantId: string; password?: string; notifyEmail?: boolean },
+    @Req() req: any,
+  ) {
+    const user = req.user;
+    const ip = req.ip || req.headers?.['x-forwarded-for']?.toString() || undefined;
+    return this.contestantsService.updateContestantId(id, body, user.sub, ip);
+  }
+
   @Delete(':id')
   async remove(@Param('id') id: string, @Req() req: any) {
     const user = req.user;

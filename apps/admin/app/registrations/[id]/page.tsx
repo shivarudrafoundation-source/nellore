@@ -66,17 +66,23 @@ function RegistrationDetailContent() {
 
   const generateAutoContestantId = (reg: any, style: 'standard' | 'short' | 'number' = 'standard') => {
     if (!reg) return '';
-    const cleanEvent = (reg.event?.code || 'NLR').replace(/^SRF-?/i, '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-    const cleanCat = (reg.category?.code || 'GEN').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    const catCode = (reg.category?.code || 'GEN').toUpperCase().trim();
+    let mapped = catCode;
+    if (catCode === 'K' || catCode.includes('KID')) mapped = 'KIDS';
+    else if (catCode === 'T' || catCode.includes('TEEN')) mapped = 'TEEN';
+    else if (catCode === 'MISS' || catCode.includes('MISS')) mapped = 'MISS';
+    else if (catCode === 'MS' || catCode === 'MRS' || catCode.includes('MS')) mapped = 'MS';
+    else if (catCode === 'MR' || catCode.includes('MR')) mapped = 'MR';
+
     const randomSeq = String(Math.floor(100 + Math.random() * 900));
 
     if (style === 'short') {
-      return `SRF-${cleanCat}-${randomSeq}`;
+      return `SRF-${mapped}-${randomSeq}`;
     }
     if (style === 'number') {
-      return `${cleanCat}-${randomSeq}`;
+      return `${mapped}-${randomSeq}`;
     }
-    return cleanEvent ? `SRF-${cleanEvent}-${cleanCat}-${randomSeq}` : `SRF-${cleanCat}-${randomSeq}`;
+    return `SRF-NLR26-${mapped}-${randomSeq}`;
   };
 
   const fetchRegistration = async () => {
@@ -85,7 +91,9 @@ function RegistrationDetailContent() {
       if (!res.ok) throw new Error('Unable to load registration details.');
       const d = await res.json();
       setRegistration(d);
-      if (!contestantIdInput) {
+      if (d.contestantId) {
+        setContestantIdInput(d.contestantId);
+      } else if (!contestantIdInput) {
         setContestantIdInput(generateAutoContestantId(d, 'standard'));
       }
       if (!passwordInput) {
@@ -109,10 +117,6 @@ function RegistrationDetailContent() {
       setModalError('Please enter a Contestant ID.');
       return;
     }
-    if (!passwordInput.trim()) {
-      setModalError('Please enter a password.');
-      return;
-    }
 
     setActionLoading(true);
     setModalError('');
@@ -126,6 +130,7 @@ function RegistrationDetailContent() {
         credentials: 'include',
         body: JSON.stringify({
           contestantId,
+          password: passwordInput.trim() || undefined,
         }),
       });
 
@@ -136,7 +141,7 @@ function RegistrationDetailContent() {
 
       setRegistration(d.registration || d);
       setModalOpen(false);
-      setActionMessage(`Payment verified and Contestant ID "${contestantId}" assigned successfully!`);
+      setActionMessage(`Contestant ID "${contestantId}" confirmed and official notification email dispatched successfully!`);
     } catch (err: any) {
       setModalError(err.message);
     } finally {
@@ -286,17 +291,29 @@ function RegistrationDetailContent() {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              size="sm"
+              onClick={() => {
+                setContestantIdInput(registration.contestantId || '');
+                setModalError('');
+                setModalOpen(true);
+              }}
+              className="bg-luxury-gold hover:bg-[#E5C158] text-black font-bold"
+            >
+              ✏️ EDIT ID
+            </Button>
             <Button
               size="sm"
               onClick={() => setIdCardModalOpen(true)}
-              className="bg-luxury-gold text-black font-bold"
+              variant="outline"
+              className="border-luxury-gold/50 text-luxury-gold hover:bg-luxury-gold/10"
             >
-              🎫 GENERATE ID CARD
+              🎫 ID CARD
             </Button>
             <Link href={`/contestants/${registration.contestantId}`}>
               <Button size="sm" variant="outline">
-                VIEW PROFILE ↗
+                VIEW CONTESTANT ↗
               </Button>
             </Link>
           </div>

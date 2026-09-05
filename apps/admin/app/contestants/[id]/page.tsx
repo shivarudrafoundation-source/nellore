@@ -31,6 +31,82 @@ function ContestantDetailContent() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
+  // Edit Contestant ID State
+  const [editIdModalOpen, setEditIdModalOpen] = useState(false);
+  const [newContestantIdInput, setNewContestantIdInput] = useState('');
+  const [editIdPasswordInput, setEditIdPasswordInput] = useState('');
+  const [showEditIdPassword, setShowEditIdPassword] = useState(false);
+  const [notifyCustomerEmail, setNotifyCustomerEmail] = useState(true);
+  const [editIdLoading, setEditIdLoading] = useState(false);
+  const [editIdError, setEditIdError] = useState('');
+
+  const generateSuggestedId = (type: 'standard' | 'short' | 'clean_num' = 'standard') => {
+    if (!contestant) return '';
+    const catCode = (contestant.registration?.category?.code || 'GEN').toUpperCase().trim();
+    let mapped = catCode;
+    if (catCode === 'K' || catCode.includes('KID')) mapped = 'KIDS';
+    else if (catCode === 'T' || catCode.includes('TEEN')) mapped = 'TEEN';
+    else if (catCode === 'MISS' || catCode.includes('MISS')) mapped = 'MISS';
+    else if (catCode === 'MS' || catCode === 'MRS' || catCode.includes('MS')) mapped = 'MS';
+    else if (catCode === 'MR' || catCode.includes('MR')) mapped = 'MR';
+
+    const randSeq = String(Math.floor(100 + Math.random() * 900));
+    if (type === 'standard') {
+      return `SRF-NLR26-${mapped}-${randSeq}`;
+    }
+    if (type === 'short') {
+      return `SRF-${mapped}-${randSeq}`;
+    }
+    if (type === 'clean_num') {
+      return `${mapped}-${randSeq}`;
+    }
+    return `SRF-${mapped}-${randSeq}`;
+  };
+
+  const handleUpdateContestantId = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanId = newContestantIdInput.trim().toUpperCase();
+    if (!cleanId) {
+      setEditIdError('Please enter a new Contestant ID.');
+      return;
+    }
+
+    setEditIdLoading(true);
+    setEditIdError('');
+    setActionMessage('');
+
+    try {
+      const res = await fetch(`${API}/admin/contestants/${id}/update-id`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          newContestantId: cleanId,
+          password: editIdPasswordInput.trim() || undefined,
+          notifyEmail: notifyCustomerEmail,
+        }),
+      });
+
+      const d = await res.json();
+      if (!res.ok) {
+        throw new Error(d.message || 'Failed to update Contestant ID.');
+      }
+
+      setEditIdModalOpen(false);
+      setActionMessage(d.message || `Contestant ID successfully updated to "${cleanId}".`);
+
+      if (cleanId !== id) {
+        router.push(`/contestants/${cleanId}`);
+      } else {
+        await fetchContestant();
+      }
+    } catch (err: any) {
+      setEditIdError(err.message);
+    } finally {
+      setEditIdLoading(false);
+    }
+  };
+
   const handleDeleteContestant = async () => {
     setDeleteLoading(true);
     setDeleteError('');
@@ -224,12 +300,27 @@ function ContestantDetailContent() {
             size="sm"
             variant="outline"
             onClick={() => {
+              setNewContestantIdInput(contestant.id);
+              setEditIdPasswordInput('');
+              setEditIdError('');
+              setNotifyCustomerEmail(true);
+              setEditIdModalOpen(true);
+            }}
+            className="border-luxury-gold text-luxury-gold hover:bg-luxury-gold hover:text-black font-bold text-xs uppercase tracking-wider"
+          >
+            ✏️ EDIT CONTESTANT ID
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
               setAdminScoreError('');
               setAdminScoreModalOpen(true);
             }}
             className="border-luxury-gold/60 text-luxury-gold hover:bg-luxury-gold/10 font-bold text-xs uppercase tracking-wider"
           >
-            ✏️ ADMIN SCORE (/30)
+            ⭐ ADMIN SCORE (/30)
           </Button>
 
           {contestant.registration?.id && (
@@ -244,7 +335,7 @@ function ContestantDetailContent() {
                 }}
                 className="border-luxury-gold/50 text-luxury-gold hover:bg-luxury-gold hover:text-black font-semibold text-xs uppercase"
               >
-                ✉ RESET / RESEND CREDENTIALS
+                ✉ RESET PASSWORD
               </Button>
               <Link href={`/registrations/${contestant.registration.id}`}>
                 <Button size="sm" variant="outline">
@@ -468,6 +559,152 @@ function ContestantDetailContent() {
                   type="button"
                   variant="outline"
                   onClick={() => setResendModalOpen(false)}
+                  className="text-xs"
+                >
+                  CANCEL
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT CONTESTANT ID MODAL */}
+      {editIdModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
+          <div className="bg-[#0A0A0A] border-2 border-luxury-gold/60 w-full max-w-lg p-6 space-y-5 shadow-[0_0_50px_rgba(212,175,55,0.15)] rounded-sm relative my-8">
+            <div className="flex justify-between items-start border-b border-luxury-gray-border/20 pb-3">
+              <div>
+                <span className="font-sans text-[9px] tracking-[0.24em] text-luxury-gold uppercase font-bold block">
+                  ADMINISTRATIVE OVERRIDE
+                </span>
+                <h3 className="font-serif text-xl font-light text-white mt-1">
+                  Edit Contestant ID & Access
+                </h3>
+                <span className="font-sans text-xs text-white/50 block">
+                  {base.name || 'Contestant'} • Current ID: <strong className="font-mono text-luxury-gold">{contestant.id}</strong>
+                </span>
+              </div>
+              <button
+                onClick={() => setEditIdModalOpen(false)}
+                className="text-white/40 hover:text-white text-xl font-sans"
+              >
+                ✕
+              </button>
+            </div>
+
+            {editIdError && (
+              <div className="bg-red-500/10 border border-red-500/30 p-3">
+                <p className="font-sans text-xs text-red-400">{editIdError}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleUpdateContestantId} className="space-y-5">
+              {/* Contestant ID Input */}
+              <div className="space-y-2">
+                <label className="font-sans text-xs font-semibold text-white/80 uppercase tracking-wider block">
+                  New Contestant ID <span className="text-luxury-gold">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    required
+                    value={newContestantIdInput}
+                    onChange={(e) => setNewContestantIdInput(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ''))}
+                    placeholder="e.g. SRF-MR-001 or SRF-NLR26-MR-0001"
+                    className="flex-1 h-10 bg-black border border-luxury-gray-border/40 px-3 font-mono text-sm font-bold text-luxury-gold uppercase outline-none focus:border-luxury-gold tracking-wider"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setNewContestantIdInput(generateSuggestedId('standard'))}
+                    className="text-[10px] font-mono px-2 py-1 bg-luxury-gold/10 hover:bg-luxury-gold/20 text-luxury-gold border border-luxury-gold/30 rounded"
+                  >
+                    Standard: {generateSuggestedId('standard')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewContestantIdInput(generateSuggestedId('short'))}
+                    className="text-[10px] font-mono px-2 py-1 bg-white/5 hover:bg-white/10 text-white/80 border border-white/20 rounded"
+                  >
+                    Short: {generateSuggestedId('short')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewContestantIdInput(generateSuggestedId('clean_num'))}
+                    className="text-[10px] font-mono px-2 py-1 bg-white/5 hover:bg-white/10 text-white/80 border border-white/20 rounded"
+                  >
+                    Number: {generateSuggestedId('clean_num')}
+                  </button>
+                </div>
+              </div>
+
+              {/* Optional Password Override */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="font-sans text-xs font-semibold text-white/80 uppercase tracking-wider">
+                    New Portal Password <span className="text-white/40 font-normal lowercase">(optional — leave blank to keep current)</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setEditIdPasswordInput(generateRandomPassword())}
+                    className="text-[10px] font-sans text-luxury-gold hover:underline uppercase tracking-wider"
+                  >
+                    🎲 Generate
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showEditIdPassword ? 'text' : 'password'}
+                    value={editIdPasswordInput}
+                    onChange={(e) => setEditIdPasswordInput(e.target.value)}
+                    placeholder="Leave blank to keep existing password"
+                    className="w-full h-10 bg-black border border-luxury-gray-border/40 px-3 pr-10 font-mono text-sm text-white outline-none focus:border-luxury-gold"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEditIdPassword(!showEditIdPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white text-xs font-mono"
+                  >
+                    {showEditIdPassword ? 'HIDE' : 'SHOW'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Email Notification Checkbox */}
+              <div className="p-3 bg-luxury-gold/10 border border-luxury-gold/30 rounded-sm space-y-2">
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={notifyCustomerEmail}
+                    onChange={(e) => setNotifyCustomerEmail(e.target.checked)}
+                    className="mt-0.5 accent-[#D4AF37] w-4 h-4 rounded cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-sans text-xs text-luxury-gold font-semibold block">
+                      Send Email Notification to Contestant
+                    </span>
+                    <span className="font-sans text-[11px] text-white/70 block mt-0.5">
+                      Dispatches official confirmation with the new Contestant ID and portal credentials to{' '}
+                      <strong className="text-white font-mono">{base.email || 'contestant email'}</strong>.
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <Button
+                  type="submit"
+                  disabled={editIdLoading}
+                  className="flex-1 bg-luxury-gold hover:bg-[#E5C158] text-black font-bold uppercase tracking-wider text-xs shadow-md"
+                >
+                  {editIdLoading ? 'UPDATING ID & DISPATCHING...' : 'SAVE & UPDATE ID ↗'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditIdModalOpen(false)}
                   className="text-xs"
                 >
                   CANCEL

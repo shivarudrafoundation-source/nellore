@@ -226,17 +226,22 @@ export class RegistrationsService {
       }
 
       // 3. Create or update Contestant record
-      let contestant = existingWithId;
+      let contestant: any = existingWithId;
       if (!contestant) {
         const existingForReg = await tx.contestant.findUnique({
           where: { registrationId: registration.id },
         });
 
         if (existingForReg) {
-          contestant = await tx.contestant.update({
-            where: { id: existingForReg.id },
-            data: { id: rawContestantId, mobile, eventId: registration.eventId },
-          });
+          if (existingForReg.id !== rawContestantId) {
+            await tx.$executeRaw`UPDATE "contestants" SET "id" = ${rawContestantId}, "mobile" = ${mobile}, "event_id" = ${registration.eventId}, "updated_at" = NOW() WHERE "id" = ${existingForReg.id}`;
+            contestant = { id: rawContestantId, registrationId: registration.id, mobile, eventId: registration.eventId } as any;
+          } else {
+            contestant = await tx.contestant.update({
+              where: { id: existingForReg.id },
+              data: { mobile, eventId: registration.eventId },
+            });
+          }
         } else {
           contestant = await tx.contestant.create({
             data: {

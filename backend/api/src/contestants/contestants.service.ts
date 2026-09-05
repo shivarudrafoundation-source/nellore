@@ -1,6 +1,8 @@
+import * as bcrypt from 'bcrypt';
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service.js';
 import { AuditService } from '../audit/audit.service.js';
+import { MailService } from '../mail/mail.service.js';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -8,6 +10,7 @@ export class ContestantsService {
   constructor(
     private readonly db: DatabaseService,
     private readonly audit: AuditService,
+    private readonly mailService?: MailService,
   ) {}
 
   async findAll(query: {
@@ -107,7 +110,7 @@ export class ContestantsService {
   }
 
   /**
-   * Generates sequential Contestant ID: SRF-NLR26-${CATEGORY_CODE}-${SEQUENCE}
+   * Generates clean sequential Contestant ID: SRF-NLR26-${CATEGORY_CODE}-${SEQUENCE}
    */
   async generateContestantId(tx: Prisma.TransactionClient, categoryCode: string): Promise<string> {
     const normCode = categoryCode.toUpperCase().trim();
@@ -160,6 +163,9 @@ export class ContestantsService {
       dob: string;
       age: number | string;
       location: string;
+      contestantId?: string;
+      password?: string;
+      notifyEmail?: boolean;
       customFields?: Record<string, any>;
     },
     actorId: string,
@@ -188,23 +194,51 @@ export class ContestantsService {
     const numAge = Number(dto.age);
     if (isNaN(numAge) || numAge <= 0) throw new BadRequestException('Valid age is required.');
 
+    const manualId = dto.contestantId ? dto.contestantId.trim().toUpperCase() : '';
+    if (manualId && !/^[A-Z0-9_-]+$/i.test(manualId)) {
+      throw new BadRequestException('Contestant ID format invalid. Must contain alphanumeric characters, hyphens or underscores.');
+    }
+
+    const plainPassword = dto.password ? String(dto.password).trim() : '';
+
     const createdContestant = await this.db.$transaction(
       async (tx) => {
-        const contestantId = await this.generateContestantId(tx, category.code);
+        let contestantId = manualId;
+        if (contestantId) {
+          const existing = await tx.contestant.findUnique({ where: { id: contestantId } });
+          if (existing) {
+            throw new ConflictException(`Contestant ID "${contestantId}" is already assigned to another contestant.`);
+          }
+        } else {
+          contestantId = await this.generateContestantId(tx, category.code);
+        }
+
+        const baseFields: Record<string, any> = {
+          name: dto.name.trim(),
+          mobile: normalizedMobile,
+          email: dto.email ? dto.email.trim() : undefined,
+          gender: dto.gender ? dto.gender.trim().toUpperCase() : 'OTHER',
+          dob: dto.dob || new Date().toISOString().slice(0, 10),
+          age: numAge,
+          location: dto.location ? dto.location.trim() : 'Nellore',
+        };
+
+        if (plainPassword) {
+          const passwordHash = await bcrypt.hash(plainPassword, 10);
+          baseFields.passwordHash = passwordHash;
+          if (dto.email) {
+            await tx.user.updateMany({
+              where: { email: dto.email.trim().toLowerCase() },
+              data: { passwordHash },
+            });
+          }
+        }
 
         const registration = await tx.registration.create({
           data: {
             eventId,
             categoryId: category.id,
-            baseFields: {
-              name: dto.name.trim(),
-              mobile: normalizedMobile,
-              email: dto.email ? dto.email.trim() : undefined,
-              gender: dto.gender ? dto.gender.trim().toUpperCase() : 'OTHER',
-              dob: dto.dob || new Date().toISOString().slice(0, 10),
-              age: numAge,
-              location: dto.location ? dto.location.trim() : 'Nellore',
-            },
+            baseFields,
             customFields: dto.customFields || {},
             paymentStatus: 'PAID',
           },
@@ -237,6 +271,19 @@ export class ContestantsService {
       { maxWait: 10000, timeout: 20000 },
     );
 
+    if (dto.notifyEmail !== false && dto.email && this.mailService) {
+      this.mailService
+        .sendContestantActivationEmail(dto.email.trim(), {
+          name: dto.name.trim(),
+          contestantId: createdContestant.id,
+          email: dto.email.trim(),
+          password: plainPassword || undefined,
+          categoryName: category.name,
+          eventName: category.event.name,
+        })
+        .catch((err) => console.error('Error dispatching contestant activation email:', err));
+    }
+
     await this.audit.log({
       actorType: 'ADMIN',
       actorId,
@@ -250,11 +297,141 @@ export class ContestantsService {
         category: category.name,
         categoryCode: category.code,
         mobileMasked: `******${normalizedMobile.slice(-4)}`,
+        emailNotified: dto.notifyEmail !== false && !!dto.email,
       },
       ipAddress,
     });
 
     return createdContestant;
+  }
+
+  /**
+   * Admin: Update Contestant ID and/or Password, and notify customer via email
+   */
+  async updateContestantId(
+    currentId: string,
+    dto: {
+      newContestantId: string;
+      password?: string;
+      notifyEmail?: boolean;
+    },
+    actorId: string,
+    ipAddress?: string,
+  ) {
+    const rawNewId = String(dto.newContestantId || '').trim().toUpperCase();
+    if (!rawNewId) {
+      throw new BadRequestException('New Contestant ID is required.');
+    }
+    if (rawNewId.length < 1 || !/^[A-Z0-9_-]+$/i.test(rawNewId)) {
+      throw new BadRequestException('Contestant ID must contain only alphanumeric characters, hyphens, or underscores.');
+    }
+
+    const contestant = await this.db.contestant.findUnique({
+      where: { id: currentId },
+      include: {
+        event: { select: { id: true, name: true, code: true } },
+        registration: {
+          include: {
+            category: { select: { id: true, name: true, code: true } },
+          },
+        },
+      },
+    });
+
+    if (!contestant) {
+      throw new NotFoundException(`Contestant "${currentId}" not found.`);
+    }
+
+    const plainPassword = dto.password ? String(dto.password).trim() : '';
+
+    if (rawNewId !== currentId) {
+      const existing = await this.db.contestant.findUnique({
+        where: { id: rawNewId },
+      });
+      if (existing) {
+        throw new ConflictException(`Contestant ID "${rawNewId}" is already assigned to another contestant.`);
+      }
+    }
+
+    await this.db.$transaction(async (tx) => {
+      // 1. If password provided, update hash on registration baseFields and user table
+      const base: any = contestant.registration?.baseFields || {};
+      if (plainPassword) {
+        const passwordHash = await bcrypt.hash(plainPassword, 10);
+        base.passwordHash = passwordHash;
+        if (contestant.registration) {
+          await tx.registration.update({
+            where: { id: contestant.registration.id },
+            data: { baseFields: base },
+          });
+        }
+        if (base.userId) {
+          await tx.user.updateMany({
+            where: { id: base.userId },
+            data: { passwordHash },
+          });
+        } else if (base.email) {
+          await tx.user.updateMany({
+            where: { email: String(base.email).trim().toLowerCase() },
+            data: { passwordHash },
+          });
+        }
+      }
+
+      // 2. If ID changed, execute raw SQL update to leverage CASCADE on FKs
+      if (rawNewId !== currentId) {
+        // Update primary key in contestants
+        await tx.$executeRaw`UPDATE "contestants" SET "id" = ${rawNewId}, "updated_at" = NOW() WHERE "id" = ${currentId}`;
+
+        // Also update registration contestantId
+        if (contestant.registration) {
+          await tx.registration.update({
+            where: { id: contestant.registration.id },
+            data: { contestantId: rawNewId },
+          });
+        }
+      }
+    });
+
+    // 3. Send email notification if requested (default true)
+    const baseFields: any = contestant.registration?.baseFields || {};
+    const email = baseFields.email;
+    const applicantName = baseFields.name || 'Contestant';
+    const categoryName = contestant.registration?.category?.name || 'Category';
+    const eventName = contestant.event?.name || 'Event';
+
+    if (dto.notifyEmail !== false && email && this.mailService) {
+      try {
+        await this.mailService.sendContestantActivationEmail(email, {
+          name: applicantName,
+          contestantId: rawNewId,
+          email,
+          password: plainPassword || undefined,
+          categoryName,
+          eventName,
+        });
+      } catch (mailErr) {
+        console.error('Failed to send contestant ID update email:', mailErr);
+      }
+    }
+
+    // 4. Audit logging
+    await this.audit.log({
+      actorType: 'ADMIN',
+      actorId,
+      action: 'CONTESTANT_UPDATED',
+      entity: 'Contestant',
+      entityId: rawNewId,
+      before: { id: currentId },
+      after: { id: rawNewId, emailNotified: dto.notifyEmail !== false && !!email },
+      ipAddress,
+    });
+
+    return {
+      success: true,
+      contestantId: rawNewId,
+      message: `Contestant ID updated to "${rawNewId}" successfully${dto.notifyEmail !== false && email ? ' and credentials email dispatched to ' + email : ''}.`,
+    };
   }
 
   /**
