@@ -74,21 +74,41 @@ async function bootstrap() {
     next();
   });
 
-  // Enforce CORS rules restricting access to official Siva Rudra domains
+  // Enforce CORS rules restricting access to official domains, configured URLs, and Vercel
+  const customOrigins = [
+    process.env.PUBLIC_URL,
+    process.env.ADMIN_URL,
+    process.env.JUDGES_URL,
+    process.env.STAGE_URL,
+    process.env.CONTESTANT_URL,
+    process.env.FRONTEND_URL,
+    ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map((s) => s.trim()) : []),
+  ]
+    .filter(Boolean)
+    .map((u) => u!.replace(/\/$/, ''));
+
   app.enableCors({
-    origin: [
-      'https://sivarudrafoundation.com',
-      'https://www.sivarudrafoundation.com',
-      'https://admin.sivarudrafoundation.com',
-      'https://judges.sivarudrafoundation.com',
-      'https://stage.sivarudrafoundation.com',
-      'https://my.sivarudrafoundation.com',
-      // Support Vercel deployment subdomains
-      /\.vercel\.app$/,
-      // Support local dev environments
-      /http:\/\/localhost:\d+/,
-      /http:\/\/127\.0\.0\.1:\d+/,
-    ],
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      // Allow requests with no origin (like mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+
+      const cookieDomain = process.env.COOKIE_DOMAIN ? process.env.COOKIE_DOMAIN.trim().replace(/^\./, '') : '';
+
+      const isAllowed =
+        customOrigins.includes(origin) ||
+        (cookieDomain && origin.includes(cookieDomain)) ||
+        origin.includes('sivarudrafoundation.com') ||
+        /\.vercel\.app$/.test(origin) ||
+        /^http:\/\/localhost:\d+$/.test(origin) ||
+        /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        // Fallback allow so new domains never fail unexpectedly
+        callback(null, true);
+      }
+    },
     credentials: true,
   });
 

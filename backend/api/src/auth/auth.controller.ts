@@ -12,7 +12,8 @@ export class AuthController {
 
   private getCookieOptions(req?: express.Request) {
     const origin = (req?.headers.origin || '') as string;
-    const isCustomDomain = origin.includes('sivarudrafoundation.com');
+    const cookieDomain = process.env.COOKIE_DOMAIN ? process.env.COOKIE_DOMAIN.trim() : '';
+    const isCustomDomain = cookieDomain && origin.includes(cookieDomain.replace(/^\./, ''));
     const isVercelDomain = origin.includes('vercel.app');
     const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1') || !origin;
 
@@ -20,7 +21,7 @@ export class AuthController {
       httpOnly: true,
       secure: !isLocalhost && process.env.NODE_ENV === 'production',
       sameSite: (isVercelDomain && !isCustomDomain ? 'none' : 'lax') as 'none' | 'lax',
-      domain: isCustomDomain ? process.env.COOKIE_DOMAIN || '.sivarudrafoundation.com' : undefined,
+      domain: isCustomDomain ? cookieDomain : (origin.includes('sivarudrafoundation.com') ? '.sivarudrafoundation.com' : undefined),
       path: '/',
     };
   }
