@@ -75,6 +75,11 @@ async function bootstrap() {
   });
 
   // Enforce CORS rules restricting access to official domains, configured URLs, and Vercel
+  const corsEnvString = process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || '';
+  const parsedCorsOrigins = corsEnvString
+    ? corsEnvString.split(',').map((s) => s.trim().replace(/\/$/, ''))
+    : [];
+
   const customOrigins = [
     process.env.PUBLIC_URL,
     process.env.ADMIN_URL,
@@ -82,7 +87,7 @@ async function bootstrap() {
     process.env.STAGE_URL,
     process.env.CONTESTANT_URL,
     process.env.FRONTEND_URL,
-    ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map((s) => s.trim()) : []),
+    ...parsedCorsOrigins,
   ]
     .filter(Boolean)
     .map((u) => u!.replace(/\/$/, ''));
