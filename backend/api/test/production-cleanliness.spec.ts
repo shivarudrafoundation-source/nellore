@@ -11,18 +11,7 @@ async function runCleanlinessTests() {
   const dashboardService = new DashboardService(dbService);
 
   try {
-    // Teardown any test fixtures before verifying clean state
-    await dbService.score.deleteMany();
-    await dbService.judgeAccount.deleteMany();
-    await dbService.contestant.deleteMany();
-    await dbService.registration.deleteMany();
-    await dbService.round.deleteMany();
-    await dbService.category.deleteMany();
-    await dbService.announcement.deleteMany();
-    await dbService.resultPublication.deleteMany();
-    await dbService.pdfDocument.deleteMany();
-    await dbService.event.deleteMany();
-    await dbService.auditLog.deleteMany();
+    // Verify real database state without wiping data
 
     console.log('Test 1: Dashboard Stats return real numeric counts and empty arrays');
     const stats = await dashboardService.getStats();
