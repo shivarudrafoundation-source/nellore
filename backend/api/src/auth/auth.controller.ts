@@ -240,13 +240,21 @@ export class AuthController {
       const result = await this.authService.handleGoogleOAuthCallback(code, redirectUri, ipAddress);
       this.setCookies(res, result.tokens, req);
 
-      let targetUrl = state ? decodeURIComponent(state) : '/profile';
-      if (!targetUrl.startsWith('http')) {
-        targetUrl = `https://shivarudrafoundation.com${targetUrl.startsWith('/') ? '' : '/'}${targetUrl}`;
+      const isProfileIncomplete = !result.user.mobile || !result.user.location;
+      const destination = state ? decodeURIComponent(state) : '/profile';
+      
+      let targetUrl = '';
+      if (isProfileIncomplete) {
+        targetUrl = `https://shivarudrafoundation.com/complete-profile?token=${result.tokens.accessToken}&returnUrl=${encodeURIComponent(destination)}`;
+      } else {
+        const basePath = destination.startsWith('http')
+          ? destination
+          : `https://shivarudrafoundation.com${destination.startsWith('/') ? '' : '/'}${destination}`;
+        const separator = basePath.includes('?') ? '&' : '?';
+        targetUrl = `${basePath}${separator}token=${result.tokens.accessToken}`;
       }
 
-      const separator = targetUrl.includes('?') ? '&' : '?';
-      return res.redirect(`${targetUrl}${separator}token=${result.tokens.accessToken}`);
+      return res.redirect(targetUrl);
     } catch (err: any) {
       return res.redirect(`https://shivarudrafoundation.com/login?error=${encodeURIComponent(err.message || 'Google authentication failed')}`);
     }

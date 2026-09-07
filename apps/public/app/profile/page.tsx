@@ -93,6 +93,11 @@ export default function ProfilePage() {
       setEditName(data.user.name || '');
       setEditMobile(data.user.mobile || '');
       setEditLocation(data.user.location || '');
+
+      // Automatically open edit form if contact number or location is not yet provided
+      if (!data.user.mobile || !data.user.location) {
+        setIsEditing(true);
+      }
     } catch (err: any) {
       setError(err.message || 'Error loading profile.');
     } finally {
@@ -203,8 +208,32 @@ export default function ProfilePage() {
         </div>
 
         {saveSuccess && (
-          <div className="mb-6 p-3 bg-emerald-950/40 border border-emerald-500/50 text-emerald-300 text-xs rounded-sm">
-            Profile details updated successfully.
+          <div className="mb-6 p-3 bg-emerald-950/40 border border-emerald-500/50 text-emerald-300 text-xs rounded-sm font-mono">
+            ✓ Profile details updated successfully.
+          </div>
+        )}
+
+        {(!profile?.mobile || !profile?.location) && !saveSuccess && (
+          <div className="mb-6 p-4 bg-[#D4AF37]/10 border border-[#D4AF37]/40 text-white rounded-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="text-[#D4AF37] text-lg font-mono">⚠️</span>
+              <div>
+                <p className="text-xs font-semibold text-[#D4AF37] uppercase tracking-wider">
+                  Complete Your Profile Information
+                </p>
+                <p className="text-[11px] text-white/70">
+                  Please add your contact phone number and city / location to register for events.
+                </p>
+              </div>
+            </div>
+            {!isEditing && (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="px-3 py-1.5 bg-[#D4AF37] text-black font-semibold text-xs uppercase tracking-wider hover:bg-[#E5C158] rounded-xs whitespace-nowrap"
+              >
+                Enter Details →
+              </button>
+            )}
           </div>
         )}
 
