@@ -10,42 +10,43 @@ export class JwtAuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
     const secret = process.env.JWT_SECRET || 'fallback-secret-key-siva-rudra-foundation-2026';
 
-    const token = this.extractToken(request);
-
-    if (token) {
-      try {
-        const payload = await this.jwtService.verifyAsync(token, { secret });
-        (request as any).user = payload;
-        return true;
-      } catch (error) {
-        // Access token might be expired, fallback to refresh token below
+    // 1. First priority: Explicit Authorization Header (Bearer token from client)
+    const authHeader = request.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const bearerToken = authHeader.substring(7).trim();
+      if (bearerToken) {
+        try {
+          const payload = await this.jwtService.verifyAsync(bearerToken, { secret });
+          (request as any).user = payload;
+          return true;
+        } catch (err) {
+          // Token expired or invalid, fallback to cookies below
+        }
       }
     }
 
-    // Seamless Fallback: Check if valid refresh_token exists
+    // 2. Second priority: access_token cookie
+    if (request.cookies && request.cookies.access_token) {
+      try {
+        const cookiePayload = await this.jwtService.verifyAsync(request.cookies.access_token, { secret });
+        (request as any).user = cookiePayload;
+        return true;
+      } catch (err) {
+        // Access token cookie expired, check refresh_token
+      }
+    }
+
+    // 3. Third priority: refresh_token cookie fallback
     if (request.cookies && request.cookies.refresh_token) {
       try {
         const refreshPayload = await this.jwtService.verifyAsync(request.cookies.refresh_token, { secret });
         (request as any).user = refreshPayload;
         return true;
       } catch (err) {
-        // Both tokens expired
+        // All token sources expired
       }
     }
 
-    throw new UnauthorizedException('Authentication token missing.');
-  }
-
-  private extractToken(request: Request): string | null {
-    // 1. Check access_token cookie
-    if (request.cookies && request.cookies.access_token) {
-      return request.cookies.access_token;
-    }
-    // 2. Fallback to Authorization header
-    const authHeader = request.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      return authHeader.substring(7);
-    }
-    return null;
+    throw new UnauthorizedException('Authentication token missing or expired.');
   }
 }

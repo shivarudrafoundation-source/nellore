@@ -13,7 +13,13 @@ export default function Header() {
   const [user, setUser] = useState<any | null>(null);
 
   useEffect(() => {
-    fetch(`${API}/auth/user/profile`, { credentials: 'include' })
+    const token = typeof window !== 'undefined' ? localStorage.getItem('srf_token') : null;
+    fetch(`${API}/auth/user/profile`, {
+      credentials: 'include',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data && data.user) {
@@ -21,7 +27,7 @@ export default function Header() {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [API]);
 
   useEffect(() => {
     const handleScroll = () => {

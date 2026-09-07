@@ -13,6 +13,7 @@ function CompleteProfileContent() {
   const returnUrl = searchParams.get('returnUrl') || '/profile';
   const urlToken = searchParams.get('token');
 
+  const [authToken, setAuthToken] = useState<string>('');
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
@@ -21,54 +22,68 @@ function CompleteProfileContent() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const fetchInitialData = async (activeToken: string) => {
+    setLoading(true);
+    setError('');
+    try {
+      if (!activeToken) {
+        router.push(`/login?returnUrl=${encodeURIComponent('/complete-profile')}`);
+        return;
+      }
+
+      const res = await fetch(`${API_BASE}/auth/user/profile`, {
+        credentials: 'include',
+        headers: {
+          Authorization: `Bearer ${activeToken}`,
+        },
+      });
+
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || 'Failed to load user profile.');
+      }
+
+      const data = await res.json();
+      setEmail(data.user?.email || '');
+      setName(data.user?.name || '');
+      setMobile(data.user?.mobile || '');
+      setLocation(data.user?.location || '');
+      if (typeof window !== 'undefined' && data.user) {
+        localStorage.setItem('srf_user', JSON.stringify(data.user));
+      }
+    } catch (err: any) {
+      setError(err.message || 'Unable to connect to account server. Please retry.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
+    let currentToken = urlToken;
     if (urlToken) {
       localStorage.setItem('srf_token', urlToken);
-      // Clean query parameter
-      window.history.replaceState({}, document.title, window.location.pathname);
+      try {
+        const cleanUrl = window.location.pathname + (returnUrl && returnUrl !== '/profile' ? `?returnUrl=${encodeURIComponent(returnUrl)}` : '');
+        window.history.replaceState({}, document.title, cleanUrl);
+      } catch (e) {
+        // ignore
+      }
+    } else if (typeof window !== 'undefined') {
+      currentToken = localStorage.getItem('srf_token');
     }
 
-    const fetchInitialData = async () => {
-      try {
-        const token = urlToken || (typeof window !== 'undefined' ? localStorage.getItem('srf_token') : null);
-        if (!token) {
-          router.push(`/login?returnUrl=${encodeURIComponent('/complete-profile')}`);
-          return;
-        }
-
-        const res = await fetch(`${API_BASE}/auth/user/profile`, {
-          credentials: 'include',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (res.status === 401) {
-          router.push('/login');
-          return;
-        }
-
-        if (res.ok) {
-          const data = await res.json();
-          setEmail(data.user?.email || '');
-          setName(data.user?.name || '');
-          setMobile(data.user?.mobile || '');
-          setLocation(data.user?.location || '');
-
-          // If already fully complete and not explicitly visiting, proceed
-          if (data.user?.name && data.user?.mobile && data.user?.location) {
-            // Already complete
-          }
-        }
-      } catch (err: any) {
-        setError(err.message || 'Error fetching user profile.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchInitialData();
-  }, [API_BASE, router, urlToken]);
+    if (currentToken) {
+      setAuthToken(currentToken);
+      fetchInitialData(currentToken);
+    } else {
+      router.push(`/login?returnUrl=${encodeURIComponent('/complete-profile')}`);
+    }
+  }, [urlToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,12 +111,12 @@ function CompleteProfileContent() {
     setSaving(true);
 
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('srf_token') : null;
+      const activeToken = authToken || (typeof window !== 'undefined' ? localStorage.getItem('srf_token') : '');
       const res = await fetch(`${API_BASE}/auth/user/profile`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(activeToken ? { Authorization: `Bearer ${activeToken}` } : {}),
         },
         credentials: 'include',
         body: JSON.stringify({
@@ -114,6 +129,10 @@ function CompleteProfileContent() {
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.message || 'Failed to update profile details.');
+      }
+
+      if (typeof window !== 'undefined' && data.user) {
+        localStorage.setItem('srf_user', JSON.stringify(data.user));
       }
 
       router.push(returnUrl);
