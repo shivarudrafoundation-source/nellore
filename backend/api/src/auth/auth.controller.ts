@@ -245,7 +245,13 @@ export class AuthController {
       
       let targetUrl = '';
       if (isProfileIncomplete) {
-        targetUrl = `https://shivarudrafoundation.com/complete-profile?token=${result.tokens.accessToken}&returnUrl=${encodeURIComponent(destination)}`;
+        const queryParams = new URLSearchParams({
+          token: result.tokens.accessToken,
+          email: result.user.email || '',
+          name: result.user.name || '',
+          returnUrl: destination,
+        });
+        targetUrl = `https://shivarudrafoundation.com/complete-profile?${queryParams.toString()}`;
       } else {
         const basePath = destination.startsWith('http')
           ? destination
@@ -281,7 +287,8 @@ export class AuthController {
     @Req() req: express.Request,
   ) {
     const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
-    return this.authService.updateUserProfile(user.sub, body, ipAddress);
+    const userProfile = await this.authService.updateUserProfile(user.sub, body, ipAddress);
+    return { success: true, user: userProfile };
   }
 
   @UseGuards(JwtAuthGuard)

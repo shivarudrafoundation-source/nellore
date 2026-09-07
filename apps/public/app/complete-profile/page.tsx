@@ -12,24 +12,21 @@ function CompleteProfileContent() {
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get('returnUrl') || '/profile';
   const urlToken = searchParams.get('token');
+  const urlEmail = searchParams.get('email');
+  const urlName = searchParams.get('name');
 
-  const [authToken, setAuthToken] = useState<string>('');
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
+  const [authToken, setAuthToken] = useState<string>(urlToken || '');
+  const [email, setEmail] = useState<string>(urlEmail || '');
+  const [name, setName] = useState<string>(urlName || '');
   const [mobile, setMobile] = useState('');
   const [location, setLocation] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const fetchInitialData = async (activeToken: string) => {
-    setLoading(true);
-    setError('');
     try {
-      if (!activeToken) {
-        router.push(`/login?returnUrl=${encodeURIComponent('/complete-profile')}`);
-        return;
-      }
+      if (!activeToken) return;
 
       const res = await fetch(`${API_BASE}/auth/user/profile`, {
         credentials: 'include',
@@ -39,27 +36,27 @@ function CompleteProfileContent() {
       });
 
       if (res.status === 401) {
-        router.push('/login');
+        // Token invalid, only redirect if we have no email
+        if (!email) {
+          router.push(`/login?returnUrl=${encodeURIComponent('/complete-profile')}`);
+        }
         return;
       }
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.message || 'Failed to load user profile.');
-      }
-
-      const data = await res.json();
-      setEmail(data.user?.email || '');
-      setName(data.user?.name || '');
-      setMobile(data.user?.mobile || '');
-      setLocation(data.user?.location || '');
-      if (typeof window !== 'undefined' && data.user) {
-        localStorage.setItem('srf_user', JSON.stringify(data.user));
+      if (res.ok) {
+        const data = await res.json();
+        const userData = data.user || data;
+        if (userData.email) setEmail(userData.email);
+        if (userData.name && !name) setName(userData.name);
+        if (userData.mobile) setMobile(userData.mobile);
+        if (userData.location) setLocation(userData.location);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('srf_user', JSON.stringify(userData));
+        }
       }
     } catch (err: any) {
-      setError(err.message || 'Unable to connect to account server. Please retry.');
-    } finally {
-      setLoading(false);
+      // Background sync error - non-fatal if token & email are already available
+      console.warn('Initial profile background fetch notice:', err.message);
     }
   };
 
@@ -67,23 +64,27 @@ function CompleteProfileContent() {
     let currentToken = urlToken;
     if (urlToken) {
       localStorage.setItem('srf_token', urlToken);
-      try {
-        const cleanUrl = window.location.pathname + (returnUrl && returnUrl !== '/profile' ? `?returnUrl=${encodeURIComponent(returnUrl)}` : '');
-        window.history.replaceState({}, document.title, cleanUrl);
-      } catch (e) {
-        // ignore
-      }
+      setAuthToken(urlToken);
     } else if (typeof window !== 'undefined') {
       currentToken = localStorage.getItem('srf_token');
+      if (currentToken) {
+        setAuthToken(currentToken);
+      }
+    }
+
+    if (urlEmail) {
+      setEmail(urlEmail);
+    }
+    if (urlName && !name) {
+      setName(urlName);
     }
 
     if (currentToken) {
-      setAuthToken(currentToken);
       fetchInitialData(currentToken);
-    } else {
+    } else if (!urlToken && typeof window !== 'undefined' && !localStorage.getItem('srf_token')) {
       router.push(`/login?returnUrl=${encodeURIComponent('/complete-profile')}`);
     }
-  }, [urlToken]);
+  }, [urlToken, urlEmail, urlName]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,36 +109,57 @@ function CompleteProfileContent() {
       return;
     }
 
+    const activeToken = authToken || (typeof window !== 'undefined' ? localStorage.getItem('srf_token') : '') || '';
+    if (!activeToken) {
+      setError('Authentication session not found. Please log in again.');
+      return;
+    }
+
     setSaving(true);
 
     try {
-      const activeToken = authToken || (typeof window !== 'undefined' ? localStorage.getItem('srf_token') : '');
-      const res = await fetch(`${API_BASE}/auth/user/profile`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(activeToken ? { Authorization: `Bearer ${activeToken}` } : {}),
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          name: trimmedName,
-          mobile: trimmedMobile,
-          location: trimmedLocation,
-        }),
-      });
+      const makePatchRequest = async () => {
+        return fetch(`${API_BASE}/auth/user/profile`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${activeToken}`,
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            name: trimmedName,
+            mobile: trimmedMobile,
+            location: trimmedLocation,
+          }),
+        });
+      };
 
-      const data = await res.json();
+      let res: Response;
+      try {
+        res = await makePatchRequest();
+      } catch (networkErr) {
+        // Auto-retry once after 600ms in case of cold start
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        res = await makePatchRequest();
+      }
+
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.message || 'Failed to update profile details.');
       }
 
-      if (typeof window !== 'undefined' && data.user) {
-        localStorage.setItem('srf_user', JSON.stringify(data.user));
+      const savedUser = data.user || data;
+      if (typeof window !== 'undefined' && savedUser) {
+        localStorage.setItem('srf_user', JSON.stringify(savedUser));
       }
 
       router.push(returnUrl);
     } catch (err: any) {
-      setError(err.message || 'Failed to save profile. Please try again.');
+      if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+        setError('Server is connecting. Please click "Save & Continue" again.');
+      } else {
+        setError(err.message || 'Failed to save profile. Please try again.');
+      }
     } finally {
       setSaving(false);
     }
