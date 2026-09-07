@@ -1154,4 +1154,124 @@ export class AuthService {
       role: 'USER',
     };
   }
+
+  /**
+   * Public User Sign-In / Sign-Up with Google (ID Token verification)
+   */
+  async loginWithGoogle(
+    dto: { credential?: string; token?: string },
+    ipAddress?: string,
+  ): Promise<{ user: any; tokens: { accessToken: string; refreshToken: string } }> {
+    const rawToken = String(dto.credential || dto.token || '').trim();
+    if (!rawToken) {
+      throw new BadRequestException('Google credential token is required.');
+    }
+
+    const clientId = process.env.GOOGLE_CLIENT_ID || '667486999600-digfcoihdvpc0r8b3jgbn6hbm2emairn.apps.googleusercontent.com';
+    let googlePayload: any = null;
+
+    try {
+      const { OAuth2Client } = await import('google-auth-library');
+      const client = new OAuth2Client(clientId);
+      const ticket = await client.verifyIdToken({
+        idToken: rawToken,
+        audience: clientId,
+      });
+      googlePayload = ticket.getPayload();
+    } catch (err: any) {
+      this.logger.error(`Google token verification failed via SDK: ${err.message}`);
+      // Fallback verification against Google's tokeninfo endpoint if needed
+      try {
+        const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(rawToken)}`);
+        if (res.ok) {
+          googlePayload = await res.json();
+        }
+      } catch (fallbackErr) {
+        // ignore
+      }
+    }
+
+    if (!googlePayload || !googlePayload.email) {
+      throw new UnauthorizedException('Invalid or expired Google credential.');
+    }
+
+    const email = String(googlePayload.email).trim().toLowerCase();
+    const name = String(googlePayload.name || googlePayload.given_name || 'Contestant').trim();
+
+    // Check if user already exists
+    let user = await this.db.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      // Auto-create new user
+      const placeholderHash = await bcrypt.hash(`google_${Date.now()}_${Math.random()}`, 10);
+      user = await this.db.user.create({
+        data: {
+          email,
+          name,
+          role: 'USER',
+          passwordHash: placeholderHash,
+        },
+      });
+
+      await this.auditService.log({
+        actorType: 'USER',
+        actorId: user.id,
+        action: 'USER_SIGNUP',
+        entity: 'User',
+        entityId: user.id,
+        ipAddress,
+        after: {
+          userId: user.id,
+          email,
+          name,
+          provider: 'google',
+        },
+      });
+    } else {
+      // Update name if currently empty
+      if (!user.name && name) {
+        user = await this.db.user.update({
+          where: { id: user.id },
+          data: { name },
+        });
+      }
+
+      await this.auditService.log({
+        actorType: 'USER',
+        actorId: user.id,
+        action: 'USER_LOGIN',
+        entity: 'User',
+        entityId: user.id,
+        ipAddress,
+        after: {
+          userId: user.id,
+          email,
+          provider: 'google',
+        },
+      });
+    }
+
+    const payload: JwtPayload = {
+      sub: user.id,
+      role: 'USER',
+      email: user.email,
+      mobile: user.mobile || undefined,
+    };
+
+    const tokens = await this.generateTokens(payload);
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        mobile: user.mobile,
+        location: user.location,
+        role: 'USER',
+      },
+      tokens,
+    };
+  }
 }

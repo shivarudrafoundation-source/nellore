@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
+import GoogleAuthButton from '../../components/GoogleAuthButton';
 import { getApiBaseUrl } from '@srf/ui';
 
 function SignupContent() {
@@ -304,6 +305,22 @@ function SignupContent() {
             >
               {loading ? 'CHECKING...' : 'CONTINUE WITH EMAIL →'}
             </button>
+
+            <div className="relative my-6 text-center">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/10" />
+              </div>
+              <span className="relative bg-[#0A0A0A] px-4 text-[10px] font-mono tracking-[0.2em] text-white/40 uppercase">
+                Or sign up with
+              </span>
+            </div>
+
+            <GoogleAuthButton
+              returnUrl={returnUrl}
+              onError={(msg) => setError(msg)}
+              text="signup_with"
+              label="Sign up with Google"
+            />
           </form>
         )}
 

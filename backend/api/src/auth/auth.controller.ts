@@ -214,6 +214,18 @@ export class AuthController {
     return { user: result.user, tokens: result.tokens };
   }
 
+  @Post('user/google')
+  async userGoogleLogin(
+    @Body() body: any,
+    @Res({ passthrough: true }) res: express.Response,
+    @Req() req: express.Request,
+  ) {
+    const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
+    const result = await this.authService.loginWithGoogle(body, ipAddress);
+    this.setCookies(res, result.tokens, req);
+    return { user: result.user, tokens: result.tokens };
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('user/profile')
   async getUserProfile(@CurrentUser() user: any) {
