@@ -169,10 +169,12 @@ export function getApiBaseUrl(): string {
       return 'http://localhost:4000';
     }
   }
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '');
+  let url = process.env.NEXT_PUBLIC_API_URL || 'https://sivarudra-api.onrender.com';
+  url = url.trim().replace(/\/+$/, '');
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = `https://${url}`;
   }
-  return 'https://sivarudra-api.onrender.com';
+  return url;
 }
 
 export function getWsBaseUrl(): string {
@@ -182,10 +184,12 @@ export function getWsBaseUrl(): string {
       return 'http://localhost:4000';
     }
   }
-  if (process.env.NEXT_PUBLIC_WS_URL) {
-    return process.env.NEXT_PUBLIC_WS_URL.replace(/\/+$/, '');
+  let url = process.env.NEXT_PUBLIC_WS_URL || 'wss://sivarudra-api.onrender.com';
+  url = url.trim().replace(/\/+$/, '');
+  if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
+    url = `wss://${url}`;
   }
-  return 'https://sivarudra-api.onrender.com';
+  return url;
 }
 
 export function getContestantPortalUrl(): string {
@@ -195,10 +199,12 @@ export function getContestantPortalUrl(): string {
       return 'http://localhost:3004';
     }
   }
-  if (process.env.NEXT_PUBLIC_CONTESTANT_URL) {
-    return process.env.NEXT_PUBLIC_CONTESTANT_URL.replace(/\/+$/, '');
+  let url = process.env.NEXT_PUBLIC_CONTESTANT_URL || 'https://my.shivarudrafoundation.com';
+  url = url.trim().replace(/\/+$/, '');
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = `https://${url}`;
   }
-  return 'https://my.shivarudrafoundation.com';
+  return url;
 }
 
 export * from './contestant-id-card';

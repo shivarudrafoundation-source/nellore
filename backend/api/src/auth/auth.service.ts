@@ -706,7 +706,9 @@ export class AuthService {
     const otp = await this.otpService.generateOtp(rawEmail, 'user-signup');
 
     if (this.mailService) {
-      await this.mailService.sendOtpEmail(rawEmail, otp, 'Website Account Registration');
+      this.mailService.sendOtpEmail(rawEmail, otp, 'Website Account Registration').catch((err) => {
+        this.logger.error(`Failed to send signup OTP email to ${rawEmail}: ${err.message}`);
+      });
     }
 
     await this.auditService.log({
@@ -1063,7 +1065,9 @@ export class AuthService {
     const otp = await this.otpService.generateOtp(rawEmail, 'user-forgot-password');
 
     if (this.mailService) {
-      await this.mailService.sendOtpEmail(rawEmail, otp, 'Password Reset Verification');
+      this.mailService.sendOtpEmail(rawEmail, otp, 'Password Reset Verification').catch((err) => {
+        this.logger.error(`Failed to send forgot-password OTP email to ${rawEmail}: ${err.message}`);
+      });
     }
 
     await this.auditService.log({

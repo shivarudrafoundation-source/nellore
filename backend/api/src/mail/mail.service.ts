@@ -36,7 +36,7 @@ export class MailService {
     }
 
     try {
-      const response = await this.resend.emails.send({
+      const sendPromise = this.resend.emails.send({
         from: this.defaultFrom,
         to: options.to,
         subject: options.subject,
@@ -44,13 +44,19 @@ export class MailService {
         text: options.text,
       });
 
-      if (response.error) {
+      const timeoutPromise = new Promise<{ error: { message: string; name: string } }>((resolve) =>
+        setTimeout(() => resolve({ error: { message: 'Resend API timeout after 5s', name: 'TimeoutError' } }), 5000),
+      );
+
+      const response: any = await Promise.race([sendPromise, timeoutPromise]);
+
+      if (response && response.error) {
         this.logger.error(`Resend API Error: ${response.error.message}`, response.error.name);
         return { success: false, error: response.error.message };
       }
 
-      this.logger.log(`Email dispatched successfully via Resend. ID: ${response.data?.id}`);
-      return { success: true, data: response.data };
+      this.logger.log(`Email dispatched successfully via Resend. ID: ${response?.data?.id}`);
+      return { success: true, data: response?.data };
     } catch (err: any) {
       this.logger.error(`Failed to send email via Resend: ${err.message}`, err.stack);
       return { success: false, error: err.message };
