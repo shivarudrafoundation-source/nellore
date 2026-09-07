@@ -23,8 +23,6 @@ const navItems: NavItem[] = [
   { label: 'SPONSORS', path: '/sponsors' },
   { label: 'GALLERY', path: '/gallery' },
   { label: 'DOCUMENTS', path: '/documents' },
-  { label: 'AUDIT LOGS', path: '/audit-logs' },
-  { label: 'SETTINGS', path: '/settings' },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
