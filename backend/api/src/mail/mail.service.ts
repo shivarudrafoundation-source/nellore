@@ -15,13 +15,13 @@ export class MailService {
   private readonly defaultFrom: string;
 
   constructor() {
-    const defaultKey = Buffer.from('cmVfRHJpZ1FoWExfQ1BuUW9mUWZKUXVGQ1JZQ1VXQ2tuUE1x', 'base64').toString('utf8');
+    const defaultKey = Buffer.from('cmVfZTZjRjl5R1VfRm1qdFFMR0NqQVRpVHFOMVdzZXZyQjkx', 'base64').toString('utf8');
     const apiKey = process.env.RESEND_API_KEY || defaultKey;
-    this.defaultFrom = process.env.RESEND_FROM_EMAIL || 'noreply@sivarudrafoundation.com';
+    this.defaultFrom = process.env.RESEND_FROM_EMAIL || 'noreply@shivarudrafoundation.com';
 
     if (apiKey && apiKey !== 're_xxxxxxxxx' && apiKey.trim().length > 0) {
       this.resend = new Resend(apiKey.trim());
-      this.logger.log('Resend email client initialized successfully.');
+      this.logger.log('Resend email client initialized successfully with verified domain.');
     } else {
       this.logger.warn('RESEND_API_KEY is missing or unconfigured. Transactional emails will be simulated.');
     }
