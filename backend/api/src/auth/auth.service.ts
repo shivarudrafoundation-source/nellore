@@ -709,7 +709,10 @@ export class AuthService {
     });
 
     if (existing) {
-      throw new ConflictException('This email is already registered. Please Sign In.');
+      const isPlaceholder = !existing.passwordHash || existing.passwordHash.startsWith('google_') || existing.passwordHash.length < 20;
+      if (!isPlaceholder) {
+        throw new ConflictException('This email is already registered. Please Sign In.');
+      }
     }
 
     const otp = await this.otpService.generateOtp(rawEmail, 'user-signup');
@@ -836,23 +839,37 @@ export class AuthService {
       where: { email: rawEmail },
     });
 
-    if (existing) {
-      throw new ConflictException('This email is already registered. Please Sign In.');
-    }
-
     // Hash password with bcrypt
     const passwordHash = await bcrypt.hash(rawPassword, 10);
 
-    const user = await this.db.user.create({
-      data: {
-        email: rawEmail,
-        passwordHash,
-        name: userName || null,
-        mobile: dto.mobile ? String(dto.mobile).trim() : null,
-        location: dto.location ? String(dto.location).trim() : null,
-        role: 'USER',
-      },
-    });
+    let user: any;
+    if (existing) {
+      const isPlaceholder = !existing.passwordHash || existing.passwordHash.startsWith('google_') || existing.passwordHash.length < 20;
+      if (isPlaceholder) {
+        user = await this.db.user.update({
+          where: { id: existing.id },
+          data: {
+            passwordHash,
+            name: userName || existing.name || null,
+            mobile: dto.mobile ? String(dto.mobile).trim() : existing.mobile,
+            location: dto.location ? String(dto.location).trim() : existing.location,
+          },
+        });
+      } else {
+        throw new ConflictException('This email is already registered. Please Sign In.');
+      }
+    } else {
+      user = await this.db.user.create({
+        data: {
+          email: rawEmail,
+          passwordHash,
+          name: userName || null,
+          mobile: dto.mobile ? String(dto.mobile).trim() : null,
+          location: dto.location ? String(dto.location).trim() : null,
+          role: 'USER',
+        },
+      });
+    }
 
     const payload: JwtPayload = {
       sub: user.id,
