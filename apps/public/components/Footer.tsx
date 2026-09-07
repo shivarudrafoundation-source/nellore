@@ -11,6 +11,7 @@ export default function Footer() {
     { label: 'PAST EVENTS', href: '/#past-events' },
     { label: 'RESULTS & WINNERS', href: '/results' },
     { label: 'GALLERY', href: '/#gallery' },
+    { label: 'SPONSORS', href: '/#sponsors' },
     { label: 'CONTACT', href: '/#contact' },
   ];
 

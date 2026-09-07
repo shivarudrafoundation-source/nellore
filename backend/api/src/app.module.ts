@@ -18,6 +18,7 @@ import { PublicModule } from './public/public.module.js';
 import { DocumentsModule } from './documents/documents.module.js';
 import { ContestantPortalModule } from './contestant-portal/contestant-portal.module.js';
 import { MailModule } from './mail/mail.module.js';
+import { SponsorsModule } from './sponsors/sponsors.module.js';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { MailModule } from './mail/mail.module.js';
     PublicModule,
     DocumentsModule,
     ContestantPortalModule,
+    SponsorsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -254,3 +254,18 @@ model ResultPublication {
   @@unique([eventId, categoryId])
   @@map("result_publications")
 }
+
+model Sponsor {
+  id          String   @id @default(uuid())
+  name        String
+  tier        String   @default("POWERED_BY") // TITLE, POWERED_BY, ASSOCIATE, PLATINUM, GOLD, SILVER, OFFICIAL_PARTNER
+  logoUrl     String   @map("logo_url")
+  websiteUrl  String?  @map("website_url")
+  description String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("sponsors")
+}

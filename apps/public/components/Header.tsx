@@ -74,6 +74,7 @@ export default function Header() {
     { label: 'CATEGORIES', href: '/#categories' },
     { label: 'RESULTS & WINNERS', href: '/results' },
     { label: 'GALLERY', href: '/#gallery' },
+    { label: 'SPONSORS', href: '/#sponsors' },
     { label: 'CONTACT', href: '/#contact' },
   ];
 

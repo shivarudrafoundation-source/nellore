@@ -10,6 +10,7 @@ import CategoriesSection from '../components/CategoriesSection';
 import PastEventsSection from '../components/PastEventsSection';
 import WinnersResultsSection from '../components/WinnersResultsSection';
 import GallerySection from '../components/GallerySection';
+import SponsorsSection from '../components/SponsorsSection';
 import ContactSection from '../components/ContactSection';
 import Footer from '../components/Footer';
 import RegistrationFlow from '../components/RegistrationFlow';
@@ -92,6 +93,9 @@ export default function Home() {
       
       {/* Gallery */}
       <GallerySection />
+      
+      {/* Sponsors & Patrons */}
+      <SponsorsSection />
       
       {/* Contact */}
       <ContactSection />

@@ -20,7 +20,7 @@ const navItems: NavItem[] = [
   { label: 'CONTESTANTS', path: '/contestants' },
   { label: 'JUDGES', path: '/judges' },
   { label: 'SCORING', path: '/scoring' },
-  { label: 'WINNERS', path: '/winners' },
+  { label: 'SPONSORS', path: '/sponsors' },
   { label: 'GALLERY', path: '/gallery' },
   { label: 'DOCUMENTS', path: '/documents' },
   { label: 'AUDIT LOGS', path: '/audit-logs' },
