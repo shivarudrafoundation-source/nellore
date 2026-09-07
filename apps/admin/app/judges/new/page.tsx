@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { AuthGuard } from '../../components/auth-guard';
 import { AdminShell } from '../../components/admin-shell';
 import { Button, Input, Card, getApiBaseUrl } from '@srf/ui';
+import { getAuthHeaders } from '../../lib/auth';
 
 const API = getApiBaseUrl();
 
@@ -64,7 +65,10 @@ function CreateJudgeContent() {
   useEffect(() => {
     async function loadEvents() {
       try {
-        const res = await fetch(`${API}/admin/events?limit=100`, { credentials: 'include' });
+        const res = await fetch(`${API}/admin/events?limit=100`, {
+          credentials: 'include',
+          headers: getAuthHeaders(),
+        });
         if (res.ok) {
           const d = await res.json();
           setEvents(d.data);
@@ -88,6 +92,7 @@ function CreateJudgeContent() {
       try {
         const res = await fetch(`${API}/admin/categories?eventId=${selectedEventId}&limit=100`, {
           credentials: 'include',
+          headers: getAuthHeaders(),
         });
         if (res.ok) {
           const d = await res.json();
@@ -113,6 +118,7 @@ function CreateJudgeContent() {
       try {
         const res = await fetch(`${API}/admin/rounds?categoryId=${primaryCatId}&limit=100`, {
           credentials: 'include',
+          headers: getAuthHeaders(),
         });
         if (res.ok) {
           const d = await res.json();
@@ -165,7 +171,7 @@ function CreateJudgeContent() {
     try {
       const res = await fetch(`${API}/admin/judges`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           id: judgeId.trim().toUpperCase(),
           name: name.trim(),

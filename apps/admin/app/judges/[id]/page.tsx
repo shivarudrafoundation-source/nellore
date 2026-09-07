@@ -6,6 +6,7 @@ import { AuthGuard } from '../../components/auth-guard';
 import { AdminShell } from '../../components/admin-shell';
 import { ConfirmModal } from '../../components/confirm-modal';
 import { Card, Button, Input, getApiBaseUrl } from '@srf/ui';
+import { getAuthHeaders } from '../../lib/auth';
 
 const API = getApiBaseUrl();
 
@@ -51,7 +52,10 @@ function JudgeDetailContent() {
 
   const fetchJudge = async () => {
     try {
-      const res = await fetch(`${API}/admin/judges/${id}`, { credentials: 'include' });
+      const res = await fetch(`${API}/admin/judges/${id}`, {
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      });
       if (!res.ok) throw new Error('Unable to load judge details.');
       const d = await res.json();
       setJudge(d);
@@ -78,7 +82,10 @@ function JudgeDetailContent() {
     if (!assignModalOpen) return;
     async function loadEvents() {
       try {
-        const res = await fetch(`${API}/admin/events?limit=100`, { credentials: 'include' });
+        const res = await fetch(`${API}/admin/events?limit=100`, {
+          credentials: 'include',
+          headers: getAuthHeaders(),
+        });
         if (res.ok) {
           const d = await res.json();
           setEvents(d.data);
@@ -100,6 +107,7 @@ function JudgeDetailContent() {
       try {
         const res = await fetch(`${API}/admin/categories?eventId=${selectedEventId}&limit=100`, {
           credentials: 'include',
+          headers: getAuthHeaders(),
         });
         if (res.ok) {
           const d = await res.json();
@@ -126,6 +134,7 @@ function JudgeDetailContent() {
       try {
         const res = await fetch(`${API}/admin/rounds?categoryId=${primaryCatId}&limit=100`, {
           credentials: 'include',
+          headers: getAuthHeaders(),
         });
         if (res.ok) {
           const d = await res.json();
@@ -163,7 +172,7 @@ function JudgeDetailContent() {
     try {
       const res = await fetch(`${API}/admin/judges/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ name: editName.trim(), email: editEmail.trim().toLowerCase() }),
         credentials: 'include',
       });
@@ -191,7 +200,7 @@ function JudgeDetailContent() {
     try {
       const res = await fetch(`${API}/admin/judges/${id}/assign`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           eventId: selectedEventId,
           categoryId: selectedCategoryIds[0],
@@ -242,7 +251,7 @@ function JudgeDetailContent() {
     try {
       const res = await fetch(`${API}/admin/judges/${id}/reset-password`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         credentials: 'include',
         body: JSON.stringify({ password: newPasswordInput.trim() }),
       });
@@ -275,6 +284,7 @@ function JudgeDetailContent() {
         const res = await fetch(`${API}/admin/judges/${id}`, {
           method: 'DELETE',
           credentials: 'include',
+          headers: getAuthHeaders(),
         });
         if (!res.ok) {
           const d = await res.json();
@@ -288,7 +298,11 @@ function JudgeDetailContent() {
       if (confirmAction === 'disable') endpoint = `${API}/admin/judges/${id}/disable`;
       if (confirmAction === 'enable') endpoint = `${API}/admin/judges/${id}/enable`;
 
-      const res = await fetch(endpoint, { method: 'POST', credentials: 'include' });
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      });
       if (!res.ok) {
         const d = await res.json();
         throw new Error(d.message || 'Action failed.');

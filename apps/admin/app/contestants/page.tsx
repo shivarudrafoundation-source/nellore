@@ -8,6 +8,7 @@ import { AdminShell } from '../components/admin-shell';
 import { Pagination } from '../components/pagination';
 import { ConfirmModal } from '../components/confirm-modal';
 import { Card, getApiBaseUrl } from '@srf/ui';
+import { getAuthHeaders } from '../lib/auth';
 
 const API = getApiBaseUrl();
 
@@ -69,7 +70,7 @@ function ContestantsContent() {
     if (!editTarget) return;
     const cleanId = editIdInput.trim().toUpperCase();
     if (!cleanId) {
-      setEditError('Please enter a new Contestant ID.');
+      setEditError('Please provide a valid contestant ID.');
       return;
     }
 
@@ -78,7 +79,7 @@ function ContestantsContent() {
     try {
       const res = await fetch(`${API}/admin/contestants/${editTarget.id}/update-id`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         credentials: 'include',
         body: JSON.stringify({
           newContestantId: cleanId,
@@ -110,6 +111,7 @@ function ContestantsContent() {
       const res = await fetch(`${API}/admin/contestants/${deleteTarget.id}`, {
         method: 'DELETE',
         credentials: 'include',
+        headers: getAuthHeaders(),
       });
       if (!res.ok) {
         const d = await res.json();
@@ -127,7 +129,10 @@ function ContestantsContent() {
   useEffect(() => {
     async function loadEvents() {
       try {
-        const res = await fetch(`${API}/admin/events?limit=100`, { credentials: 'include' });
+        const res = await fetch(`${API}/admin/events?limit=100`, { 
+          credentials: 'include',
+          headers: getAuthHeaders(),
+        });
         if (res.ok) {
           const d = await res.json();
           setEvents(d.data);
@@ -143,7 +148,10 @@ function ContestantsContent() {
         const url = eventFilter
           ? `${API}/admin/categories?eventId=${eventFilter}&limit=100`
           : `${API}/admin/categories?limit=100`;
-        const res = await fetch(url, { credentials: 'include' });
+        const res = await fetch(url, { 
+          credentials: 'include',
+          headers: getAuthHeaders(),
+        });
         if (res.ok) {
           const d = await res.json();
           setCategories(d.data);
@@ -163,7 +171,10 @@ function ContestantsContent() {
         if (eventFilter) params.set('eventId', eventFilter);
         if (categoryFilter) params.set('categoryId', categoryFilter);
 
-        const res = await fetch(`${API}/admin/contestants?${params}`, { credentials: 'include' });
+        const res = await fetch(`${API}/admin/contestants?${params}`, { 
+          credentials: 'include',
+          headers: getAuthHeaders(),
+        });
         if (!res.ok) throw new Error('Unable to load contestants.');
         const data = await res.json();
         setContestants(data.data);

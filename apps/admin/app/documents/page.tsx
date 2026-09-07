@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { AuthGuard } from '../components/auth-guard';
 import { AdminShell } from '../components/admin-shell';
 import { Card, Button, getApiBaseUrl } from '@srf/ui';
+import { getAuthHeaders } from '../lib/auth';
 
 const API = getApiBaseUrl();
 
@@ -24,7 +25,10 @@ function DocumentsContent() {
   useEffect(() => {
     async function loadEvents() {
       try {
-        const res = await fetch(`${API}/admin/events?limit=50`, { credentials: 'include' });
+        const res = await fetch(`${API}/admin/events?limit=50`, { 
+          credentials: 'include',
+          headers: getAuthHeaders(),
+        });
         if (res.ok) {
           const d = await res.json();
           setEvents(d.data || []);
@@ -38,7 +42,10 @@ function DocumentsContent() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${API}/admin/documents/pdf`, { credentials: 'include' });
+      const res = await fetch(`${API}/admin/documents/pdf`, { 
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      });
       if (!res.ok) throw new Error('Failed to load documents.');
       const data = await res.json();
       setDocuments(data || []);
@@ -99,7 +106,7 @@ function DocumentsContent() {
 
       const res = await fetch(`${API}/admin/documents/pdf/upload`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         credentials: 'include',
         body: JSON.stringify(payload),
       });
@@ -125,6 +132,7 @@ function DocumentsContent() {
       const res = await fetch(`${API}/admin/documents/pdf/${id}`, {
         method: 'DELETE',
         credentials: 'include',
+        headers: getAuthHeaders(),
       });
       if (!res.ok) throw new Error('Failed to delete document.');
       await fetchDocuments();

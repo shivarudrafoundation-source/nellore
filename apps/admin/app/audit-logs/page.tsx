@@ -5,6 +5,7 @@ import { AuthGuard } from '../components/auth-guard';
 import { AdminShell } from '../components/admin-shell';
 import { Pagination } from '../components/pagination';
 import { Card, getApiBaseUrl } from '@srf/ui';
+import { getAuthHeaders } from '../lib/auth';
 
 const API = getApiBaseUrl();
 
@@ -23,7 +24,10 @@ function AuditLogsContent() {
         const params = new URLSearchParams({ page: String(page), limit: '20' });
         if (actionFilter) params.set('action', actionFilter);
 
-        const res = await fetch(`${API}/admin/audit-logs?${params}`, { credentials: 'include' });
+        const res = await fetch(`${API}/admin/audit-logs?${params}`, {
+          credentials: 'include',
+          headers: getAuthHeaders(),
+        });
         if (!res.ok) throw new Error('Unable to load audit logs.');
         const data = await res.json();
         setLogs(data.data || []);

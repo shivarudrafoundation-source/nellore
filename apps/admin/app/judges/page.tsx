@@ -8,6 +8,7 @@ import { AdminShell } from '../components/admin-shell';
 import { ConfirmModal } from '../components/confirm-modal';
 import { Pagination } from '../components/pagination';
 import { Card, Button, Input, getApiBaseUrl } from '@srf/ui';
+import { getAuthHeaders } from '../lib/auth';
 
 const API = getApiBaseUrl();
 
@@ -38,7 +39,10 @@ function JudgesContent() {
   useEffect(() => {
     async function loadEvents() {
       try {
-        const res = await fetch(`${API}/admin/events?limit=100`, { credentials: 'include' });
+        const res = await fetch(`${API}/admin/events?limit=100`, {
+          credentials: 'include',
+          headers: getAuthHeaders(),
+        });
         if (res.ok) {
           const d = await res.json();
           setEvents(d.data);
@@ -55,7 +59,10 @@ function JudgesContent() {
         const url = eventFilter
           ? `${API}/admin/categories?eventId=${eventFilter}&limit=100`
           : `${API}/admin/categories?limit=100`;
-        const res = await fetch(url, { credentials: 'include' });
+        const res = await fetch(url, {
+          credentials: 'include',
+          headers: getAuthHeaders(),
+        });
         if (res.ok) {
           const d = await res.json();
           setCategories(d.data);
@@ -76,7 +83,10 @@ function JudgesContent() {
         if (categoryFilter) params.set('categoryId', categoryFilter);
         if (statusFilter) params.set('isActive', statusFilter === 'ACTIVE' ? 'true' : 'false');
 
-        const res = await fetch(`${API}/admin/judges?${params}`, { credentials: 'include' });
+        const res = await fetch(`${API}/admin/judges?${params}`, {
+          credentials: 'include',
+          headers: getAuthHeaders(),
+        });
         if (!res.ok) throw new Error('Unable to load judges.');
         const data = await res.json();
         setJudges(data.data);
@@ -103,6 +113,7 @@ function JudgesContent() {
         const res = await fetch(`${API}/admin/judges/${targetJudge.id}`, {
           method: 'DELETE',
           credentials: 'include',
+          headers: getAuthHeaders(),
         });
         if (!res.ok) {
           const d = await res.json();
@@ -114,7 +125,11 @@ function JudgesContent() {
         if (actionType === 'enable') endpoint = `${API}/admin/judges/${targetJudge.id}/enable`;
         if (actionType === 'reset') endpoint = `${API}/admin/judges/${targetJudge.id}/reset-password`;
 
-        const res = await fetch(endpoint, { method: 'POST', credentials: 'include' });
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          credentials: 'include',
+          headers: getAuthHeaders(),
+        });
         if (!res.ok) {
           const d = await res.json();
           throw new Error(d.message || 'Action failed.');
