@@ -81,7 +81,11 @@ function SignupContent() {
       setTimer(300); // 5 minutes
       setSuccessMsg(`We sent a 6-digit verification code to ${maskEmail(trimmedEmail)}.`);
     } catch (err: any) {
-      setError(err.message || 'Error sending OTP. Please try again.');
+      if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+        setError('Server is connecting. Please wait a moment and click Continue again.');
+      } else {
+        setError(err.message || 'Error sending OTP. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -149,7 +153,11 @@ function SignupContent() {
       setStep(3);
       setSuccessMsg('Email verified successfully! Please set your account password.');
     } catch (err: any) {
-      setError(err.message || 'Verification failed. Please check your code.');
+      if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+        setError('Server is connecting. Please wait a moment and try again.');
+      } else {
+        setError(err.message || 'Verification failed. Please check your code.');
+      }
     } finally {
       setLoading(false);
     }
@@ -196,7 +204,11 @@ function SignupContent() {
 
       router.push(returnUrl);
     } catch (err: any) {
-      setError(err.message || 'Account creation failed. Please try again.');
+      if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+        setError('Server is connecting. Please wait a moment and try again.');
+      } else {
+        setError(err.message || 'Account creation failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

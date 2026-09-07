@@ -60,7 +60,11 @@ function LoginContent() {
 
       router.push(returnUrl);
     } catch (err: any) {
-      setError(err.message || 'Login failed. Please check your credentials.');
+      if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+        setError('Server is connecting. Please wait a moment and try signing in again.');
+      } else {
+        setError(err.message || 'Login failed. Please check your credentials.');
+      }
     } finally {
       setLoading(false);
     }
