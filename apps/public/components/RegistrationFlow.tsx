@@ -47,11 +47,37 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
   // Check auth state and prefill profile
   useEffect(() => {
     if (isOpen) {
-      fetch(`${API}/auth/user/profile`, { credentials: 'include' })
+      const storedToken = typeof window !== 'undefined' ? localStorage.getItem('srf_token') : null;
+      const storedUser = typeof window !== 'undefined' ? localStorage.getItem('srf_user') : null;
+
+      let parsedUser: any = null;
+      if (storedUser) {
+        try {
+          parsedUser = JSON.parse(storedUser);
+          setCurrentUser(parsedUser);
+          setFormData((prev) => ({
+            ...prev,
+            name: prev.name || parsedUser.name || '',
+            email: prev.email || parsedUser.email || '',
+            mobile: prev.mobile || parsedUser.mobile || '',
+            location: prev.location || parsedUser.location || '',
+          }));
+        } catch (_) {}
+      }
+
+      fetch(`${API}/auth/user/profile`, {
+        credentials: 'include',
+        headers: {
+          ...(storedToken ? { Authorization: `Bearer ${storedToken}` } : {}),
+        },
+      })
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (data && data.user) {
             setCurrentUser(data.user);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('srf_user', JSON.stringify(data.user));
+            }
             setFormData((prev) => ({
               ...prev,
               name: prev.name || data.user.name || '',
@@ -59,17 +85,19 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
               mobile: prev.mobile || data.user.mobile || '',
               location: prev.location || data.user.location || '',
             }));
-          } else {
+          } else if (!parsedUser) {
             setCurrentUser(null);
           }
           setAuthChecked(true);
         })
         .catch(() => {
-          setCurrentUser(null);
+          if (!parsedUser) {
+            setCurrentUser(null);
+          }
           setAuthChecked(true);
         });
     }
-  }, [isOpen]);
+  }, [isOpen, API]);
 
   // Lock body scroll and handle Escape key when modal is open
   useEffect(() => {
@@ -174,9 +202,13 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
         customFields: customData,
       };
 
+      const token = typeof window !== 'undefined' ? localStorage.getItem('srf_token') : null;
       const res = await fetch(`${API}/public/registrations`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         credentials: 'include',
         body: JSON.stringify(payload),
       });
@@ -196,6 +228,7 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
   };
 
   const selectedCategoryObj = event.categories?.find((c) => c.id === categoryId);
+  const eventPath = `/events/${event.code || event.id}`;
 
   return (
     <div 
@@ -245,13 +278,13 @@ export default function RegistrationFlow({ isOpen, onClose, selectedEvent }: Reg
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2 max-w-sm mx-auto">
               <a
-                href={`/login?returnUrl=${encodeURIComponent(`/events/${event.code || event.id}`)}`}
+                href={`/login?returnUrl=${encodeURIComponent(eventPath)}`}
                 className="flex-1 py-3 px-5 bg-[#D4AF37] hover:bg-[#E5C158] text-black font-semibold text-xs uppercase tracking-wider transition-colors text-center rounded-sm"
               >
                 SIGN IN →
               </a>
               <a
-                href={`/signup?returnUrl=${encodeURIComponent(`/events/${event.code || event.id}`)}`}
+                href={`/signup?returnUrl=${encodeURIComponent(eventPath)}`}
                 className="flex-1 py-3 px-5 border border-white/20 hover:border-[#D4AF37] text-white font-semibold text-xs uppercase tracking-wider transition-colors text-center rounded-sm"
               >
                 CREATE ACCOUNT
