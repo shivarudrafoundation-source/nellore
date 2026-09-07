@@ -150,7 +150,7 @@ export const PageLayout = ({ children, title, subtitle }: PageLayoutProps) => {
       <footer className="py-8 border-t border-luxury-gray-border/30 bg-luxury-black-deep">
         <Container className="flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="font-sans text-[10px] tracking-luxury text-luxury-gray uppercase">
-            © {new Date().getFullYear()} Siva Rudra Foundations. All Rights Reserved.
+            © {new Date().getFullYear()} Shiva Rudra Foundations. All Rights Reserved.
           </p>
           <p className="font-sans text-[10px] tracking-luxury text-luxury-gold font-semibold uppercase">
             Cinematic Luxury Event Engine
@@ -161,7 +161,7 @@ export const PageLayout = ({ children, title, subtitle }: PageLayoutProps) => {
   );
 };
 
-// 6. Dynamic API & WebSocket Base URL Resolvers (Localhost in dev, sivarudrafoundation.com in prod)
+// 6. Dynamic API & WebSocket Base URL Resolvers (Localhost in dev, shivarudrafoundation.com in prod)
 export function getApiBaseUrl(): string {
   if (typeof window !== 'undefined' && window.location) {
     const host = window.location.hostname;
@@ -169,7 +169,7 @@ export function getApiBaseUrl(): string {
       return 'http://localhost:4000';
     }
   }
-  return 'https://api.sivarudrafoundation.com';
+  return 'https://api.shivarudrafoundation.com';
 }
 
 export function getWsBaseUrl(): string {
@@ -179,7 +179,7 @@ export function getWsBaseUrl(): string {
       return 'http://localhost:4000';
     }
   }
-  return 'https://api.sivarudrafoundation.com';
+  return 'https://api.shivarudrafoundation.com';
 }
 
 export function getContestantPortalUrl(): string {
@@ -189,7 +189,7 @@ export function getContestantPortalUrl(): string {
       return 'http://localhost:3004';
     }
   }
-  return 'https://my.sivarudrafoundation.com';
+  return 'https://my.shivarudrafoundation.com';
 }
 
 export * from './contestant-id-card';

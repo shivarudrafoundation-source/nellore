@@ -2,7 +2,7 @@ import './globals.css';
 import React from 'react';
 
 export const metadata = {
-  title: 'Siva Rudra Foundations | Judges Secure Scoring',
+  title: 'Shiva Rudra Foundations | Judges Secure Scoring',
   description: 'Secure, blind scoring surface for assigned event rounds and contestants.',
 };
 

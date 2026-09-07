@@ -68,6 +68,10 @@ async function main() {
 
   const adminUsers = [
     {
+      email: 'admin@shivarudrafoundation.com',
+      name: 'System Admin',
+    },
+    {
       email: 'admin@sivarudrafoundation.com',
       name: 'System Admin',
     },

@@ -1,8 +1,8 @@
 {
-  "name": "siva-rudra-foundation-monorepo",
+  "name": "shiva-rudra-foundation-monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "Monorepo for Siva Rudra Foundation Event Management Platform",
+  "description": "Monorepo for Shiva Rudra Foundation Event Management Platform",
   "workspaces": [
     "apps/*",
     "backend/*",

@@ -229,7 +229,7 @@ function CreateJudgeContent() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             error={fieldErrors.email}
-            placeholder="judge@sivarudrafoundation.com"
+            placeholder="judge@shivarudrafoundation.com"
           />
         </div>
 

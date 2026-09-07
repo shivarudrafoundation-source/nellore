@@ -299,11 +299,11 @@ export default function JudgeScoringConsole() {
       <header className="h-16 bg-[#0A0A0A] border-b border-luxury-gray-border/20 px-6 lg:px-12 flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-3">
           <div className="relative h-8 w-8 rounded-full overflow-hidden border border-luxury-gold/30">
-            <Image src="/brand/logo-circle.jpg" alt="Siva Rudra" fill className="object-cover" />
+            <Image src="/brand/logo-circle.jpg" alt="Shiva Rudra" fill className="object-cover" />
           </div>
           <div>
             <span className="font-serif text-sm tracking-luxury text-luxury-gold uppercase block font-light">
-              SIVA RUDRA FOUNDATIONS
+              SHIVA RUDRA FOUNDATIONS
             </span>
             <span className="font-sans text-[9px] tracking-luxury text-luxury-white/40 uppercase block">
               JUDGE SCORING TERMINAL

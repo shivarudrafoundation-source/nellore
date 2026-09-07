@@ -70,7 +70,7 @@ export default function CategoriesSection() {
             </h2>
           </div>
           <p className="font-sans text-xs md:text-sm text-[#B8B8B8] max-w-md leading-relaxed">
-            Siva Rudra Foundations hosts division-specific ramp and performance stages, matching strict parameters configured by the event board.
+            Shiva Rudra Foundations hosts division-specific ramp and performance stages, matching strict parameters configured by the event board.
           </p>
         </div>
 

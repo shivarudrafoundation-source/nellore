@@ -288,7 +288,7 @@ export default function StageLiveDisplay() {
           <div className="relative h-12 w-12 md:h-14 md:w-14 rounded-full overflow-hidden border-2 border-luxury-gold bg-black flex-shrink-0 shadow-lg">
             <Image
               src="/brand/logo-circle.jpg"
-              alt="Siva Rudra Foundations"
+              alt="Shiva Rudra Foundations"
               fill
               className="object-cover scale-105"
               priority
@@ -296,7 +296,7 @@ export default function StageLiveDisplay() {
           </div>
           <div>
             <span className="font-serif text-lg md:text-2xl tracking-widest text-luxury-gold uppercase font-bold block">
-              SIVA RUDRA FOUNDATIONS
+              SHIVA RUDRA FOUNDATIONS
             </span>
             <span className="font-sans text-[9px] md:text-[11px] tracking-[0.28em] text-luxury-white/60 uppercase font-extrabold block mt-0.5">
               OFFICIAL STAGE & LIVE SCORING LED BROADCAST
@@ -588,7 +588,7 @@ export default function StageLiveDisplay() {
       {/* 3. STAGE FOOTER */}
       <footer className="border-t border-luxury-gold/20 px-8 py-3 bg-[#070707]/95 flex items-center justify-between text-xs font-sans text-luxury-white/50 z-20">
         <span className="tracking-luxury uppercase text-[10px] font-semibold">
-          Siva Rudra Foundations • Official LED Screen Broadcast
+          Shiva Rudra Foundations • Official LED Screen Broadcast
         </span>
         <span className="tracking-luxury uppercase text-[10px]">
           Press <kbd className="border border-luxury-gold/50 px-1.5 py-0.5 text-luxury-gold font-mono font-bold">F</kbd> for Fullscreen LED Mode

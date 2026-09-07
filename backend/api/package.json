@@ -2,7 +2,7 @@
   "name": "@srf/api",
   "version": "1.0.0",
   "private": true,
-  "description": "NestJS backend API for Siva Rudra Foundation event manager",
+  "description": "NestJS backend API for Shiva Rudra Foundation event manager",
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc",

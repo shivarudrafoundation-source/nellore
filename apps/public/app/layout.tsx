@@ -10,19 +10,19 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://www.sivarudrafoundation.com'),
+  metadataBase: new URL('https://www.shivarudrafoundation.com'),
   title: {
-    default: 'Siva Rudra Foundations | Nellore Nerajana 2026 Official Pageant & Talent Platform',
-    template: '%s | Siva Rudra Foundations',
+    default: 'Shiva Rudra Foundations | Nellore Nerajana 2026 Official Pageant & Talent Platform',
+    template: '%s | Shiva Rudra Foundations',
   },
   description:
-    'Official platform of Siva Rudra Foundations & Nellore Nerajana 2026. Register for premier state-level pageantry (Kids, Teen, Miss, Ms, Mr), view certified live scores, and celebrate cultural distinction.',
+    'Official platform of Shiva Rudra Foundations & Nellore Nerajana 2026. Register for premier state-level pageantry (Kids, Teen, Miss, Ms, Mr), view certified live scores, and celebrate cultural distinction.',
   keywords: [
     'Nellore Nerajana',
     'Nellore Nerajana 2026',
-    'Siva Rudra Foundations',
-    'Siva Rudra Foundation',
-    'Siva Rudra',
+    'Shiva Rudra Foundations',
+    'Shiva Rudra Foundation',
+    'Shiva Rudra',
     'Nellore Mahotsav',
     'Nellore Pageant',
     'Nellore Beauty Pageant',
@@ -38,11 +38,11 @@ export const metadata: Metadata = {
     'Nellore Convention Center Events',
     'Official Results',
     'Certified Scoring Matrix',
-    'Siva Rudra Registration',
+    'Shiva Rudra Registration',
   ],
-  authors: [{ name: 'Siva Rudra Foundations', url: 'https://www.sivarudrafoundation.com' }],
-  creator: 'Siva Rudra Foundations',
-  publisher: 'Siva Rudra Foundations',
+  authors: [{ name: 'Shiva Rudra Foundations', url: 'https://www.shivarudrafoundation.com' }],
+  creator: 'Shiva Rudra Foundations',
+  publisher: 'Shiva Rudra Foundations',
   category: 'Entertainment & Cultural Pageantry',
   classification: 'Pageant & Event Management Platform',
   referrer: 'origin-when-cross-origin',
@@ -52,20 +52,20 @@ export const metadata: Metadata = {
     telephone: false,
   },
   alternates: {
-    canonical: 'https://www.sivarudrafoundation.com',
+    canonical: 'https://www.shivarudrafoundation.com',
   },
   openGraph: {
-    title: 'Siva Rudra Foundations | Nellore Nerajana 2026 Official Platform',
+    title: 'Shiva Rudra Foundations | Nellore Nerajana 2026 Official Platform',
     description:
-      'Official platform of Siva Rudra Foundations & Nellore Nerajana 2026. Certified scoring matrix, talent showcases, live rankings, and event registrations.',
-    url: 'https://www.sivarudrafoundation.com',
-    siteName: 'Siva Rudra Foundations',
+      'Official platform of Shiva Rudra Foundations & Nellore Nerajana 2026. Certified scoring matrix, talent showcases, live rankings, and event registrations.',
+    url: 'https://www.shivarudrafoundation.com',
+    siteName: 'Shiva Rudra Foundations',
     images: [
       {
         url: '/brand/logo-circle.jpg',
         width: 1200,
         height: 1200,
-        alt: 'Siva Rudra Foundations & Nellore Nerajana Official Logo',
+        alt: 'Shiva Rudra Foundations & Nellore Nerajana Official Logo',
       },
     ],
     locale: 'en_IN',
@@ -73,11 +73,11 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Siva Rudra Foundations | Nellore Nerajana 2026 Official Platform',
+    title: 'Shiva Rudra Foundations | Nellore Nerajana 2026 Official Platform',
     description:
-      'Official platform of Siva Rudra Foundations & Nellore Nerajana 2026. Certified scoring matrix, talent showcases, live rankings, and event registrations.',
+      'Official platform of Shiva Rudra Foundations & Nellore Nerajana 2026. Certified scoring matrix, talent showcases, live rankings, and event registrations.',
     images: ['/brand/logo-circle.jpg'],
-    creator: '@SivaRudraFound',
+    creator: '@ShivaRudraFound',
   },
   robots: {
     index: true,
@@ -92,7 +92,7 @@ export const metadata: Metadata = {
     },
   },
   verification: {
-    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || 'google-site-verification-sivarudrafoundation',
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || 'google-site-verification-shivarudrafoundation',
   },
   other: {
     'geo.region': 'IN-AP',
@@ -110,18 +110,18 @@ const jsonLdSchema = {
   '@graph': [
     {
       '@type': 'Organization',
-      '@id': 'https://www.sivarudrafoundation.com/#organization',
-      name: 'Siva Rudra Foundations',
-      alternateName: ['Siva Rudra Foundation', 'Nellore Nerajana', 'SRF'],
-      url: 'https://www.sivarudrafoundation.com',
+      '@id': 'https://www.shivarudrafoundation.com/#organization',
+      name: 'Shiva Rudra Foundations',
+      alternateName: ['Shiva Rudra Foundation', 'Nellore Nerajana', 'SRF'],
+      url: 'https://www.shivarudrafoundation.com',
       logo: {
         '@type': 'ImageObject',
-        url: 'https://www.sivarudrafoundation.com/brand/logo-circle.jpg',
+        url: 'https://www.shivarudrafoundation.com/brand/logo-circle.jpg',
         width: 800,
         height: 800,
       },
       description:
-        'Siva Rudra Foundations is a premier cultural and pageantry organization promoting artistic talent, fashion, and social empowerment through transparent, certified merit-based competitions in Nellore and Andhra Pradesh.',
+        'Shiva Rudra Foundations is a premier cultural and pageantry organization promoting artistic talent, fashion, and social empowerment through transparent, certified merit-based competitions in Nellore and Andhra Pradesh.',
       address: {
         '@type': 'PostalAddress',
         addressLocality: 'Nellore',
@@ -131,26 +131,26 @@ const jsonLdSchema = {
     },
     {
       '@type': 'WebSite',
-      '@id': 'https://www.sivarudrafoundation.com/#website',
-      url: 'https://www.sivarudrafoundation.com',
-      name: 'Siva Rudra Foundations',
-      description: 'Official Portal for Nellore Nerajana & Siva Rudra Foundation Pageantry and Cultural Events',
+      '@id': 'https://www.shivarudrafoundation.com/#website',
+      url: 'https://www.shivarudrafoundation.com',
+      name: 'Shiva Rudra Foundations',
+      description: 'Official Portal for Nellore Nerajana & Shiva Rudra Foundation Pageantry and Cultural Events',
       publisher: {
-        '@id': 'https://www.sivarudrafoundation.com/#organization',
+        '@id': 'https://www.shivarudrafoundation.com/#organization',
       },
       potentialAction: {
         '@type': 'SearchAction',
-        target: 'https://www.sivarudrafoundation.com/results?query={search_term_string}',
+        target: 'https://www.shivarudrafoundation.com/results?query={search_term_string}',
         'query-input': 'required name=search_term_string',
       },
     },
     {
       '@type': 'Event',
-      '@id': 'https://www.sivarudrafoundation.com/#event-nellore-nerajana',
+      '@id': 'https://www.shivarudrafoundation.com/#event-nellore-nerajana',
       name: 'Nellore Nerajana 2026 - State Pageantry & Talent Championship',
       description:
         'The premier regional cultural and talent pageant featuring Kids, Teen, Miss, Ms, and Mr categories evaluated with a certified blind scoring matrix.',
-      url: 'https://www.sivarudrafoundation.com',
+      url: 'https://www.shivarudrafoundation.com',
       eventStatus: 'https://schema.org/EventScheduled',
       eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
       location: {
@@ -164,11 +164,11 @@ const jsonLdSchema = {
         },
       },
       organizer: {
-        '@id': 'https://www.sivarudrafoundation.com/#organization',
+        '@id': 'https://www.shivarudrafoundation.com/#organization',
       },
       offers: {
         '@type': 'Offer',
-        url: 'https://www.sivarudrafoundation.com',
+        url: 'https://www.shivarudrafoundation.com',
         price: '0',
         priceCurrency: 'INR',
         availability: 'https://schema.org/InStock',
@@ -186,7 +186,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="canonical" href="https://www.sivarudrafoundation.com" />
+        <link rel="canonical" href="https://www.shivarudrafoundation.com" />
         <link rel="icon" href="/brand/logo-circle.jpg" type="image/jpeg" />
         <link rel="apple-touch-icon" href="/brand/logo-circle.jpg" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />

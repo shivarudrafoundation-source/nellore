@@ -75,11 +75,11 @@ export default function Header() {
         {/* Proper 3-Column Header Grid Layout */}
         <div className="w-full max-w-7xl mx-auto px-6 sm:px-[48px] md:px-[64px] grid grid-cols-[auto_1fr_auto] items-center">
           
-          {/* LEFT: Siva Rudra official logo */}
+          {/* LEFT: Shiva Rudra official logo */}
           <Link href="/" className="flex items-center select-none cursor-pointer">
             <Image
               src="/brand/logo-circle.jpg"
-              alt="Siva Rudra Foundations"
+              alt="Shiva Rudra Foundations"
               width={56}
               height={56}
               className="h-[44px] w-[44px] md:h-[56px] md:w-[56px] object-contain"

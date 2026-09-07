@@ -2,7 +2,7 @@ import './globals.css';
 import React from 'react';
 
 export const metadata = {
-  title: 'Siva Rudra Foundations | Stage Live Leaderboard',
+  title: 'Shiva Rudra Foundations | Stage Live Leaderboard',
   description: 'Real-time, rank-ordered event leaderboard rendered for venue LED displays.',
 };
 

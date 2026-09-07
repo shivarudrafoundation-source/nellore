@@ -9,7 +9,7 @@ export default function StageLoginPage() {
       if (host === 'localhost' || host === '127.0.0.1') {
         window.location.href = 'http://localhost:3000/login';
       } else {
-        window.location.href = 'https://sivarudrafoundation.com/login';
+        window.location.href = 'https://shivarudrafoundation.com/login';
       }
     }
   }, []);

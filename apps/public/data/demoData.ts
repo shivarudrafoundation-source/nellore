@@ -58,6 +58,6 @@ export const demoPhotos: Record<string, string[]> = {
 
 export const demoContact = {
   phone: '+91 99999 88888',
-  email: 'info@sivarudrafoundations.org',
+  email: 'info@shivarudrafoundation.com',
   location: 'Nellore, Andhra Pradesh, India',
 };

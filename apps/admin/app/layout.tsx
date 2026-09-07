@@ -2,7 +2,7 @@ import './globals.css';
 import React from 'react';
 
 export const metadata = {
-  title: 'Siva Rudra Foundations | Administrative Orchestrator',
+  title: 'Shiva Rudra Foundations | Administrative Orchestrator',
   description: 'Manage pageant events, define categories, configure rounds, track contestant payment status, and assign judges.',
 };
 

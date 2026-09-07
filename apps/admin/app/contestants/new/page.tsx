@@ -359,7 +359,7 @@ function NewContestantContent() {
                         customFields: { ...form.customFields, instagram: e.target.value },
                       })
                     }
-                    placeholder="@sivarudra_pageant"
+                    placeholder="@shivarudra_pageant"
                     className="w-full h-10 bg-[#050505] border border-luxury-gray-border/20 px-3 font-sans text-xs text-luxury-white outline-none focus:border-luxury-gold/40"
                   />
                 </div>

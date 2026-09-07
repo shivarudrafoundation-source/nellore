@@ -14,7 +14,7 @@ export default function AboutSection() {
           {/* Left Large Column */}
           <div className="lg:col-span-5">
             <span className="font-sans text-[10px] tracking-[0.24em] text-luxury-gold uppercase font-bold block mb-4">
-              ABOUT SIVA RUDRA FOUNDATIONS
+              ABOUT SHIVA RUDRA FOUNDATIONS
             </span>
             <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-light tracking-wide leading-tight text-luxury-white">
               WHERE PASSION <br />
@@ -26,7 +26,7 @@ export default function AboutSection() {
           {/* Right Description Column */}
           <div className="lg:col-span-7 space-y-6 text-[#B8B8B8] font-sans text-sm md:text-base leading-relaxed">
             <p>
-              Siva Rudra Foundations is a premier pageant-style platform hosting live cultural arenas, ramp walks, dance competitions, and fine talent exhibitions. Grounded in transparency and precision, we celebrate cultural distinction across divisions for Kids, Teens, Miss, Ms, and Mr.
+              Shiva Rudra Foundations is a premier pageant-style platform hosting live cultural arenas, ramp walks, dance competitions, and fine talent exhibitions. Grounded in transparency and precision, we celebrate cultural distinction across divisions for Kids, Teens, Miss, Ms, and Mr.
             </p>
             <p>
               Our mission is to establish an objective, blind-judged environment where performance dictates outcomes. Every participant walks a path designed to elevate poise and reward creative distinction.

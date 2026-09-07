@@ -190,7 +190,7 @@ export const ContestantIdCard: React.FC<ContestantIdCardProps> = ({
             </div>
             <div className="text-left">
               <span className="text-[11px] font-sans tracking-[0.24em] text-luxury-gold uppercase font-black block leading-tight">
-                SIVA RUDRA
+                SHIVA RUDRA
               </span>
               <span className="text-[9px] font-sans tracking-[0.18em] text-white/90 uppercase block font-bold">
                 FOUNDATIONS

@@ -41,7 +41,7 @@ export default function AdminLogin() {
   };
 
   return (
-    <PageLayout title="ADMIN ACCESS" subtitle="Siva Rudra Foundations">
+    <PageLayout title="ADMIN ACCESS" subtitle="Shiva Rudra Foundations">
       <div className="max-w-md mx-auto space-y-8">
         
         {/* Brand Logo Header Block */}
@@ -49,7 +49,7 @@ export default function AdminLogin() {
           <div className="relative h-16 w-16 rounded-full overflow-hidden border border-luxury-gold/30 bg-black">
             <Image
               src="/brand/logo-circle.jpg"
-              alt="Siva Rudra Foundations"
+              alt="Shiva Rudra Foundations"
               fill
               className="object-cover scale-105"
               priority
@@ -66,7 +66,7 @@ export default function AdminLogin() {
             <Input
               label="Email Address"
               type="email"
-              placeholder="admin@sivarudrafoundation.com"
+              placeholder="admin@shivarudrafoundation.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required

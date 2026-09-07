@@ -140,7 +140,7 @@ export class AuthService {
 
     const secret = generateSecret();
     const otpauthUrl = generateURI({
-      issuer: 'Siva Rudra Foundation',
+      issuer: 'Shiva Rudra Foundation',
       label: admin.email,
       secret,
     });

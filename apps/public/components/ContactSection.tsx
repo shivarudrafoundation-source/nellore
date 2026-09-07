@@ -40,7 +40,7 @@ export default function ContactSection() {
           {/* Left Column: Contact details */}
           <div className="lg:col-span-5 space-y-8 text-left">
             <p className="font-sans text-xs md:text-sm text-[#B8B8B8] leading-relaxed max-w-sm">
-              Connect with Siva Rudra Foundations for delegation inquiries, corporate sponsorships, or pageant registrations support.
+              Connect with Shiva Rudra Foundations for delegation inquiries, corporate sponsorships, or pageant registrations support.
             </p>
 
             <div className="space-y-6">

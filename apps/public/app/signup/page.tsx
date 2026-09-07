@@ -214,7 +214,7 @@ function SignupContent() {
             SIGN UP
           </h1>
           <p className="text-white/40 text-xs mt-1">
-            Create your official account to participate in Siva Rudra Foundation events
+            Create your official account to participate in Shiva Rudra Foundation events
           </p>
         </div>
 

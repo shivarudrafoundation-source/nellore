@@ -84,7 +84,7 @@ export default function JudgeLogin() {
   };
 
   return (
-    <PageLayout title="JUDGE ACCESS" subtitle="Siva Rudra Foundations">
+    <PageLayout title="JUDGE ACCESS" subtitle="Shiva Rudra Foundations">
       <div className="max-w-md mx-auto space-y-8">
         
         {/* Brand Logo Header Block */}
@@ -92,7 +92,7 @@ export default function JudgeLogin() {
           <div className="relative h-16 w-16 rounded-full overflow-hidden border border-luxury-gold/30 bg-black">
             <Image
               src="/brand/logo-circle.jpg"
-              alt="Siva Rudra Foundations"
+              alt="Shiva Rudra Foundations"
               fill
               className="object-cover scale-105"
               priority
@@ -117,7 +117,7 @@ export default function JudgeLogin() {
                 <Input
                   label="Judge Email Address or Judge ID"
                   type="text"
-                  placeholder="judge@sivarudrafoundation.com or JUDGE-01"
+                  placeholder="judge@shivarudrafoundation.com or JUDGE-01"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required

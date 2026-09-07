@@ -15,7 +15,7 @@ async function main() {
       registrationOpenDate: new Date('2026-08-01T00:00:00.000Z'),
       registrationCloseDate: new Date('2026-09-11T23:59:59.000Z'),
       logoUrl: '/brand/logo.png',
-      description: 'The premier pageant arena celebrating confidence, talent, and grace across pageantry divisions organized by Siva Rudra Foundation.',
+      description: 'The premier pageant arena celebrating confidence, talent, and grace across pageantry divisions organized by Shiva Rudra Foundation.',
       status: 'ACTIVE',
     },
     create: {
@@ -27,7 +27,7 @@ async function main() {
       registrationOpenDate: new Date('2026-08-01T00:00:00.000Z'),
       registrationCloseDate: new Date('2026-09-11T23:59:59.000Z'),
       logoUrl: '/brand/logo.png',
-      description: 'The premier pageant arena celebrating confidence, talent, and grace across pageantry divisions organized by Siva Rudra Foundation.',
+      description: 'The premier pageant arena celebrating confidence, talent, and grace across pageantry divisions organized by Shiva Rudra Foundation.',
       status: 'ACTIVE',
     },
   });

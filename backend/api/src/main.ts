@@ -28,6 +28,8 @@ async function bootstrap() {
             'ws://localhost:*',
             'https://*.sivarudrafoundation.com',
             'wss://*.sivarudrafoundation.com',
+            'https://*.shivarudrafoundation.com',
+            'wss://*.shivarudrafoundation.com',
           ],
           imgSrc: [
             "'self'",
@@ -35,6 +37,7 @@ async function bootstrap() {
             'blob:',
             'https://*.supabase.co',
             'https://*.sivarudrafoundation.com',
+            'https://*.shivarudrafoundation.com',
           ],
           scriptSrc: ["'self'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
@@ -103,6 +106,7 @@ async function bootstrap() {
         customOrigins.includes(origin) ||
         (cookieDomain && origin.includes(cookieDomain)) ||
         origin.includes('sivarudrafoundation.com') ||
+        origin.includes('shivarudrafoundation.com') ||
         /\.vercel\.app$/.test(origin) ||
         /^http:\/\/localhost:\d+$/.test(origin) ||
         /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);

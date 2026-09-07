@@ -41,6 +41,7 @@ import {
         !origin ||
         allowedOrigins.includes(origin) ||
         origin.includes('sivarudrafoundation.com') ||
+        origin.includes('shivarudrafoundation.com') ||
         origin.includes('vercel.app') ||
         origin.includes('localhost') ||
         origin.includes('127.0.0.1')

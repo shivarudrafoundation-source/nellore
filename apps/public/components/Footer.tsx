@@ -24,7 +24,7 @@ export default function Footer() {
           {/* Logo & Brand Mission */}
           <div className="lg:col-span-5 space-y-4">
             <Link href="/" className="font-serif text-xl tracking-wider text-luxury-white uppercase block hover:text-luxury-gold transition-colors">
-              SIVA RUDRA FOUNDATIONS
+              SHIVA RUDRA FOUNDATIONS
             </Link>
             <p className="font-sans text-xs text-[#B8B8B8] leading-relaxed max-w-sm">
               Celebrating poise, talent, and cultural distinction across pageantry categories under strict standards of objective merit.
@@ -62,7 +62,7 @@ export default function Footer() {
         {/* Lower footer grid (Copyright) */}
         <div className="pt-8 border-t border-luxury-gray-border/10 flex flex-col md:flex-row justify-between items-center text-[10px] font-sans text-[#B8B8B8]/40 uppercase tracking-widest gap-4">
           <span>
-            © {new Date().getFullYear()} SIVA RUDRA FOUNDATIONS. ALL RIGHTS RESERVED.
+            © {new Date().getFullYear()} SHIVA RUDRA FOUNDATIONS. ALL RIGHTS RESERVED.
           </span>
           <span>
             PREMIUM PAGEANTRY SYSTEM

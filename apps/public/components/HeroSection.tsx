@@ -66,7 +66,7 @@ export default function HeroSection() {
           <div className="lg:col-span-5 space-y-6 sm:space-y-8 text-left z-20">
             <div className="space-y-[16px] sm:space-y-[24px]">
               <span className="font-sans text-[10px] tracking-[0.24em] text-luxury-gold uppercase font-bold block">
-                SIVA RUDRA FOUNDATIONS
+                SHIVA RUDRA FOUNDATIONS
               </span>
               
               <h1 className="font-serif text-[38px] sm:text-[54px] lg:text-[clamp(58px,5.5vw,86px)] font-light tracking-[-0.01em] leading-[0.9] sm:leading-[0.88] text-luxury-white">

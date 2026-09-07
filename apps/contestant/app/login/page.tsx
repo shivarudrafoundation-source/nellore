@@ -141,14 +141,14 @@ export default function ContestantLoginPage() {
           <div className="relative h-16 w-16 rounded-full overflow-hidden border border-luxury-gold/30 bg-black">
             <Image
               src="/brand/logo-circle.jpg"
-              alt="Siva Rudra Foundations"
+              alt="Shiva Rudra Foundations"
               fill
               className="object-cover scale-105"
               priority
             />
           </div>
           <span className="font-serif text-lg tracking-wider text-luxury-gold uppercase font-light">
-            Siva Rudra Foundations
+            Shiva Rudra Foundations
           </span>
           <span className="font-sans text-[10px] tracking-[0.24em] text-luxury-white/40 uppercase font-bold">
             CONTESTANT PORTAL LOGIN

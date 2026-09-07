@@ -2,7 +2,7 @@ import './globals.css';
 import React from 'react';
 
 export const metadata = {
-  title: 'Siva Rudra Foundations | Contestant Workspace',
+  title: 'Shiva Rudra Foundations | Contestant Workspace',
   description: 'Contestant dashboard to check registration metrics, payment records, and live standing rankings.',
 };
 

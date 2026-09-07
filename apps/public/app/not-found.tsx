@@ -12,7 +12,7 @@ export default function NotFound() {
         <div className="relative h-20 w-20 rounded-full overflow-hidden border border-[#D4AF37]/40 bg-black mb-6 shadow-[0_0_40px_rgba(212,175,55,0.15)]">
           <Image
             src="/brand/logo-circle.jpg"
-            alt="Siva Rudra Foundations"
+            alt="Shiva Rudra Foundations"
             fill
             className="object-cover scale-105"
             priority

@@ -58,7 +58,7 @@ export class MailService {
   }
 
   /**
-   * Luxury HTML wrapper for Siva Rudra Foundations branded communications
+   * Luxury HTML wrapper for Shiva Rudra Foundations branded communications
    */
   private wrapLuxuryTemplate(title: string, bodyContent: string): string {
     return `
@@ -73,80 +73,76 @@ export class MailService {
       margin: 0;
       padding: 0;
       background-color: #050505;
-      color: #E6E4DF;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #E0E0E0;
     }
     .wrapper {
       max-width: 600px;
-      margin: 30px auto;
+      margin: 0 auto;
       background-color: #0A0A0A;
-      border: 1px solid rgba(212, 175, 55, 0.3);
-      border-radius: 4px;
-      overflow: hidden;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      border: 1px solid rgba(212, 175, 55, 0.25);
     }
     .header {
-      background-color: #000000;
-      padding: 32px 24px;
+      padding: 40px 32px 24px;
       text-align: center;
-      border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+      border-bottom: 1px solid rgba(212, 175, 55, 0.15);
+      background-color: #070707;
     }
     .brand-title {
-      color: #D4AF37;
+      font-family: 'Times New Roman', Georgia, serif;
       font-size: 20px;
       font-weight: 300;
-      letter-spacing: 0.15em;
+      letter-spacing: 0.25em;
+      color: #D4AF37;
       text-transform: uppercase;
-      margin: 0;
+      margin: 0 0 4px;
     }
     .brand-subtitle {
-      color: rgba(255, 255, 255, 0.4);
       font-size: 10px;
-      letter-spacing: 0.25em;
+      letter-spacing: 0.3em;
+      color: rgba(255, 255, 255, 0.4);
       text-transform: uppercase;
-      margin-top: 6px;
-      font-weight: 600;
     }
     .content {
       padding: 36px 32px;
       font-size: 14px;
       line-height: 1.7;
-      color: rgba(255, 255, 255, 0.85);
+      color: #CCCCCC;
     }
     .otp-box {
       margin: 28px 0;
-      padding: 20px;
-      background: #000000;
-      border: 1px solid #D4AF37;
+      padding: 24px;
+      background-color: #000000;
+      border: 1px solid rgba(212, 175, 55, 0.4);
       text-align: center;
     }
     .otp-code {
       font-family: 'Courier New', Courier, monospace;
-      font-size: 32px;
-      font-weight: 700;
-      letter-spacing: 0.3em;
+      font-size: 36px;
+      font-weight: bold;
+      letter-spacing: 0.35em;
       color: #D4AF37;
-    }
-    .button-container {
-      margin: 30px 0 10px;
-      text-align: center;
     }
     .btn-gold {
       display: inline-block;
+      padding: 14px 28px;
       background-color: #D4AF37;
       color: #000000 !important;
       text-decoration: none;
+      font-size: 11px;
       font-weight: 700;
-      font-size: 12px;
-      letter-spacing: 0.15em;
+      letter-spacing: 0.2em;
       text-transform: uppercase;
-      padding: 14px 28px;
       border-radius: 2px;
     }
+    .button-container {
+      margin: 32px 0 16px;
+      text-align: center;
+    }
     .footer {
-      background-color: #050505;
       padding: 24px 32px;
       border-top: 1px solid rgba(255, 255, 255, 0.08);
+      background-color: #050505;
       text-align: center;
       font-size: 11px;
       color: rgba(255, 255, 255, 0.35);
@@ -158,14 +154,14 @@ export class MailService {
 <body>
   <div class="wrapper">
     <div class="header">
-      <h1 class="brand-title">Siva Rudra Foundations</h1>
+      <h1 class="brand-title">Shiva Rudra Foundations</h1>
       <div class="brand-subtitle">Nellore Nirajan Pageant</div>
     </div>
     <div class="content">
       ${bodyContent}
     </div>
     <div class="footer">
-      <p style="margin: 0 0 4px;">Official Communication • Siva Rudra Foundations</p>
+      <p style="margin: 0 0 4px;">Official Communication • Shiva Rudra Foundations</p>
       <p style="margin: 0;">This is an automated administrative notification. Please do not reply directly to this email.</p>
     </div>
   </div>
@@ -198,7 +194,7 @@ export class MailService {
       to,
       subject: `[SRF] Your Verification Code: ${otp}`,
       html,
-      text: `Your Siva Rudra Foundation verification code is: ${otp}. Valid for 5 minutes.`,
+      text: `Your Shiva Rudra Foundation verification code is: ${otp}. Valid for 5 minutes.`,
     });
   }
 
@@ -247,7 +243,7 @@ export class MailService {
       portalUrl?: string;
     },
   ) {
-    const portalUrl = data.portalUrl || 'https://my.sivarudrafoundation.com/login';
+    const portalUrl = data.portalUrl || 'https://my.shivarudrafoundation.com/login';
     const contestantEmail = data.email || to;
     const html = this.wrapLuxuryTemplate(
       'Contestant Account Activated',
@@ -305,12 +301,12 @@ export class MailService {
     to: string,
     data: { name: string; email: string; tempPassword: string; loginUrl?: string },
   ) {
-    const loginUrl = data.loginUrl || 'https://judges.sivarudrafoundation.com';
+    const loginUrl = data.loginUrl || 'https://judges.shivarudrafoundation.com';
     const html = this.wrapLuxuryTemplate(
       'Judge Panel Invitation',
       `
       <h2 style="color: #FFFFFF; font-size: 18px; font-weight: 400; margin-top: 0;">Honorable Judge ${data.name},</h2>
-      <p>You have been appointed to the official Jury Panel for the Siva Rudra Foundation Pageant. Your judging portal credentials have been provisioned:</p>
+      <p>You have been appointed to the official Jury Panel for the Shiva Rudra Foundation Pageant. Your judging portal credentials have been provisioned:</p>
       
       <div style="background: #111111; border: 1px solid rgba(212,175,55,0.3); padding: 20px; margin: 24px 0;">
         <div style="margin-bottom: 10px;"><strong style="color: #D4AF37;">Portal Login URL:</strong> <a href="${loginUrl}" style="color: #FFFFFF;">${loginUrl}</a></div>

@@ -87,14 +87,14 @@ export function ContestantShell({ children }: { children: React.ReactNode }) {
           <div className="relative h-14 w-14 rounded-full overflow-hidden border border-luxury-gold/30 mb-3 bg-black">
             <Image
               src="/brand/logo-circle.jpg"
-              alt="Siva Rudra Foundations"
+              alt="Shiva Rudra Foundations"
               fill
               className="object-cover scale-105"
               priority
             />
           </div>
           <span className="font-serif text-sm tracking-wider text-luxury-gold font-light uppercase">
-            Siva Rudra
+            Shiva Rudra
           </span>
           <span className="font-sans text-[9px] tracking-luxury text-luxury-white/40 uppercase mt-0.5 font-bold">
             CONTESTANT PORTAL

@@ -250,7 +250,7 @@ function ResultsContent() {
             Event Results & Winners
           </h1>
           <p className="font-sans text-xs text-luxury-white/50 max-w-xl mx-auto uppercase tracking-luxury">
-            Certified Scoring Matrix by Siva Rudra Foundations
+            Certified Scoring Matrix by Shiva Rudra Foundations
           </p>
         </div>
 

@@ -83,13 +83,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <div className="relative h-8 w-8 rounded-full overflow-hidden border border-luxury-gold/30">
             <Image
               src="/brand/logo-circle.jpg"
-              alt="Siva Rudra Foundations"
+              alt="Shiva Rudra Foundations"
               fill
               className="object-cover"
             />
           </div>
           <span className="font-serif text-sm tracking-luxury text-luxury-gold font-light uppercase">
-            Siva Rudra
+            Shiva Rudra
           </span>
         </div>
 
@@ -148,13 +148,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               <div className="relative h-8 w-8 rounded-full overflow-hidden border border-luxury-gold/30">
                 <Image
                   src="/brand/logo-circle.jpg"
-                  alt="Siva Rudra Foundations"
+                  alt="Shiva Rudra Foundations"
                   fill
                   className="object-cover"
                 />
               </div>
               <span className="font-serif text-sm tracking-luxury text-luxury-gold font-light uppercase">
-                Siva Rudra
+                Shiva Rudra
               </span>
             </div>
 

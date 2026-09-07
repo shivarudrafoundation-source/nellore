@@ -25,14 +25,14 @@ const initialMedia: GalleryItem[] = [
   },
   {
     id: 'med-002',
-    title: 'Siva Rudra Official Brand Emblem',
+    title: 'Shiva Rudra Official Brand Emblem',
     src: '/brand/logo.png',
     category: 'Brand Asset',
     createdAt: '2026-08-17',
   },
   {
     id: 'med-003',
-    title: 'Siva Rudra Foundations Round Emblem',
+    title: 'Shiva Rudra Foundations Round Emblem',
     src: '/brand/logo-circle.jpg',
     category: 'Brand Asset',
     createdAt: '2026-08-17',

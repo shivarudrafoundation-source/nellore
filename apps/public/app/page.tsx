@@ -49,7 +49,7 @@ export default function Home() {
       {/* Cinematic Hero */}
       <HeroSection />
       
-      {/* About SIVA RUDRA FOUNDATIONS */}
+      {/* About SHIVA RUDRA FOUNDATIONS */}
       <AboutSection />
       
       {/* Upcoming Events */}
