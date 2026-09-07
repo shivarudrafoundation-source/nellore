@@ -226,6 +226,32 @@ export class AuthController {
     return { user: result.user, tokens: result.tokens };
   }
 
+  @Get('user/google/callback')
+  async googleOAuthCallback(
+    @Req() req: express.Request,
+    @Res() res: express.Response,
+  ) {
+    const code = req.query.code as string;
+    const state = req.query.state as string;
+    const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
+    const redirectUri = 'https://sivarudra-api.onrender.com/auth/user/google/callback';
+
+    try {
+      const result = await this.authService.handleGoogleOAuthCallback(code, redirectUri, ipAddress);
+      this.setCookies(res, result.tokens, req);
+
+      let targetUrl = state ? decodeURIComponent(state) : '/profile';
+      if (!targetUrl.startsWith('http')) {
+        targetUrl = `https://shivarudrafoundation.com${targetUrl.startsWith('/') ? '' : '/'}${targetUrl}`;
+      }
+
+      const separator = targetUrl.includes('?') ? '&' : '?';
+      return res.redirect(`${targetUrl}${separator}token=${result.tokens.accessToken}`);
+    } catch (err: any) {
+      return res.redirect(`https://shivarudrafoundation.com/login?error=${encodeURIComponent(err.message || 'Google authentication failed')}`);
+    }
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('user/profile')
   async getUserProfile(@CurrentUser() user: any) {

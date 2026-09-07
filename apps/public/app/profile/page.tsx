@@ -61,6 +61,15 @@ export default function ProfilePage() {
 
   const fetchProfile = async () => {
     try {
+      if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlToken = urlParams.get('token');
+        if (urlToken) {
+          localStorage.setItem('srf_token', urlToken);
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      }
+
       const token = typeof window !== 'undefined' ? localStorage.getItem('srf_token') : null;
       const res = await fetch(`${API_BASE}/auth/user/profile`, {
         credentials: 'include',

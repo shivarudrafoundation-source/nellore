@@ -1167,7 +1167,7 @@ export class AuthService {
       throw new BadRequestException('Google credential token is required.');
     }
 
-    const clientId = process.env.GOOGLE_CLIENT_ID || '667486999600-digfcoihdvpc0r8b3jgbn6hbm2emairn.apps.googleusercontent.com';
+    const clientId = process.env.GOOGLE_CLIENT_ID || '';
     let googlePayload: any = null;
 
     try {
@@ -1175,7 +1175,7 @@ export class AuthService {
       const client = new OAuth2Client(clientId);
       const ticket = await client.verifyIdToken({
         idToken: rawToken,
-        audience: clientId,
+        audience: clientId || undefined,
       });
       googlePayload = ticket.getPayload();
     } catch (err: any) {
@@ -1273,5 +1273,42 @@ export class AuthService {
       },
       tokens,
     };
+  }
+
+  /**
+   * Google OAuth 2.0 Authorization Code Callback Handler
+   */
+  async handleGoogleOAuthCallback(
+    code: string,
+    redirectUri: string,
+    ipAddress?: string,
+  ): Promise<{ user: any; tokens: { accessToken: string; refreshToken: string } }> {
+    if (!code) {
+      throw new BadRequestException('Authorization code is required.');
+    }
+
+    const clientId = process.env.GOOGLE_CLIENT_ID || '';
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
+
+    // Exchange authorization code for tokens via Google Token Endpoint
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      }),
+    });
+
+    const tokenData = await tokenResponse.json();
+    if (!tokenResponse.ok || !tokenData.id_token) {
+      this.logger.error(`Google token exchange failed: ${JSON.stringify(tokenData)}`);
+      throw new UnauthorizedException(tokenData.error_description || 'Failed to exchange Google authorization code.');
+    }
+
+    return this.loginWithGoogle({ credential: tokenData.id_token }, ipAddress);
   }
 }
