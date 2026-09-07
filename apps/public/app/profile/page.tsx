@@ -155,13 +155,21 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('srf_token');
+        localStorage.removeItem('srf_user');
+        localStorage.removeItem('srf_contestant_user');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        sessionStorage.clear();
+      }
       await fetch(`${API_BASE}/auth/logout`, {
         method: 'POST',
         credentials: 'include',
-      });
-      router.push('/login');
+      }).catch(() => {});
+      window.location.href = '/login';
     } catch {
-      router.push('/login');
+      window.location.href = '/login';
     }
   };
 
