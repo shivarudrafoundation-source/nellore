@@ -135,7 +135,14 @@ export default function ProfilePage() {
         throw new Error(data.message || 'Failed to update profile.');
       }
 
-      setProfile(data);
+      const updatedUser = data.user || data;
+      setProfile(updatedUser);
+      setEditName(updatedUser.name || '');
+      setEditMobile(updatedUser.mobile || '');
+      setEditLocation(updatedUser.location || '');
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('srf_user', JSON.stringify(updatedUser));
+      }
       setIsEditing(false);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 4000);

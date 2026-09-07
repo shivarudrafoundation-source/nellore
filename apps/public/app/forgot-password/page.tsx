@@ -7,20 +7,17 @@ import Header from '../../components/Header';
 import Footer from '../../components/Footer';
 import { getApiBaseUrl } from '@srf/ui';
 
-function SignupContent() {
+function ForgotPasswordContent() {
   const API_BASE = getApiBaseUrl();
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get('returnUrl') || '/profile';
 
-  // 3-Step Wizard: 1: Account Info (Name + Email + Mobile + Location), 2: Verify OTP, 3: Set Password
+  // 3-Step Wizard: 1: Email, 2: Verify OTP, 3: Set New Password
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [mobile, setMobile] = useState('');
-  const [location, setLocation] = useState('');
   const [otp, setOtp] = useState('');
-  const [signupToken, setSignupToken] = useState('');
+  const [resetToken, setResetToken] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -46,47 +43,25 @@ function SignupContent() {
     return `${user.slice(0, 2)}${'*'.repeat(Math.max(3, user.length - 2))}@${domain}`;
   };
 
-  // STEP 1: Account Info Submission -> Request OTP
+  // STEP 1: Request Password Reset OTP
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccessMsg('');
 
-    const trimmedName = name.trim();
     const trimmedEmail = email.trim().toLowerCase();
-    const trimmedMobile = mobile.trim().replace(/\D/g, '');
-    const trimmedLocation = location.trim();
-
-    if (!trimmedName || trimmedName.length < 2) {
-      setError('Please enter your full official name (minimum 2 characters).');
-      return;
-    }
-
     if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
       setError('Please enter a valid email address.');
-      return;
-    }
-
-    if (!trimmedMobile || trimmedMobile.length !== 10) {
-      setError('Please enter a valid 10-digit Indian contact mobile number.');
-      return;
-    }
-
-    if (!trimmedLocation || trimmedLocation.length < 2) {
-      setError('Please enter your city / state (e.g. Nellore, Andhra Pradesh).');
       return;
     }
 
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/auth/user/signup/request-otp`, {
+      const res = await fetch(`${API_BASE}/auth/user/forgot-password/request-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: trimmedName,
-          email: trimmedEmail,
-        }),
+        body: JSON.stringify({ email: trimmedEmail }),
       });
 
       const data = await res.json();
@@ -96,7 +71,7 @@ function SignupContent() {
 
       setStep(2);
       setTimer(300); // 5 minutes
-      setSuccessMsg(`We sent a 6-digit verification code to ${maskEmail(trimmedEmail)}.`);
+      setSuccessMsg(`A 6-digit verification code has been sent to ${maskEmail(trimmedEmail)}.`);
     } catch (err: any) {
       if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
         setError('Server is connecting. Please wait a moment and click Continue again.');
@@ -116,10 +91,10 @@ function SignupContent() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/auth/user/signup/request-otp`, {
+      const res = await fetch(`${API_BASE}/auth/user/forgot-password/request-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), email: email.trim().toLowerCase() }),
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
       });
 
       const data = await res.json();
@@ -136,7 +111,7 @@ function SignupContent() {
     }
   };
 
-  // STEP 2: Verify OTP -> Issue Signed Token
+  // STEP 2: Verify OTP
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -151,13 +126,12 @@ function SignupContent() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/auth/user/signup/verify-otp`, {
+      const res = await fetch(`${API_BASE}/auth/user/forgot-password/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
           otp: trimmedOtp,
-          name: name.trim(),
         }),
       });
 
@@ -166,9 +140,9 @@ function SignupContent() {
         throw new Error(data.message || 'Invalid verification code.');
       }
 
-      setSignupToken(data.signupToken);
+      setResetToken(data.resetToken);
       setStep(3);
-      setSuccessMsg('Email verified successfully! Please set your secure account password.');
+      setSuccessMsg('OTP verified successfully. Please enter your new password.');
     } catch (err: any) {
       if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
         setError('Server is connecting. Please wait a moment and try again.');
@@ -180,8 +154,8 @@ function SignupContent() {
     }
   };
 
-  // STEP 3: Create Password & Account
-  const handleCreateAccount = async (e: React.FormEvent) => {
+  // STEP 3: Reset Password
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -198,38 +172,31 @@ function SignupContent() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/auth/user/signup/create-account`, {
+      const res = await fetch(`${API_BASE}/auth/user/forgot-password/reset`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
-          signupToken,
-          password,
+          email: email.trim().toLowerCase(),
+          resetToken,
+          newPassword: password,
           confirmPassword,
-          name: name.trim(),
-          mobile: mobile.trim().replace(/\D/g, ''),
-          location: location.trim(),
         }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.message || 'Account creation failed. Please try again.');
+        throw new Error(data.message || 'Password reset failed. Please try again.');
       }
 
-      if (data.tokens?.accessToken) {
-        localStorage.setItem('srf_token', data.tokens.accessToken);
-      }
-      if (data.user) {
-        localStorage.setItem('srf_user', JSON.stringify(data.user));
-      }
-
-      router.push(returnUrl);
+      setSuccessMsg('Password updated successfully! Redirecting to login...');
+      setTimeout(() => {
+        router.push(`/login?returnUrl=${encodeURIComponent(returnUrl)}`);
+      }, 1500);
     } catch (err: any) {
       if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
         setError('Server is connecting. Please wait a moment and try again.');
       } else {
-        setError(err.message || 'Account creation failed. Please try again.');
+        setError(err.message || 'Password reset failed. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -242,13 +209,13 @@ function SignupContent() {
         {/* Header */}
         <div className="text-center mb-6">
           <span className="text-[10px] font-mono tracking-[0.3em] uppercase text-[#D4AF37]">
-            Official Account Registration
+            Security • Account Recovery
           </span>
           <h1 className="font-serif text-2xl sm:text-3xl text-white tracking-wider mt-2 font-normal">
-            CREATE ACCOUNT
+            FORGOT PASSWORD
           </h1>
           <p className="text-white/40 text-xs mt-1">
-            Register your contestant profile for Shiva Rudra Foundation events
+            Reset your password using email verification
           </p>
         </div>
 
@@ -258,7 +225,7 @@ function SignupContent() {
             <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${step === 1 ? 'bg-[#D4AF37] text-black font-bold' : step > 1 ? 'bg-white/20 text-white' : 'bg-white/10 text-white/40'}`}>
               {step > 1 ? '✓' : '1'}
             </span>
-            <span>Details</span>
+            <span>Email</span>
           </div>
           <span className="text-white/20">→</span>
           <div className={`flex items-center gap-1.5 ${step === 2 ? 'text-[#D4AF37] font-bold' : step > 2 ? 'text-white/80' : 'text-white/30'}`}>
@@ -272,7 +239,7 @@ function SignupContent() {
             <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] ${step === 3 ? 'bg-[#D4AF37] text-black font-bold' : 'bg-white/10 text-white/40'}`}>
               3
             </span>
-            <span>Password</span>
+            <span>New Password</span>
           </div>
         </div>
 
@@ -288,26 +255,12 @@ function SignupContent() {
           </div>
         )}
 
-        {/* STEP 1: NAME + EMAIL + MOBILE + LOCATION */}
+        {/* STEP 1: EMAIL */}
         {step === 1 && (
           <form onSubmit={handleRequestOtp} className="space-y-4">
             <div>
               <label className="block text-[10px] font-mono uppercase tracking-[0.2em] text-white/60 mb-1.5">
-                Full Legal Name *
-              </label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Sravya Reddy"
-                className="w-full bg-[#050505] border border-white/15 focus:border-[#D4AF37] px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none transition-colors"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-mono uppercase tracking-[0.2em] text-white/60 mb-1.5">
-                Official Email Address *
+                Registered Email Address *
               </label>
               <input
                 type="email"
@@ -319,46 +272,12 @@ function SignupContent() {
               />
             </div>
 
-            <div>
-              <label className="block text-[10px] font-mono uppercase tracking-[0.2em] text-white/60 mb-1.5">
-                Contact Mobile Number (10 Digits) *
-              </label>
-              <div className="flex">
-                <span className="inline-flex items-center px-3 bg-[#111111] border border-r-0 border-white/15 text-white/60 text-xs font-mono">
-                  +91
-                </span>
-                <input
-                  type="tel"
-                  required
-                  maxLength={10}
-                  value={mobile}
-                  onChange={(e) => setMobile(e.target.value.replace(/\D/g, ''))}
-                  placeholder="9848012345"
-                  className="w-full bg-[#050505] border border-white/15 focus:border-[#D4AF37] px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none transition-colors font-mono"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-mono uppercase tracking-[0.2em] text-white/60 mb-1.5">
-                City / District & State *
-              </label>
-              <input
-                type="text"
-                required
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g. Nellore, Andhra Pradesh"
-                className="w-full bg-[#050505] border border-white/15 focus:border-[#D4AF37] px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none transition-colors"
-              />
-            </div>
-
             <button
               type="submit"
               disabled={loading}
               className="w-full mt-3 py-3.5 bg-[#D4AF37] hover:bg-[#E5C158] text-black font-semibold text-xs uppercase tracking-[0.25em] transition-all duration-300 disabled:opacity-50 cursor-pointer shadow-lg"
             >
-              {loading ? 'SENDING VERIFICATION OTP...' : 'CONTINUE & VERIFY EMAIL →'}
+              {loading ? 'SENDING OTP...' : 'SEND VERIFICATION CODE →'}
             </button>
           </form>
         )}
@@ -368,7 +287,7 @@ function SignupContent() {
           <form onSubmit={handleVerifyOtp} className="space-y-5">
             <div className="p-3 bg-[#050505] border border-white/10 text-xs text-white/70 flex justify-between items-center rounded-sm">
               <div>
-                <p className="text-[10px] uppercase font-mono text-white/40">Verifying</p>
+                <p className="text-[10px] uppercase font-mono text-white/40">Sending to</p>
                 <p className="font-mono text-white/90">{maskEmail(email)}</p>
               </div>
               <button
@@ -410,9 +329,9 @@ function SignupContent() {
             <button
               type="submit"
               disabled={loading || otp.length !== 6}
-              className="w-full py-3.5 bg-[#D4AF37] hover:bg-[#E5C158] text-black font-semibold text-xs uppercase tracking-[0.25em] transition-all duration-300 disabled:opacity-50"
+              className="w-full py-3.5 bg-[#D4AF37] hover:bg-[#E5C158] text-black font-semibold text-xs uppercase tracking-[0.25em] transition-all duration-300 disabled:opacity-50 cursor-pointer shadow-lg"
             >
-              {loading ? 'VERIFYING CODE...' : 'VERIFY EMAIL →'}
+              {loading ? 'VERIFYING CODE...' : 'VERIFY CODE →'}
             </button>
 
             <div className="text-center pt-2">
@@ -428,9 +347,9 @@ function SignupContent() {
           </form>
         )}
 
-        {/* STEP 3: SET PASSWORD & CREATE ACCOUNT */}
+        {/* STEP 3: SET NEW PASSWORD */}
         {step === 3 && (
-          <form onSubmit={handleCreateAccount} className="space-y-5">
+          <form onSubmit={handleResetPassword} className="space-y-5">
             <div className="p-3 bg-[#050505] border border-white/10 text-xs text-white/70 rounded-sm">
               <span className="text-emerald-400 text-[10px] font-mono mr-1.5">✓ EMAIL VERIFIED:</span>
               <span className="font-mono text-white/90">{email}</span>
@@ -439,7 +358,7 @@ function SignupContent() {
             <div>
               <div className="flex justify-between items-center mb-1">
                 <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/60">
-                  Password (min 8 chars) *
+                  New Password (min 8 chars) *
                 </label>
                 <button
                   type="button"
@@ -463,7 +382,7 @@ function SignupContent() {
 
             <div>
               <label className="block text-[10px] font-mono uppercase tracking-[0.2em] text-white/60 mb-1">
-                Confirm Password *
+                Confirm New Password *
               </label>
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -482,21 +401,21 @@ function SignupContent() {
             <button
               type="submit"
               disabled={loading || password.length < 8 || password !== confirmPassword}
-              className="w-full mt-2 py-3.5 bg-[#D4AF37] hover:bg-[#E5C158] text-black font-semibold text-xs uppercase tracking-[0.25em] transition-all duration-300 disabled:opacity-50"
+              className="w-full mt-2 py-3.5 bg-[#D4AF37] hover:bg-[#E5C158] text-black font-semibold text-xs uppercase tracking-[0.25em] transition-all duration-300 disabled:opacity-50 cursor-pointer shadow-lg"
             >
-              {loading ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT →'}
+              {loading ? 'UPDATING PASSWORD...' : 'UPDATE PASSWORD →'}
             </button>
           </form>
         )}
 
         <div className="mt-8 pt-6 border-t border-white/10 text-center">
           <p className="text-xs text-white/50">
-            Already have an account?{' '}
+            Remember your password?{' '}
             <Link
               href={`/login?returnUrl=${encodeURIComponent(returnUrl)}`}
               className="text-[#D4AF37] hover:underline font-medium"
             >
-              Sign In →
+              Back to Sign In →
             </Link>
           </p>
         </div>
@@ -505,13 +424,13 @@ function SignupContent() {
   );
 }
 
-export default function SignupPage() {
+export default function ForgotPasswordPage() {
   return (
     <main className="min-h-screen bg-[#050505] text-white flex flex-col justify-between selection:bg-[#D4AF37] selection:text-black">
       <Header />
       <div className="pt-24 pb-12 flex-1 flex items-center justify-center">
         <Suspense fallback={<div className="text-center text-[#D4AF37] font-mono text-xs">Loading...</div>}>
-          <SignupContent />
+          <ForgotPasswordContent />
         </Suspense>
       </div>
       <Footer />

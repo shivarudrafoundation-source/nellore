@@ -1040,6 +1040,168 @@ export class AuthService {
   }
 
   /**
+   * Public User Forgot Password Step 1: Request OTP
+   */
+  async requestUserForgotPasswordOtp(
+    dto: { email?: string },
+    ipAddress?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const rawEmail = String(dto.email || '').trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!rawEmail || !emailRegex.test(rawEmail)) {
+      throw new BadRequestException('Please provide a valid email address.');
+    }
+
+    const user = await this.db.user.findUnique({
+      where: { email: rawEmail },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('No account found with this email address. Please check your email or Sign Up.');
+    }
+
+    const otp = await this.otpService.generateOtp(rawEmail, 'user-forgot-password');
+
+    if (this.mailService) {
+      await this.mailService.sendOtpEmail(rawEmail, otp, 'Password Reset Verification');
+    }
+
+    await this.auditService.log({
+      actorType: 'USER',
+      actorId: user.id,
+      action: 'OTP_REQUESTED' as any,
+      entity: 'User',
+      ipAddress,
+      after: {
+        emailMasked: rawEmail.replace(/(.{2})(.*)(?=@)/, (_, a, b) => a + '*'.repeat(b.length)),
+        purpose: 'user-forgot-password',
+      },
+    });
+
+    return {
+      success: true,
+      message: 'A 6-digit verification code has been sent to your registered email address.',
+    };
+  }
+
+  /**
+   * Public User Forgot Password Step 2: Verify OTP and Issue Reset Token
+   */
+  async verifyUserForgotPasswordOtp(
+    dto: { email?: string; otp?: string },
+    ipAddress?: string,
+  ): Promise<{ success: boolean; resetToken: string; message: string }> {
+    const rawEmail = String(dto.email || '').trim().toLowerCase();
+    const rawOtp = String(dto.otp || '').trim();
+
+    if (!rawEmail || !rawOtp) {
+      throw new BadRequestException('Email and OTP code are required.');
+    }
+
+    await this.otpService.verifyOtp(rawEmail, 'user-forgot-password', rawOtp);
+
+    const user = await this.db.user.findUnique({
+      where: { email: rawEmail },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User account not found.');
+    }
+
+    const secret = process.env.JWT_SECRET || 'fallback-secret-key-siva-rudra-foundation-2026';
+    const resetToken = await this.jwtService.signAsync(
+      {
+        sub: user.id,
+        email: user.email,
+        purpose: 'user-reset-password',
+      },
+      { secret, expiresIn: '15m' },
+    );
+
+    return {
+      success: true,
+      resetToken,
+      message: 'Email OTP verified successfully. You may now set your new password.',
+    };
+  }
+
+  /**
+   * Public User Forgot Password Step 3: Reset Password with Token
+   */
+  async resetUserPassword(
+    dto: { email?: string; otp?: string; resetToken?: string; newPassword?: string; confirmPassword?: string },
+    ipAddress?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const rawNewPassword = String(dto.newPassword || '').trim();
+    const rawConfirm = dto.confirmPassword !== undefined ? String(dto.confirmPassword).trim() : rawNewPassword;
+
+    if (!rawNewPassword) {
+      throw new BadRequestException('New password is required.');
+    }
+
+    if (rawNewPassword.length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters in length.');
+    }
+
+    if (rawNewPassword !== rawConfirm) {
+      throw new BadRequestException('Passwords do not match. Please re-enter.');
+    }
+
+    let userId: string = '';
+    let userEmail: string = '';
+
+    if (dto.resetToken) {
+      try {
+        const secret = process.env.JWT_SECRET || 'fallback-secret-key-siva-rudra-foundation-2026';
+        const decoded: any = await this.jwtService.verifyAsync(dto.resetToken, { secret });
+        if (decoded.purpose !== 'user-reset-password' || !decoded.sub) {
+          throw new UnauthorizedException('Invalid or expired reset token.');
+        }
+        userId = decoded.sub;
+        userEmail = decoded.email;
+      } catch (err) {
+        throw new UnauthorizedException('Password reset session expired. Please request a new OTP.');
+      }
+    } else if (dto.email && dto.otp) {
+      const rawEmail = String(dto.email).trim().toLowerCase();
+      const rawOtp = String(dto.otp).trim();
+      await this.otpService.verifyOtp(rawEmail, 'user-forgot-password', rawOtp);
+      const user = await this.db.user.findUnique({ where: { email: rawEmail } });
+      if (!user) {
+        throw new UnauthorizedException('User account not found.');
+      }
+      userId = user.id;
+      userEmail = user.email;
+    } else {
+      throw new BadRequestException('Verification reset token or valid OTP is required.');
+    }
+
+    const passwordHash = await bcrypt.hash(rawNewPassword, 10);
+    await this.db.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+
+    await this.auditService.log({
+      actorType: 'USER',
+      actorId: userId,
+      action: 'PASSWORD_RESET',
+      entity: 'User',
+      entityId: userId,
+      ipAddress,
+      after: {
+        passwordReset: true,
+        emailMasked: userEmail.replace(/(.{2})(.*)(?=@)/, (_, a, b) => a + '*'.repeat(b.length)),
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Your password has been updated successfully. You can now log in with your new password.',
+    };
+  }
+
+  /**
    * Get User Profile & My Events
    */
   async getUserProfile(userId: string) {

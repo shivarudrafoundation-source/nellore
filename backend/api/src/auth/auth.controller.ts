@@ -214,6 +214,24 @@ export class AuthController {
     return { user: result.user, tokens: result.tokens };
   }
 
+  @Post('user/forgot-password/request-otp')
+  async userForgotPasswordRequestOtp(@Body() body: any, @Req() req: express.Request) {
+    const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
+    return this.authService.requestUserForgotPasswordOtp(body, ipAddress);
+  }
+
+  @Post('user/forgot-password/verify-otp')
+  async userForgotPasswordVerifyOtp(@Body() body: any, @Req() req: express.Request) {
+    const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
+    return this.authService.verifyUserForgotPasswordOtp(body, ipAddress);
+  }
+
+  @Post('user/forgot-password/reset')
+  async userForgotPasswordReset(@Body() body: any, @Req() req: express.Request) {
+    const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
+    return this.authService.resetUserPassword(body, ipAddress);
+  }
+
   @Post('user/google')
   async userGoogleLogin(
     @Body() body: any,

@@ -163,40 +163,40 @@ export const PageLayout = ({ children, title, subtitle }: PageLayoutProps) => {
 
 // 6. Dynamic API & WebSocket Base URL Resolvers (Localhost in dev, Render backend in prod)
 export function getApiBaseUrl(): string {
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '');
-  }
   if (typeof window !== 'undefined' && window.location) {
     const host = window.location.hostname;
     if (host === 'localhost' || host === '127.0.0.1') {
       return 'http://localhost:4000';
     }
+  }
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '');
   }
   return 'https://sivarudra-api.onrender.com';
 }
 
 export function getWsBaseUrl(): string {
-  if (process.env.NEXT_PUBLIC_WS_URL) {
-    return process.env.NEXT_PUBLIC_WS_URL.replace(/\/+$/, '');
-  }
   if (typeof window !== 'undefined' && window.location) {
     const host = window.location.hostname;
     if (host === 'localhost' || host === '127.0.0.1') {
       return 'http://localhost:4000';
     }
   }
+  if (process.env.NEXT_PUBLIC_WS_URL) {
+    return process.env.NEXT_PUBLIC_WS_URL.replace(/\/+$/, '');
+  }
   return 'https://sivarudra-api.onrender.com';
 }
 
 export function getContestantPortalUrl(): string {
-  if (process.env.NEXT_PUBLIC_CONTESTANT_URL) {
-    return process.env.NEXT_PUBLIC_CONTESTANT_URL.replace(/\/+$/, '');
-  }
   if (typeof window !== 'undefined' && window.location) {
     const host = window.location.hostname;
     if (host === 'localhost' || host === '127.0.0.1') {
       return 'http://localhost:3004';
     }
+  }
+  if (process.env.NEXT_PUBLIC_CONTESTANT_URL) {
+    return process.env.NEXT_PUBLIC_CONTESTANT_URL.replace(/\/+$/, '');
   }
   return 'https://my.shivarudrafoundation.com';
 }

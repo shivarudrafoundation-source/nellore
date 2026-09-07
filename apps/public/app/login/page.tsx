@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Header from '../../components/Header';
 import Footer from '../../components/Footer';
-import GoogleAuthButton from '../../components/GoogleAuthButton';
 import { getApiBaseUrl } from '@srf/ui';
 
 function LoginContent() {
@@ -114,6 +113,12 @@ function LoginContent() {
               <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/60">
                 Password *
               </label>
+              <Link
+                href={`/forgot-password?returnUrl=${encodeURIComponent(returnUrl)}`}
+                className="text-[10px] font-mono text-[#D4AF37] hover:underline"
+              >
+                Forgot Password?
+              </Link>
             </div>
             <input
               type="password"
@@ -128,29 +133,13 @@ function LoginContent() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 py-3.5 bg-[#D4AF37] hover:bg-[#E5C158] text-black font-semibold text-xs uppercase tracking-[0.25em] transition-all duration-300 disabled:opacity-50"
+            className="w-full mt-2 py-3.5 bg-[#D4AF37] hover:bg-[#E5C158] text-black font-semibold text-xs uppercase tracking-[0.25em] transition-all duration-300 disabled:opacity-50 cursor-pointer shadow-lg"
           >
             {loading ? 'AUTHENTICATING...' : 'SIGN IN TO ACCOUNT'}
           </button>
         </form>
 
-        <div className="relative my-6 text-center">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-white/10" />
-          </div>
-          <span className="relative bg-[#0A0A0A] px-4 text-[10px] font-mono tracking-[0.2em] text-white/40 uppercase">
-            Or continue with
-          </span>
-        </div>
-
-        <GoogleAuthButton
-          returnUrl={returnUrl}
-          onError={(msg) => setError(msg)}
-          text="signin_with"
-          label="Sign in with Google"
-        />
-
-        <div className="mt-6 pt-6 border-t border-white/10 text-center">
+        <div className="mt-8 pt-6 border-t border-white/10 text-center">
           <p className="text-xs text-white/50">
             Don&apos;t have an account yet?{' '}
             <Link
