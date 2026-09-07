@@ -168,8 +168,6 @@ export function getApiBaseUrl(): string {
     if (host === 'localhost' || host === '127.0.0.1') {
       return 'http://localhost:4000';
     }
-    // In production web apps, route through the same-origin Next.js rewrite proxy
-    return '/api/backend';
   }
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '');

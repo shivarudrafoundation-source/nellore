@@ -703,18 +703,6 @@ export class AuthService {
       throw new BadRequestException('Please provide a valid email address.');
     }
 
-    // Check if account already exists
-    const existing = await this.db.user.findUnique({
-      where: { email: rawEmail },
-    });
-
-    if (existing) {
-      const isPlaceholder = !existing.passwordHash || existing.passwordHash.startsWith('google_') || existing.passwordHash.length < 20;
-      if (!isPlaceholder) {
-        throw new ConflictException('This email is already registered. Please Sign In.');
-      }
-    }
-
     const otp = await this.otpService.generateOtp(rawEmail, 'user-signup');
 
     if (this.mailService) {
@@ -844,20 +832,15 @@ export class AuthService {
 
     let user: any;
     if (existing) {
-      const isPlaceholder = !existing.passwordHash || existing.passwordHash.startsWith('google_') || existing.passwordHash.length < 20;
-      if (isPlaceholder) {
-        user = await this.db.user.update({
-          where: { id: existing.id },
-          data: {
-            passwordHash,
-            name: userName || existing.name || null,
-            mobile: dto.mobile ? String(dto.mobile).trim() : existing.mobile,
-            location: dto.location ? String(dto.location).trim() : existing.location,
-          },
-        });
-      } else {
-        throw new ConflictException('This email is already registered. Please Sign In.');
-      }
+      user = await this.db.user.update({
+        where: { id: existing.id },
+        data: {
+          passwordHash,
+          name: userName || existing.name || null,
+          mobile: dto.mobile ? String(dto.mobile).trim() : existing.mobile,
+          location: dto.location ? String(dto.location).trim() : existing.location,
+        },
+      });
     } else {
       user = await this.db.user.create({
         data: {
