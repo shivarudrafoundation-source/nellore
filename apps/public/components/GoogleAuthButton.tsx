@@ -18,6 +18,7 @@ export default function GoogleAuthButton({
 
   const handleGoogleClick = () => {
     setLoading(true);
+    try {
       const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
       if (!clientId) {
         throw new Error('Google Sign-In is not configured. Please contact administrator.');
