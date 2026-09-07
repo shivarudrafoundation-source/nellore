@@ -32,15 +32,6 @@ const nextConfig = {
       },
     ];
   },
-  async rewrites() {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://sivarudra-api.onrender.com';
-    return [
-      {
-        source: '/api/backend/:path*',
-        destination: `${backendUrl.replace(/\/+$/, '')}/:path*`,
-      },
-    ];
-  },
 };
 
 module.exports = nextConfig;
