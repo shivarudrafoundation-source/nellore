@@ -89,7 +89,7 @@ function SignupContent() {
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.message || 'Failed to dispatch verification code.');
       }
@@ -278,7 +278,23 @@ function SignupContent() {
 
         {error && (
           <div className="mb-6 p-3 bg-red-950/40 border border-red-500/50 text-red-300 text-xs rounded-sm">
-            {error}
+            <div>{error}</div>
+            {error.toLowerCase().includes('already registered') && (
+              <div className="mt-2.5 pt-2 border-t border-red-500/30 flex items-center gap-4 text-[11px]">
+                <Link
+                  href={`/login?returnUrl=${encodeURIComponent(returnUrl)}`}
+                  className="text-[#D4AF37] font-semibold underline hover:text-[#E5C158]"
+                >
+                  Sign In Now →
+                </Link>
+                <Link
+                  href={`/forgot-password?returnUrl=${encodeURIComponent(returnUrl)}`}
+                  className="text-white/80 underline hover:text-white"
+                >
+                  Forgot Password?
+                </Link>
+              </div>
+            )}
           </div>
         )}
 
