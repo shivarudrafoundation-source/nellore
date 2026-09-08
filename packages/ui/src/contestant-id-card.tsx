@@ -60,8 +60,21 @@ export const ContestantIdCard: React.FC<ContestantIdCardProps> = ({
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
 
-  const resolvedEventLogo = eventLogoUrl || '/brand/nellore-nerajana.jpeg';
+  // LEFT LOGO: Always official Shiva Rudra Foundations governing seal
   const srfLogo = '/brand/logo-circle.jpg';
+
+  // RIGHT LOGO: Specific Pageant / Event logo (e.g. Nellore Nerajana 2026)
+  // Guarantees that the right side never duplicates the left Foundation logo
+  let resolvedEventLogo = eventLogoUrl;
+  if (
+    !resolvedEventLogo ||
+    resolvedEventLogo === srfLogo ||
+    resolvedEventLogo.includes('logo-circle') ||
+    resolvedEventLogo.includes('logo-sivarudra')
+  ) {
+    resolvedEventLogo = '/brand/nellore-nerajana.jpeg';
+  }
+
   const { mainNumber, fullId } = getBadgeNumbers(contestantId);
 
   const formattedDates = startDate
@@ -89,6 +102,7 @@ export const ContestantIdCard: React.FC<ContestantIdCardProps> = ({
       <!DOCTYPE html>
       <html>
         <head>
+          <base href="${typeof window !== 'undefined' ? window.location.origin : ''}/" />
           <title>Contestant Stage Number - ${mainNumber}</title>
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -177,15 +191,18 @@ export const ContestantIdCard: React.FC<ContestantIdCardProps> = ({
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-luxury-gold/10 filter blur-3xl rounded-full pointer-events-none" />
         <div className="absolute inset-0 border border-luxury-gold/25 rounded-xl m-2 pointer-events-none" />
 
-        {/* 1. TOP DUAL LOGO HEADER: Shiva Rudra Foundation & Event Logo */}
+        {/* 1. TOP DUAL LOGO HEADER: Left = Shiva Rudra Foundations | Right = Event Logo */}
         <div className="flex items-center justify-between pb-4 border-b-2 border-luxury-gold/40 gap-4 relative z-10">
           {/* LEFT: Shiva Rudra Foundation Official Seal & Logo */}
           <div className="flex items-center gap-3">
-            <div className="w-16 h-16 rounded-full border-2 border-luxury-gold p-0.5 bg-black overflow-hidden flex-shrink-0 shadow-lg">
+            <div className="w-16 h-16 rounded-full border-2 border-luxury-gold p-0.5 bg-black overflow-hidden flex-shrink-0 shadow-lg relative flex items-center justify-center">
               <img
                 src={srfLogo}
                 alt="Shiva Rudra Foundation"
                 className="w-full h-full object-cover rounded-full"
+                onError={(e) => {
+                  e.currentTarget.src = '/brand/logo-sivarudra.jpeg';
+                }}
               />
             </div>
             <div className="text-left">
@@ -196,26 +213,29 @@ export const ContestantIdCard: React.FC<ContestantIdCardProps> = ({
                 FOUNDATIONS
               </span>
               <span className="text-[7px] font-mono text-luxury-gold/70 uppercase tracking-widest block mt-0.5 font-bold">
-                OFFICIAL PAGEANT BADGE
+                GOVERNING BODY
               </span>
             </div>
           </div>
 
-          {/* RIGHT: Particular Event Logo */}
+          {/* RIGHT: Particular Event Logo (Nellore Nerajana 2026 or Event Logo) */}
           <div className="flex items-center gap-3 text-right">
             <div>
               <span className="text-[11px] font-sans tracking-[0.2em] text-luxury-gold uppercase font-black block leading-tight">
                 {eventName.length > 20 ? eventName.slice(0, 20) + '...' : eventName}
               </span>
-              <span className="text-[8px] font-mono text-white/70 uppercase tracking-widest block font-semibold">
+              <span className="text-[8px] font-mono text-white/80 uppercase tracking-widest block font-semibold">
                 {eventCode} OFFICIAL PASS
               </span>
             </div>
-            <div className="w-16 h-16 rounded-xl border-2 border-luxury-gold p-1 bg-black overflow-hidden flex-shrink-0 shadow-lg flex items-center justify-center">
+            <div className="w-16 h-16 rounded-xl border-2 border-luxury-gold p-1 bg-black overflow-hidden flex-shrink-0 shadow-lg flex items-center justify-center relative">
               <img
                 src={resolvedEventLogo}
                 alt={eventName}
-                className="max-w-full max-h-full object-contain"
+                className="max-w-full max-h-full object-contain rounded-lg"
+                onError={(e) => {
+                  e.currentTarget.src = '/brand/nellore-nerajana.jpeg';
+                }}
               />
             </div>
           </div>
