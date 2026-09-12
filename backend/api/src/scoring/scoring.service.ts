@@ -558,6 +558,18 @@ export class ScoringService {
       const existingDisc = await tx.score.findFirst({
         where: { contestantId: contestant.id, roundId: discRound.id, judgeId: null },
       });
+      if (existingDisc && existingDisc.locked) {
+        throw new ForbiddenException('Admin evaluation score for this contestant is locked and cannot be modified.');
+      }
+
+      // Upsert Talent Score (Admin: judgeId is null)
+      const existingTalent = await tx.score.findFirst({
+        where: { contestantId: contestant.id, roundId: talentRound.id, judgeId: null },
+      });
+      if (existingTalent && existingTalent.locked) {
+        throw new ForbiddenException('Admin evaluation score for this contestant is locked and cannot be modified.');
+      }
+
       if (existingDisc) {
         await tx.score.update({
           where: { id: existingDisc.id },
@@ -577,10 +589,6 @@ export class ScoringService {
         });
       }
 
-      // Upsert Talent Score (Admin: judgeId is null)
-      const existingTalent = await tx.score.findFirst({
-        where: { contestantId: contestant.id, roundId: talentRound.id, judgeId: null },
-      });
       if (existingTalent) {
         await tx.score.update({
           where: { id: existingTalent.id },
@@ -871,6 +879,7 @@ export class ScoringService {
           total: adminTotal,
           maxMarks: 30,
           hasScore: hasAdmin,
+          locked: (discScore?.locked || talentScore?.locked) ?? false,
         },
         traditional: {
           total: traditionalTotal,

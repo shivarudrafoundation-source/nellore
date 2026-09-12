@@ -59,6 +59,10 @@ function ScoringContent() {
   const [adminScoreSuccessMsg, setAdminScoreSuccessMsg] = useState('');
 
   const openAdminScoreModal = (row: any) => {
+    if (row.adminScore?.locked) {
+      alert('This score has been submitted and locked. It is permanently locked and cannot be edited.');
+      return;
+    }
     setAdminScoreContestant(row);
     setDisciplineScore(row.adminScore?.discipline !== undefined ? String(row.adminScore.discipline) : '');
     setTalentScore(row.adminScore?.talent !== undefined ? String(row.adminScore.talent) : '');
@@ -666,13 +670,22 @@ function ScoringContent() {
                                 (Disc: {row.adminScore?.discipline || 0}, Tal: {row.adminScore?.talent || 0})
                               </span>
                             </div>
-                            <button
-                              onClick={() => openAdminScoreModal(row)}
-                              className="font-sans text-[9px] tracking-wider text-luxury-gold hover:text-white border border-luxury-gold/30 hover:border-luxury-gold px-1.5 py-0.5 uppercase font-semibold transition-colors"
-                              title="Enter or edit Admin Score"
-                            >
-                              ✏️
-                            </button>
+                            {row.adminScore?.locked ? (
+                              <span
+                                className="font-sans text-[9px] tracking-wider text-green-400 border border-green-500/30 px-1.5 py-0.5 uppercase font-bold bg-green-500/10"
+                                title="Score locked permanently. Cannot be edited."
+                              >
+                                🔒
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => openAdminScoreModal(row)}
+                                className="font-sans text-[9px] tracking-wider text-luxury-gold hover:text-white border border-luxury-gold/30 hover:border-luxury-gold px-1.5 py-0.5 uppercase font-semibold transition-colors"
+                                title="Enter Admin Score"
+                              >
+                                ✏️
+                              </button>
+                            )}
                           </div>
                         </td>
 
@@ -743,13 +756,20 @@ function ScoringContent() {
                         </td>
                         <td className="py-3 px-4 pr-6">
                           <div className="flex items-center gap-2.5">
-                            <button
-                              onClick={() => openAdminScoreModal(row)}
-                              className="min-h-[30px] px-2.5 py-1 bg-luxury-gold hover:bg-[#E5C158] text-black font-sans text-[10px] uppercase font-bold tracking-wider rounded-sm transition-colors inline-flex items-center gap-1 shadow-sm"
-                            >
-                              <span>✏️</span>
-                              <span>GIVE SCORE</span>
-                            </button>
+                            {row.adminScore?.locked ? (
+                              <span className="min-h-[30px] px-2.5 py-1 bg-green-500/10 border border-green-500/30 text-green-400 font-sans text-[10px] uppercase font-bold tracking-wider rounded-sm inline-flex items-center gap-1">
+                                <span>🔒</span>
+                                <span>LOCKED</span>
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => openAdminScoreModal(row)}
+                                className="min-h-[30px] px-2.5 py-1 bg-luxury-gold hover:bg-[#E5C158] text-black font-sans text-[10px] uppercase font-bold tracking-wider rounded-sm transition-colors inline-flex items-center gap-1 shadow-sm"
+                              >
+                                <span>✏️</span>
+                                <span>GIVE SCORE</span>
+                              </button>
+                            )}
                             <Link href={`/contestants/${row.contestantId}`}>
                               <span className="font-sans text-[10px] tracking-luxury text-luxury-white/60 hover:text-luxury-gold uppercase font-bold">
                                 Profile ↗
@@ -892,13 +912,10 @@ function ScoringContent() {
                           </button>
 
                           {s.locked ? (
-                            <button
-                              disabled={actionLoadingId === s.id}
-                              onClick={() => setUnlockConfirmScore(s)}
-                              className="font-sans text-[10px] tracking-luxury text-yellow-400/80 hover:text-yellow-300 uppercase font-bold border border-yellow-500/30 px-2 py-0.5 bg-yellow-500/10"
-                            >
-                              {actionLoadingId === s.id ? '...' : 'UNLOCK 🔓'}
-                            </button>
+                            <span className="font-sans text-[10px] tracking-luxury text-green-400 uppercase font-bold border border-green-500/30 px-2 py-0.5 bg-green-500/10 inline-flex items-center gap-1">
+                              <span>🔒</span>
+                              <span>PERMANENTLY LOCKED</span>
+                            </span>
                           ) : (
                             <button
                               disabled={actionLoadingId === s.id}
