@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { PageLayout, Card, Input, Button, getApiBaseUrl } from '@srf/ui';
 
 export default function JudgeLogin() {
   const API = getApiBaseUrl();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -15,6 +17,23 @@ export default function JudgeLogin() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+
+  useEffect(() => {
+    const checkJudgeSession = async () => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('srf_token') : null;
+      if (!token) return;
+      try {
+        const res = await fetch(`${API}/judge/assignment`, {
+          credentials: 'include',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          router.replace('/');
+        }
+      } catch {}
+    };
+    checkJudgeSession();
+  }, [API, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,7 +76,7 @@ export default function JudgeLogin() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: email.trim(), password }),
       });
 
       const data = await res.json();

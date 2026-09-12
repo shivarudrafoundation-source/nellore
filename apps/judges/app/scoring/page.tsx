@@ -108,7 +108,10 @@ export default function JudgeScoringConsole() {
         },
       });
 
-      if (res.status === 401) {
+      if (res.status === 401 || res.status === 403) {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('srf_token');
+        }
         router.replace('/login');
         return;
       }
@@ -221,9 +224,13 @@ export default function JudgeScoringConsole() {
         payloadScores[crit.name] = num;
       }
 
+      const token = typeof window !== 'undefined' ? localStorage.getItem('srf_token') : null;
       const res = await fetch(`${API}/judge/scoring/${selectedContestantId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           categoryId: selectedCategoryId,
           roundId: selectedRoundId,
@@ -274,6 +281,9 @@ export default function JudgeScoringConsole() {
 
   const handleLogout = async () => {
     try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('srf_token');
+      }
       await fetch(`${API}/auth/logout`, { method: 'POST', credentials: 'include' });
     } catch {}
     router.replace('/login');
@@ -419,15 +429,25 @@ export default function JudgeScoringConsole() {
             <div className="lg:col-span-8 h-96 bg-[#0A0A0A] border border-luxury-gray-border/20 rounded" />
           </div>
         ) : errorMsg && !assignment ? (
-          <Card hoverEffect={false} className="bg-[#0A0A0A] border-red-500/30 p-12 text-center space-y-4">
-            <span className="font-sans text-xs tracking-luxury text-red-400 uppercase font-bold block">
-              ACCESS ERROR
-            </span>
-            <p className="font-sans text-sm text-luxury-white/70">{errorMsg}</p>
-            <Button size="sm" variant="outline" onClick={() => loadConsoleData()}>
-              RETRY CONNECTION
-            </Button>
-          </Card>
+          <div className="max-w-md mx-auto my-12">
+            <Card hoverEffect={false} className="bg-[#0A0A0A] border-luxury-gold/30 p-8 text-center space-y-5 shadow-2xl">
+              <span className="font-sans text-[11px] tracking-luxury text-luxury-gold uppercase font-bold block">
+                JUDGE SCORING ACCESS
+              </span>
+              <p className="font-sans text-xs text-luxury-white/70 leading-relaxed">{errorMsg}</p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                <Button size="sm" variant="outline" onClick={() => loadConsoleData()} className="w-full sm:w-auto">
+                  RETRY CONNECTION
+                </Button>
+                <Button size="sm" onClick={() => {
+                  if (typeof window !== 'undefined') localStorage.removeItem('srf_token');
+                  router.push('/login');
+                }} className="w-full sm:w-auto">
+                  SIGN IN AS JUDGE ↗
+                </Button>
+              </div>
+            </Card>
+          </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             {/* LEFT COLUMN: Blind Contestant List (Contestant ID only) */}
