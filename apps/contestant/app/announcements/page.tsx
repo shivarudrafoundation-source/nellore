@@ -16,8 +16,12 @@ function AnnouncementsContent() {
       setLoading(true);
       setError('');
       try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('srf_token') : null;
         const res = await fetch(`${API}/contestant/announcements`, {
           credentials: 'include',
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         });
         if (!res.ok) throw new Error('Failed to load announcements.');
         const data = await res.json();
@@ -29,7 +33,7 @@ function AnnouncementsContent() {
       }
     }
     loadAnnouncements();
-  }, []);
+  }, [API]);
 
   if (loading) {
     return (

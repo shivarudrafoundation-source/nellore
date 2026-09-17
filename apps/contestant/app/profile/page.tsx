@@ -16,7 +16,13 @@ function ProfileContent() {
       setLoading(true);
       setError('');
       try {
-        const res = await fetch(`${API}/contestant/profile`, { credentials: 'include' });
+        const token = typeof window !== 'undefined' ? localStorage.getItem('srf_token') : null;
+        const res = await fetch(`${API}/contestant/profile`, {
+          credentials: 'include',
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
         if (!res.ok) throw new Error('Failed to load profile.');
         const data = await res.json();
         setProfile(data);
@@ -27,7 +33,7 @@ function ProfileContent() {
       }
     }
     loadProfile();
-  }, []);
+  }, [API]);
 
   if (loading) {
     return (

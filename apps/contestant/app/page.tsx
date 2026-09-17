@@ -18,9 +18,20 @@ function DashboardContent() {
       setLoading(true);
       setError('');
       try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('srf_token') : null;
         const [meRes, scoresRes] = await Promise.all([
-          fetch(`${API}/contestant/me`, { credentials: 'include' }),
-          fetch(`${API}/contestant/scores`, { credentials: 'include' }),
+          fetch(`${API}/contestant/me`, {
+            credentials: 'include',
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          }),
+          fetch(`${API}/contestant/scores`, {
+            credentials: 'include',
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          }),
         ]);
 
         if (meRes.ok) {
@@ -39,7 +50,7 @@ function DashboardContent() {
       }
     }
     loadData();
-  }, []);
+  }, [API]);
 
   if (loading) {
     return (
@@ -63,11 +74,11 @@ function DashboardContent() {
   }
 
   const isKids = scores?.isKids;
-  const adminTotal = scores?.adminScore?.total;
-  const judgeTotal = scores?.judgeTotal;
+  const adminTotal = typeof scores?.adminScore?.total === 'number' ? scores.adminScore.total : null;
+  const judgeTotal = typeof scores?.judgeTotal === 'number' ? scores.judgeTotal : null;
   const maxMarks = scores?.maxMarks || (isKids ? 230 : 430);
   const totalCalculated =
-    adminTotal !== null || judgeTotal > 0
+    adminTotal !== null || judgeTotal !== null
       ? Math.round(((adminTotal || 0) + (judgeTotal || 0)) * 100) / 100
       : null;
 
@@ -126,7 +137,7 @@ function DashboardContent() {
               ADMIN PRE-SCORE
             </span>
             <div className="font-mono text-2xl font-bold text-luxury-white">
-              {adminTotal !== null ? adminTotal.toFixed(1) : '—'}
+              {typeof adminTotal === 'number' ? adminTotal.toFixed(1) : '—'}
               <span className="text-xs text-luxury-white/40 font-normal"> / 30.0 PTS</span>
             </div>
             <span className="font-sans text-[10px] text-luxury-gold block">
@@ -140,7 +151,7 @@ function DashboardContent() {
               JUDGES EVALUATION TOTAL
             </span>
             <div className="font-mono text-2xl font-bold text-luxury-white">
-              {judgeTotal !== undefined ? judgeTotal.toFixed(1) : '—'}
+              {typeof judgeTotal === 'number' ? judgeTotal.toFixed(1) : '—'}
               <span className="text-xs text-luxury-white/40 font-normal"> / {scores?.judgeMax || (isKids ? 200 : 400)} PTS</span>
             </div>
             <span className="font-sans text-[10px] text-luxury-white/50 block">
@@ -154,7 +165,7 @@ function DashboardContent() {
               AGGREGATED EVALUATION
             </span>
             <div className="font-mono text-2xl font-bold text-luxury-gold">
-              {totalCalculated !== null ? totalCalculated.toFixed(1) : 'PENDING'}
+              {typeof totalCalculated === 'number' ? totalCalculated.toFixed(1) : 'PENDING'}
               <span className="text-xs text-luxury-white/40 font-normal"> / {maxMarks} PTS</span>
             </div>
             <span className="font-sans text-[10px] text-luxury-white/50 block">

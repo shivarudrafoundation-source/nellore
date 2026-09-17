@@ -16,7 +16,13 @@ function ScoresContent() {
       setLoading(true);
       setError('');
       try {
-        const res = await fetch(`${API}/contestant/scores`, { credentials: 'include' });
+        const token = typeof window !== 'undefined' ? localStorage.getItem('srf_token') : null;
+        const res = await fetch(`${API}/contestant/scores`, {
+          credentials: 'include',
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
         if (!res.ok) throw new Error('Failed to load scores.');
         const resData = await res.json();
         setData(resData);
@@ -27,7 +33,7 @@ function ScoresContent() {
       }
     }
     loadScores();
-  }, []);
+  }, [API]);
 
   if (loading) {
     return (
@@ -49,8 +55,8 @@ function ScoresContent() {
   const isKids = data?.isKids;
   const maxMarks = data?.maxMarks || (isKids ? 230 : 430);
   const judgeMax = data?.judgeMax || (isKids ? 200 : 400);
-  const adminTotal = data?.adminScore?.total;
-  const judgeTotal = data?.judgeTotal || 0;
+  const adminTotal = typeof data?.adminScore?.total === 'number' ? data.adminScore.total : null;
+  const judgeTotal = typeof data?.judgeTotal === 'number' ? data.judgeTotal : 0;
   const calculatedTotal =
     adminTotal !== null ? Math.round(((adminTotal || 0) + judgeTotal) * 100) / 100 : null;
 
@@ -78,7 +84,7 @@ function ScoresContent() {
           </div>
           <div className="text-right">
             <span className="font-mono text-lg font-bold text-luxury-gold">
-              {adminTotal !== null ? adminTotal.toFixed(1) : '—'}
+              {typeof adminTotal === 'number' ? adminTotal.toFixed(1) : '—'}
             </span>
             <span className="font-mono text-xs text-luxury-white/40"> / 30.0 PTS</span>
           </div>
@@ -91,7 +97,7 @@ function ScoresContent() {
               <span className="font-sans text-[10px] text-luxury-white/40 block">Decorum, punctuality & etiquette</span>
             </div>
             <span className="font-mono text-sm font-bold text-luxury-white">
-              {data?.adminScore?.discipline !== null ? `${Number(data?.adminScore?.discipline).toFixed(1)} / 10.0` : '—'}
+              {data?.adminScore?.discipline !== null && data?.adminScore?.discipline !== undefined ? `${Number(data.adminScore.discipline).toFixed(1)} / 10.0` : '—'}
             </span>
           </div>
 
@@ -101,7 +107,7 @@ function ScoresContent() {
               <span className="font-sans text-[10px] text-luxury-white/40 block">Special talent performance</span>
             </div>
             <span className="font-mono text-sm font-bold text-luxury-white">
-              {data?.adminScore?.talent !== null ? `${Number(data?.adminScore?.talent).toFixed(1)} / 20.0` : '—'}
+              {data?.adminScore?.talent !== null && data?.adminScore?.talent !== undefined ? `${Number(data.adminScore.talent).toFixed(1)} / 20.0` : '—'}
             </span>
           </div>
         </div>
@@ -120,7 +126,7 @@ function ScoresContent() {
           </div>
           <div className="text-right">
             <span className="font-mono text-lg font-bold text-luxury-gold">
-              {judgeTotal.toFixed(1)}
+              {typeof judgeTotal === 'number' ? judgeTotal.toFixed(1) : '0.0'}
             </span>
             <span className="font-mono text-xs text-luxury-white/40"> / {judgeMax}.0 PTS</span>
           </div>
@@ -152,7 +158,7 @@ function ScoresContent() {
                     {score.status}
                   </span>
                   <span className="font-mono text-sm font-bold text-luxury-gold">
-                    {Number(score.scoreValue).toFixed(1)} / {score.roundMaxMarks} PTS
+                    {typeof score.scoreValue === 'number' ? Number(score.scoreValue).toFixed(1) : '0.0'} / {score.roundMaxMarks} PTS
                   </span>
                 </div>
               </div>
@@ -174,12 +180,12 @@ function ScoresContent() {
             TOTAL EVALUATION MARKS ACCRUED
           </span>
           <span className="font-sans text-[10px] text-luxury-white/50 block mt-0.5">
-            Admin Pre-Score ({adminTotal !== null ? adminTotal.toFixed(1) : 0}) + Jury Evaluations ({judgeTotal.toFixed(1)})
+            Admin Pre-Score ({typeof adminTotal === 'number' ? adminTotal.toFixed(1) : 0}) + Jury Evaluations ({typeof judgeTotal === 'number' ? judgeTotal.toFixed(1) : 0})
           </span>
         </div>
         <div className="text-right">
           <span className="font-mono text-3xl font-bold text-luxury-gold">
-            {calculatedTotal !== null ? calculatedTotal.toFixed(1) : '—'}
+            {typeof calculatedTotal === 'number' ? calculatedTotal.toFixed(1) : '—'}
           </span>
           <span className="font-mono text-sm text-luxury-white/40"> / {maxMarks}.0 PTS</span>
         </div>

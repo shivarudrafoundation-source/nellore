@@ -4,8 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+import { getApiBaseUrl } from '@srf/ui';
 
 interface NavItem {
   label: string;
@@ -23,6 +22,7 @@ const navItems: NavItem[] = [
 ];
 
 export function ContestantShell({ children }: { children: React.ReactNode }) {
+  const API = getApiBaseUrl();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [contestant, setContestant] = useState<any>(null);
   const pathname = usePathname();
@@ -50,7 +50,13 @@ export function ContestantShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function loadContestant() {
       try {
-        const res = await fetch(`${API}/contestant/me`, { credentials: 'include' });
+        const token = typeof window !== 'undefined' ? localStorage.getItem('srf_token') : null;
+        const res = await fetch(`${API}/contestant/me`, {
+          credentials: 'include',
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
         if (res.ok) {
           const data = await res.json();
           setContestant(data);
@@ -58,10 +64,13 @@ export function ContestantShell({ children }: { children: React.ReactNode }) {
       } catch {}
     }
     loadContestant();
-  }, []);
+  }, [API]);
 
   const handleLogout = async () => {
     try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('srf_token');
+      }
       await fetch(`${API}/auth/logout`, {
         method: 'POST',
         credentials: 'include',

@@ -16,8 +16,12 @@ function DocumentsContent() {
       setLoading(true);
       setError('');
       try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('srf_token') : null;
         const res = await fetch(`${API}/contestant/documents`, {
           credentials: 'include',
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         });
         if (!res.ok) throw new Error('Failed to load documents.');
         const data = await res.json();
@@ -29,7 +33,7 @@ function DocumentsContent() {
       }
     }
     loadDocuments();
-  }, []);
+  }, [API]);
 
   if (loading) {
     return (
@@ -77,7 +81,7 @@ function DocumentsContent() {
                   {doc.title}
                 </span>
                 <span className="font-mono text-xs text-luxury-white/40 block">
-                  📄 {doc.filename} • {(doc.fileSize / 1024).toFixed(1)} KB
+                  📄 {doc.filename} • {doc.fileSize ? (Number(doc.fileSize) / 1024).toFixed(1) : '0'} KB
                 </span>
               </div>
 

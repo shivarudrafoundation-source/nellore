@@ -16,7 +16,13 @@ function ResultContent() {
       setLoading(true);
       setError('');
       try {
-        const res = await fetch(`${API}/contestant/result`, { credentials: 'include' });
+        const token = typeof window !== 'undefined' ? localStorage.getItem('srf_token') : null;
+        const res = await fetch(`${API}/contestant/result`, {
+          credentials: 'include',
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
         if (!res.ok) throw new Error('Failed to load result.');
         const data = await res.json();
         setResult(data);
@@ -27,7 +33,7 @@ function ResultContent() {
       }
     }
     loadResult();
-  }, []);
+  }, [API]);
 
   if (loading) {
     return (
@@ -103,7 +109,7 @@ function ResultContent() {
               AUTHORITATIVE FINAL SCORE
             </span>
             <div className="font-mono text-5xl font-bold text-luxury-gold">
-              {result?.finalScore !== null ? Number(result.finalScore).toFixed(1) : '—'}
+              {result?.finalScore !== null && result?.finalScore !== undefined ? Number(result.finalScore).toFixed(1) : '—'}
             </div>
             <span className="font-mono text-xs text-luxury-white/40 block">
               OUT OF {result?.maxMarks}.0 MAXIMUM MARKS
@@ -125,7 +131,7 @@ function ResultContent() {
                 ADMIN PRE-SCORE
               </span>
               <span className="font-mono text-sm font-bold text-luxury-white block mt-1">
-                {result?.adminTotal !== null ? `${Number(result.adminTotal).toFixed(1)} / 30.0` : '—'}
+                {result?.adminTotal !== null && result?.adminTotal !== undefined ? `${Number(result.adminTotal).toFixed(1)} / 30.0` : '—'}
               </span>
             </div>
 
@@ -134,7 +140,7 @@ function ResultContent() {
                 JURY STAGE SCORE
               </span>
               <span className="font-mono text-sm font-bold text-luxury-white block mt-1">
-                {result?.judgeTotal !== null ? Number(result.judgeTotal).toFixed(1) : '—'}
+                {result?.judgeTotal !== null && result?.judgeTotal !== undefined ? Number(result.judgeTotal).toFixed(1) : '—'}
               </span>
             </div>
           </div>

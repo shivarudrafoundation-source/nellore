@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Card, Button, getApiBaseUrl } from '@srf/ui';
@@ -13,6 +13,23 @@ export default function ContestantLoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const checkContestantSession = async () => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('srf_token') : null;
+      if (!token) return;
+      try {
+        const res = await fetch(`${API}/contestant/me`, {
+          credentials: 'include',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          router.replace('/');
+        }
+      } catch {}
+    };
+    checkContestantSession();
+  }, [API, router]);
 
   // Forgot Password Modal State
   const [showForgotModal, setShowForgotModal] = useState(false);

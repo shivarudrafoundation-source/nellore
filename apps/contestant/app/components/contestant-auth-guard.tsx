@@ -27,16 +27,22 @@ export function ContestantAuthGuard({ children }: ContestantAuthGuardProps) {
         if (res.ok) {
           setAuthenticated(true);
         } else {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('srf_token');
+          }
           setAuthenticated(false);
           router.replace('/login');
         }
       } catch (err) {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('srf_token');
+        }
         setAuthenticated(false);
         router.replace('/login');
       }
     }
     checkAuth();
-  }, [router]);
+  }, [API, router]);
 
   if (authenticated === null) {
     return (
