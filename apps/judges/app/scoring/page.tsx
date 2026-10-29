@@ -145,6 +145,13 @@ export default function JudgeScoringConsole() {
         setIsLocked(false);
       }
     } catch (err: any) {
+      if (err?.message && (err.message.includes('Access denied') || err.message.includes('authorized') || err.message.includes('Role'))) {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('srf_token');
+        }
+        router.replace('/login');
+        return;
+      }
       setErrorMsg(err.message || 'Unable to connect to judging server.');
     } finally {
       setLoading(false);

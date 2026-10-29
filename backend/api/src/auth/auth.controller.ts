@@ -83,6 +83,18 @@ export class AuthController {
     return this.authService.verifyAndEnableTotp(user.sub, body.secret, body.code, ipAddress);
   }
 
+  @Post('admin/forgot-password/request-otp')
+  async adminForgotPasswordRequestOtp(@Body() body: any, @Req() req: express.Request) {
+    const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
+    return this.authService.requestAdminForgotPasswordOtp(body, ipAddress);
+  }
+
+  @Post('admin/forgot-password/reset')
+  async adminForgotPasswordReset(@Body() body: any, @Req() req: express.Request) {
+    const ipAddress = (req.ip || req.headers['x-forwarded-for'] || '') as string;
+    return this.authService.resetAdminPasswordWithOtp(body, ipAddress);
+  }
+
   @Post('judge/login')
   async judgeLogin(
     @Body() body: any,

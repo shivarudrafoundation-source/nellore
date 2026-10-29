@@ -184,6 +184,133 @@ export class AuthService {
   }
 
   /**
+   * Admin Forgot Password: Request OTP to Shiva Rudra Foundation email
+   */
+  async requestAdminForgotPasswordOtp(
+    dto: { email?: string },
+    ipAddress?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const rawEmail = String(dto.email || '').trim().toLowerCase();
+    if (!rawEmail || !rawEmail.includes('@')) {
+      throw new BadRequestException('Please enter a valid administrator email address.');
+    }
+
+    const admin = await this.db.adminUser.findFirst({
+      where: {
+        email: { equals: rawEmail, mode: 'insensitive' },
+      },
+    });
+
+    if (!admin) {
+      throw new UnauthorizedException('No administrator account found with this email address.');
+    }
+
+    // Generate 5-minute single-use OTP
+    const otp = await this.otpService.generateOtp(admin.email, 'admin-forgot-password');
+
+    // Official Foundation Notification Email
+    const foundationEmail = 'shivarudrafoundation@gmail.com';
+
+    // Dispatch OTP email to admin's registered email
+    if (this.mailService) {
+      this.mailService
+        .sendOtpEmail(admin.email, otp, 'Admin Portal Password Reset')
+        .catch((err) => {
+          this.logger.error(`Failed to send admin OTP email to ${admin.email}: ${err.message}`);
+        });
+
+      // If the admin's email is not already the foundation gmail, also dispatch to shivarudrafoundation@gmail.com
+      if (admin.email.toLowerCase() !== foundationEmail.toLowerCase()) {
+        this.mailService
+          .sendOtpEmail(foundationEmail, otp, 'Admin Portal Password Reset')
+          .catch((err) => {
+            this.logger.error(`Failed to send backup admin OTP to ${foundationEmail}: ${err.message}`);
+          });
+      }
+    }
+
+    await this.auditService.log({
+      actorType: 'ADMIN',
+      actorId: admin.id,
+      action: 'ADMIN_OTP_REQUESTED' as any,
+      entity: 'AdminUser',
+      entityId: admin.id,
+      ipAddress,
+      after: {
+        emailMasked: admin.email.replace(/(.{2})(.*)(?=@)/, (_, a, b) => a + '*'.repeat(b.length)),
+        purpose: 'admin-forgot-password',
+      },
+    });
+
+    return {
+      success: true,
+      message: 'A 6-digit verification code has been dispatched to Shiva Rudra Foundations official email.',
+    };
+  }
+
+  /**
+   * Admin Forgot Password: Verify OTP and Reset Admin Password
+   */
+  async resetAdminPasswordWithOtp(
+    dto: { email?: string; otp?: string; newPassword?: string; confirmPassword?: string },
+    ipAddress?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const rawEmail = String(dto.email || '').trim().toLowerCase();
+    const rawOtp = String(dto.otp || '').trim();
+    const rawNewPassword = String(dto.newPassword || '').trim();
+    const rawConfirm = dto.confirmPassword !== undefined ? String(dto.confirmPassword).trim() : rawNewPassword;
+
+    if (!rawEmail || !rawOtp || !rawNewPassword) {
+      throw new BadRequestException('Email, OTP verification code, and new password are required.');
+    }
+
+    if (rawNewPassword.length < 8) {
+      throw new BadRequestException('New password must be at least 8 characters in length.');
+    }
+
+    if (rawNewPassword !== rawConfirm) {
+      throw new BadRequestException('New password and confirmation password do not match.');
+    }
+
+    const admin = await this.db.adminUser.findFirst({
+      where: {
+        email: { equals: rawEmail, mode: 'insensitive' },
+      },
+    });
+
+    if (!admin) {
+      throw new UnauthorizedException('Administrator account not found.');
+    }
+
+    // 1. Verify single-use OTP
+    await this.otpService.verifyOtp(admin.email, 'admin-forgot-password', rawOtp);
+
+    // 2. Hash new password & update
+    const passwordHash = await bcrypt.hash(rawNewPassword, 10);
+
+    await this.db.adminUser.update({
+      where: { id: admin.id },
+      data: { passwordHash },
+    });
+
+    // 3. Audit Log
+    await this.auditService.log({
+      actorType: 'ADMIN',
+      actorId: admin.id,
+      action: 'PASSWORD_RESET',
+      entity: 'AdminUser',
+      entityId: admin.id,
+      ipAddress,
+      after: { email: admin.email, action: 'ADMIN_PASSWORD_RESET_SUCCESS', timestamp: new Date().toISOString() },
+    });
+
+    return {
+      success: true,
+      message: 'Administrator password has been successfully reset. You may now log in.',
+    };
+  }
+
+  /**
    * Authenticate Judge User
    */
   async loginJudge(
